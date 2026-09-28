@@ -124,14 +124,16 @@ watch(
                 </p>
             </div>
 
-            <!-- Colonia -->
+            <!-- Dirección -->
             <div>
                 <label class="block text-sm font-medium">
-                    Colonia
+                    Dirección
                 </label>
-                <input v-model="form.colonia" type="text" class="w-full border rounded px-3 py-2"/>
-                <p v-if="form.errors.colonia" class="text-red-500 text-sm">
-                    {{ form.errors.colonia }}
+                <textarea v-model="form.direccion" rows="2" maxlength="500"
+                    class="w-full border rounded px-3 py-2"
+                    placeholder="Calle, número, colonia, código postal"></textarea>
+                <p v-if="form.errors.direccion" class="text-red-500 text-sm">
+                    {{ form.errors.direccion }}
                 </p>
             </div>
 

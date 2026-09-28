@@ -55,7 +55,7 @@ const form = useForm({
   puesto: '',
   correo: '',
   genero: '',
-  colonia: '',
+  direccion: '',
   discapacidad: false,
   discapacidad_tipo: '',
   consejo_id: props.consejo.id,
@@ -79,7 +79,7 @@ function editIntegrante(integrante) {
   form.puesto = integrante.puesto
   form.correo = integrante.correo
   form.genero = integrante.genero
-  form.colonia = integrante.colonia
+  form.direccion = integrante.direccion
   form.discapacidad = integrante.discapacidad === 'si'
   form.discapacidad_tipo = integrante.discapacidad_tipo ?? ''
   form.consejo_id = integrante.consejo_id

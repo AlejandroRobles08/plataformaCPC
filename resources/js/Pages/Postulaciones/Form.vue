@@ -22,7 +22,7 @@ const form = useForm({
   correo: '',
   puesto: '',
   genero: '',
-  colonia: '',
+  direccion: '',
   consejo_id: '',
   formula: '',
   documentos: {
@@ -146,10 +146,11 @@ const submit = () => {
             <label class="block text-sm font-medium text-gray-700">
               Dirección
             </label>
-            <input v-model="form.colonia" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-              placeholder="Ingrese su dirección" />
-            <div v-if="form.errors.colonia" class="text-red-500 text-sm">
-              {{ form.errors.colonia }}
+            <textarea v-model="form.direccion" rows="2" maxlength="500"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+              placeholder="Calle, número, colonia, código postal"></textarea>
+            <div v-if="form.errors.direccion" class="text-red-500 text-sm">
+              {{ form.errors.direccion }}
             </div>
           </div>
 

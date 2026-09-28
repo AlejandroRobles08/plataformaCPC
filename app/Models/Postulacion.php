@@ -26,7 +26,7 @@ class Postulacion extends Model
         'user_id',
         'apellidos',
         'genero',
-        'colonia',
+        'direccion',
         'correo',
         'consejo_id',
         'puesto',

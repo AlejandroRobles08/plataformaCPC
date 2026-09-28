@@ -22,7 +22,7 @@ class Integrante extends Model
         'nombre',
         'apellido',
         'genero',
-        'colonia',
+        'direccion',
         'discapacidad',
         'discapacidad_tipo',
         'puesto',
