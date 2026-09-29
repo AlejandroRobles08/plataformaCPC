@@ -36,6 +36,10 @@ COPY . .
 
 RUN composer dump-autoload --optimize
 
+# Alinear www-data con el UID/GID del host (1000) para que PHP-FPM
+# pueda hacer chmod sobre los archivos del volumen montado
+RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
+
 RUN chown -R www-data:www-data \
     storage \
     bootstrap/cache

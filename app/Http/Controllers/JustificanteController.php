@@ -93,6 +93,13 @@ class JustificanteController extends Controller
         $path = $request->file('justificante')
             ->store('justificantes', 'public');
 
+        // Validar que el archivo se haya guardado correctamente
+        if ($path === false) {
+            return back()->withErrors([
+                'justificante' => 'No fue posible guardar el archivo. Intenta nuevamente.',
+            ]);
+        }
+
         // Actualizar justificante y dejarlo pendiente de revisión
         $asistencia->update([
             'justificante' => $path,

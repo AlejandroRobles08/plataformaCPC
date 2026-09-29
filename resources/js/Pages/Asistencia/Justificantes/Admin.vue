@@ -58,11 +58,11 @@ function aprobar() {
           })
         },
 
-        onError: () => {
+        onError: errors => {
           Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'No fue posible aprobar el justificante.'
+            text: errors.justificante ?? 'No fue posible aprobar el justificante.'
           })
         }
       }
@@ -95,11 +95,11 @@ function rechazar() {
             text: 'La asistencia permanece marcada como falta.'
           })
         },
-        onError: () => {
+        onError: errors => {
           Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'No fue posible rechazar el justificante.'
+            text: errors.justificante ?? 'No fue posible rechazar el justificante.'
           })
         }
       }
@@ -151,12 +151,16 @@ function rechazar() {
       </button>
 
       <h3 class="mb-1 text-lg font-bold">
-        {{ seleccionado.integrante?.nombre }}
+        {{ seleccionado.integrante?.nombre }} 
         {{ seleccionado.integrante?.apellido }}
       </h3>
 
       <p class="mb-4 text-sm text-gray-500">
-        {{ seleccionado.fecha }} · {{ seleccionado.tipo_sesion }}
+        Sesión realizada el {{ seleccionado.fecha }}
+      </p>
+
+      <p class="mb-4 text-sm text-gray-500">
+        Tipo de sesión: {{ seleccionado.tipo_sesion }}
       </p>
 
       <!-- Visualización del PDF -->
