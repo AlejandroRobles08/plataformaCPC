@@ -29,13 +29,19 @@ function claseEstado(estado) {
   }
 }
 
+// Devuelve el motivo del rechazo solo si el justificante fue rechazado
+function comentarioRechazo(h) {
+  return h.estado_justificante === 'rechazado' ? h.comentario_justificante : null
+}
+
 // export a excel
 function exportarExcel() {
 
   const data = props.historial.map(h => ({
     'Tipo de sesión': h.tipo_sesion,
     'Fecha': h.fecha,
-    'Estado': textoEstado(h.estado)
+    'Estado': textoEstado(h.estado),
+    'Comentarios': comentarioRechazo(h) ?? ''
   }))
 
   const worksheet = XLSX.utils.json_to_sheet(data)
@@ -70,6 +76,7 @@ function exportarExcel() {
             <th class="px-3 py-2 border">Tipo de sesión</th>
             <th class="px-3 py-2 border">Fecha</th>
             <th class="px-3 py-2 border">Estado</th>
+            <th class="px-3 py-2 border">Comentarios</th>
           </tr>
         </thead>
 
@@ -88,6 +95,14 @@ function exportarExcel() {
               <span :class="claseEstado(h.estado)">
                 {{ textoEstado(h.estado) }}
               </span>
+            </td>
+
+            <!-- Motivo del rechazo del justificante (solo si fue rechazado) -->
+            <td class="px-3 py-2 border whitespace-pre-line break-words">
+              <span v-if="comentarioRechazo(h)" class="text-red-700">
+                {{ comentarioRechazo(h) }}
+              </span>
+              <span v-else class="text-gray-400">-</span>
             </td>
           </tr>
         </tbody>

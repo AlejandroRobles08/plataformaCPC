@@ -104,6 +104,7 @@ class JustificanteController extends Controller
         $asistencia->update([
             'justificante' => $path,
             'estado_justificante' => 'pendiente',
+            'comentario_justificante' => null,
         ]);
 
         return back()->with(
@@ -159,6 +160,7 @@ class JustificanteController extends Controller
         $asistencia->update([
             'estado_justificante' => 'aprobado',
             'estado' => 'justificada',
+            'comentario_justificante' => null,
         ]);
 
         return back()->with(
@@ -167,9 +169,8 @@ class JustificanteController extends Controller
         );
     }
 
-
     // Rechazar justificante
-    public function rechazar(Asistencia $asistencia) {
+    public function rechazar(Asistencia $asistencia, Request $request) {
         // Validar que exista un justificante
         if (!$asistencia->justificante) {
             return back()->withErrors([
@@ -177,16 +178,42 @@ class JustificanteController extends Controller
             ]);
         }
 
+        // Validar comentario del admin (motivo del rechazo)
+        $validated = $request->validate([
+            'comentario_justificante' => 'required|string|max:1000',
+        ], [
+            'comentario_justificante.required' => 'Indicar el motivo por el cual no se aprueba el justificante.',
+            'comentario_justificante.max' => 'El texto no debe exceder los 1000 caracteres.',
+        ]);
+
         // Rechazar justificante y mantener la falta
         $asistencia->update([
             'estado_justificante' => 'rechazado',
             'estado' => 'falto',
+            'comentario_justificante' => $validated['comentario_justificante'],
+            'comentario_visto_at' => null,
         ]);
 
         return back()->with(
             'success',
             'Justificante rechazado. La asistencia permanece como falta.'
         );
+    }
+
+    // Marcar como vistos los comentarios de rechazo del integrante autenticado
+    public function marcarComentariosVistos(Consejo $consejo) {
+        // Obtener integrante autenticado perteneciente al consejo
+        $integrante = Integrante::where('correo', auth()->user()->email)
+            ->where('consejo_id', $consejo->id)
+            ->firstOrFail();
+
+        // Marcar solo los rechazados que aún no ha visto
+        Asistencia::where('integrante_id', $integrante->id)
+            ->where('estado_justificante', 'rechazado')
+            ->whereNull('comentario_visto_at')
+            ->update(['comentario_visto_at' => now()]);
+
+        return back();
     }
 
     //visualizar justificantes en PDF

@@ -19,6 +19,8 @@ class Asistencia extends Model
         'evidencia',
         'justificante',
         'estado_justificante',
+        'comentario_justificante',
+        'comentario_visto_at',
         'fecha',
     ];
 

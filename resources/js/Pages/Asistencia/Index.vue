@@ -1,5 +1,5 @@
 <script setup>
-import { Link, usePage } from '@inertiajs/vue3'
+import { Link, usePage, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
 import {
@@ -59,6 +59,19 @@ function abrirHistorial(integrante) {
   )
 
   showHistorial.value = true
+
+  // Si el integrante abre su propio historial con comentarios sin ver, se marcan como vistos
+  if (
+    esIntegrante.value &&
+    integrante.correo === page.props.auth.user?.email &&
+    justificantesRechazados(integrante.id)
+  ) {
+    router.patch(
+      route('justificantes.comentarios.vistos', props.consejo.id),
+      {},
+      { preserveScroll: true, preserveState: true, only: ['asistencias'] }
+    )
+  }
 }
 
 function cerrarHistorial() {
@@ -80,6 +93,15 @@ const justificantesPendientes = computed(() =>
     j => j.estado_justificante === 'pendiente'
   ).length
 )
+
+// Cuenta los justificantes rechazados cuyo comentario el integrante no ha visto (badge del botón Historial)
+function justificantesRechazados(integranteId) {
+  return props.asistencias.filter(
+    a => a.integrante_id === integranteId &&
+      a.estado_justificante === 'rechazado' &&
+      !a.comentario_visto_at
+  ).length
+}
 
 const formulas = computed(() => {
   const grouped = []
@@ -247,10 +269,17 @@ function colorClase(color) {
                 <div v-if="f[0]" class="mb-3">
                   <button
                     @click="abrirHistorial(f[0])"
-                    class="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-800 text-sm"
+                    class="relative px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-800 text-sm"
                   >
                     <FlagIcon class="w-4 h-4 inline-block mr-1" />
                     Historial
+
+                    <span
+                      v-if="justificantesRechazados(f[0].id)"
+                      class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold"
+                    >
+                      {{ justificantesRechazados(f[0].id) }}
+                    </span>
                   </button>
                 </div>
 
@@ -259,10 +288,17 @@ function colorClase(color) {
                 <div v-if="f[1]">
                   <button
                     @click="abrirHistorial(f[1])"
-                    class="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-800 text-sm"
+                    class="relative px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-800 text-sm"
                   >
                     <FlagIcon class="w-4 h-4 inline-block mr-1" />
                     Historial
+
+                    <span
+                      v-if="justificantesRechazados(f[1].id)"
+                      class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold"
+                    >
+                      {{ justificantesRechazados(f[1].id) }}
+                    </span>
                   </button>
                 </div>
 

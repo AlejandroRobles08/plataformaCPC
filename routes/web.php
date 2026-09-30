@@ -98,6 +98,10 @@ Route::middleware('auth', 'privacy')->group(function () {
 
       Route::post('/consejos/{consejo}/justificantes', [JustificanteController::class, 'store'])
         ->name('justificantes.store');
+
+      // Marcar como vistos los comentarios de justificantes rechazados
+      Route::patch('/consejos/{consejo}/justificantes/comentarios-vistos', [JustificanteController::class, 'marcarComentariosVistos'])
+        ->name('justificantes.comentarios.vistos');
     });
 
     //Justificantes - administración

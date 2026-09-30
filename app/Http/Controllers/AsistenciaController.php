@@ -118,8 +118,9 @@ class AsistenciaController extends Controller
                 'tipo_sesion',
                 'evidencia',
                 'justificante',
+                'estado_justificante',
+                'comentario_justificante',
             ]);
-
         return Inertia::render('Asistencia/History', [
             'integrante' => $integrante,
             'historial' => $historial,

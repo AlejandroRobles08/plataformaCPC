@@ -40,7 +40,8 @@ function aprobar() {
     icon: 'question',
     showCancelButton: true,
     confirmButtonText: 'Aprobar',
-    cancelButtonText: 'Cancelar'
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#15803d',
   }).then(result => {
     if (!result.isConfirmed) return
 
@@ -77,14 +78,20 @@ function rechazar() {
     title: '¿Rechazar justificante?',
     text: 'La asistencia permanecerá como falta.',
     icon: 'warning',
+    input: 'textarea',
+    inputLabel: 'Motivo por el cual no se aprueba',
+    inputPlaceholder: 'Escribe el motivo del rechazo...',
+    inputAttributes: { maxlength: 1000 },
+    inputValidator: value => !value?.trim() && 'Indica el motivo del rechazo.',
     showCancelButton: true,
     confirmButtonText: 'Rechazar',
-    cancelButtonText: 'Cancelar'
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#b91c1c',
   }).then(result => {
     if (!result.isConfirmed) return
     router.patch(
       route('justificantes.rechazar', seleccionado.value.id),
-      {},
+      { comentario_justificante: result.value.trim() },
       {
         preserveScroll: true,
         onSuccess: () => {
@@ -99,7 +106,7 @@ function rechazar() {
           Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: errors.justificante ?? 'No fue posible rechazar el justificante.'
+            text: errors.comentario_justificante ?? errors.justificante ?? 'No fue posible rechazar el justificante.'
           })
         }
       }
