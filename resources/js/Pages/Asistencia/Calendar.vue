@@ -12,7 +12,8 @@ const props = defineProps({
   sesiones: { type: Array, default: () => [] },
   consejo: Object,
   integrantes: { type: Array, default: () => [] },
-  integrante: { type: Object, default: null }
+  integrante: { type: Object, default: null },
+  asistencias: { type: Array, default: () => [] }
 })
 
 const page = usePage()
@@ -23,6 +24,7 @@ const showJustificante = ref(false)
 const fechaSeleccionada = ref(null)
 const sesionSeleccionada = ref(null)
 const selectedDate = ref(null)
+const asistenciasSesion = ref([])
 
 // Admin y super_admin pueden crear y registrar asistencias
 const puedeCrearAsistencia = computed(() => {
@@ -42,20 +44,19 @@ const formatearFechaLocal = date =>
 // Click sobre una fecha del calendario
 function abrirFormulario(day) {
   if (!puedeCrearAsistencia.value) return
-
   const fecha = formatearFechaLocal(day.date)
   const sesion = props.sesiones.find(s => s.fecha === fecha)
-
   fechaSeleccionada.value = fecha
   selectedDate.value = fecha
 
   // Registrar asistencia si la sesión ya existe
   if (sesion) {
     sesionSeleccionada.value = sesion
+    asistenciasSesion.value = props.asistencias.filter(a => Number(a.sesion_id) === Number(sesion.id)
+     )
     showForm.value = true
     return
   }
-
   // Programar una nueva sesión
   showProgramarSesion.value = true
 }
@@ -70,6 +71,7 @@ function cerrarProgramacion() {
 function cerrarForm() {
   showForm.value = false
   sesionSeleccionada.value = null
+  asistenciasSesion.value = []
 }
 
 // Cerrar modal de justificante
@@ -139,7 +141,7 @@ const calendarAttributes = computed(() =>
 
     <div v-if="mensajeExito" class="mb-4 rounden-lg border border-green-200 
     bg-green-100 px-4 py-3 text-green-800">
-      {{ mensajeExito }}
+      {{ mensajeExito }} 
     </div>
 
     <!-- Calendario -->
@@ -158,8 +160,8 @@ const calendarAttributes = computed(() =>
       @saved="handleSesionProgramada"/>
 
     <!-- Registrar asistencia -->
-    <Form
-      v-if="showForm && sesionSeleccionada" :sesion="sesionSeleccionada" :integrantes="integrantes"
+    <Form v-if="showForm && sesionSeleccionada" :sesion="sesionSeleccionada" :integrantes="integrantes"
+      :asistencias="asistenciasSesion"
       :consejo-id="consejo.id"
       @close="cerrarForm"
       @saved="handleAsistenciaGuardada"/>
@@ -168,8 +170,7 @@ const calendarAttributes = computed(() =>
     <Justificante v-if="showJustificante && integrante" :consejo="consejo"
       :integrante="integrante"
       @close="cerrarJustificante"
-      @saved="justificanteGuardado"
-    />
+      @saved="justificanteGuardado"/>
   </AuthenticatedLayout>
 </template>
 

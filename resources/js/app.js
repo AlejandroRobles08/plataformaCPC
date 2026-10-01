@@ -24,7 +24,7 @@ createInertiaApp({
             .use(ZiggyVue)
             .use(setupCalendar, {
                 locale: 'es',
-                mask: {
+                masks: {
                     weekdays: 'WWW',
                 }
             })

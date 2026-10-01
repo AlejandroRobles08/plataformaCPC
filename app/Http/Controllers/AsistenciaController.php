@@ -55,13 +55,15 @@ class AsistenciaController extends Controller
         $sesiones = Sesion::where('consejo_id', $consejo->id)
             ->orderBy('fecha')
             ->get();
+        $asistencias = Asistencia::whereIn( 'integrante_id', $integrantes->pluck('id')
+            )->whereIn('sesion_id', $sesiones->pluck('id'))
+            ->get();
 
         $integrante = null;
 
         if (auth()->check() && auth()->user()->hasRole('integrante')) {
             $integrante = Integrante::where('correo', auth()->user()->email)
-                ->where('consejo_id', $consejo->id)
-                ->first();
+                ->where('consejo_id', $consejo->id)->first();
         }
 
         return Inertia::render('Asistencia/Calendar', [
@@ -69,6 +71,7 @@ class AsistenciaController extends Controller
             'sesiones' => $sesiones,
             'integrantes' => $integrantes,
             'integrante' => $integrante,
+            'asistencias' => $asistencias,
         ]);
     }
 

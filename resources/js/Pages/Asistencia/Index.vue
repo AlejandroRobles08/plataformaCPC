@@ -61,11 +61,7 @@ function abrirHistorial(integrante) {
   showHistorial.value = true
 
   // Si el integrante abre su propio historial con comentarios sin ver, se marcan como vistos
-  if (
-    esIntegrante.value &&
-    integrante.correo === page.props.auth.user?.email &&
-    justificantesRechazados(integrante.id)
-  ) {
+  if (badgeRechazados(integrante)) {
     router.patch(
       route('justificantes.comentarios.vistos', props.consejo.id),
       {},
@@ -101,6 +97,12 @@ function justificantesRechazados(integranteId) {
       a.estado_justificante === 'rechazado' &&
       !a.comentario_visto_at
   ).length
+}
+
+// Valor de la burbuja: solo visible para el propio integrante (es quien puede marcar sus comentarios como vistos)
+function badgeRechazados(integrante) {
+  if (!esIntegrante.value || integrante.correo !== page.props.auth.user?.email) return 0
+  return justificantesRechazados(integrante.id)
 }
 
 const formulas = computed(() => {
@@ -275,10 +277,10 @@ function colorClase(color) {
                     Historial
 
                     <span
-                      v-if="justificantesRechazados(f[0].id)"
+                      v-if="badgeRechazados(f[0])"
                       class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold"
                     >
-                      {{ justificantesRechazados(f[0].id) }}
+                      {{ badgeRechazados(f[0]) }}
                     </span>
                   </button>
                 </div>
@@ -294,10 +296,10 @@ function colorClase(color) {
                     Historial
 
                     <span
-                      v-if="justificantesRechazados(f[1].id)"
+                      v-if="badgeRechazados(f[1])"
                       class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold"
                     >
-                      {{ justificantesRechazados(f[1].id) }}
+                      {{ badgeRechazados(f[1]) }}
                     </span>
                   </button>
                 </div>

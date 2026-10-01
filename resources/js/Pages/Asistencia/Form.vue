@@ -5,28 +5,23 @@ import Swal from 'sweetalert2'
 import DraggableModal from '@/Components/DraggableModal.vue'
 
 const props = defineProps({
-  consejoId: {
-    type: [Number, String],
-    required: true
-  },
-  integrantes: {
-    type: Array,
-    required: true
-  },
-  sesion: {
-    type: Object,
-    required: true
-  }
+  consejoId: {type: [Number, String],required: true},
+  integrantes: {type: Array, required: true},
+  sesion: {type: Object, required: true},
+  asistencias: {type: Array, default: () => []}
 })
 
 const emit = defineEmits(['close', 'saved'])
 
 // Datos de asistencia.
 const form = ref({
-  asistencias: props.integrantes.map(i => ({
-    integrante_id: i.id,
-    estado: 'asistio'
-  }))
+  asistencias: props.integrantes.map( i => {
+    const asistenciaExistente = props.asistencias.find(a=> Number(a.integrante_id) === Number(i.id))
+    return {
+      integrante_id: i.id,
+      estado: asistenciaExistente?.estado ?? 'asistio'
+    }
+  })
 })
 
 const evidencia = ref(null)
