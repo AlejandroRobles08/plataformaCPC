@@ -12,27 +12,34 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('integrante_bajas', function (Blueprint $table) {
-    $table->id();
-    $table->unsignedBigInteger('integrante_id')->nullable();
-    //Consejo al que pertenece la baja
-    $table->foreignId('consejo_id')->constrained('consejos')
-        ->onDelete('cascade');
+            $table->id();
+            $table->unsignedBigInteger('integrante_id')->nullable();
 
-    //Snapshot del integrante (clave para reportes)
-    $table->string('nombre');
-    $table->string('apellido');
+            // Consejo al que pertenece la baja
+            $table->foreignId('consejo_id')->constrained('consejos')
+                ->onDelete('cascade');
 
-    //Motivo de la baja
-    $table->enum('motivo', ['inasistencia', 'sancion', 'fin_periodo', 'renuncia']);
+            // Snapshot del integrante (clave para reportes)
+            $table->string('nombre');
+            $table->string('apellido');
 
-    //Fecha efectiva de la baja
-    $table->date('fecha_baja');
-    //documento que respalda la baja
-    $table->string('evidencia_pdf')->nullable();
+            // Motivo de la baja
+            $table->enum('motivo', [
+                'inasistencia',
+                'sancion',
+                'fin_periodo',
+                'renuncia',
+                'error_registro'
+            ]);
 
-    $table->timestamps();
-});
+            // Fecha efectiva de la baja
+            $table->date('fecha_baja');
 
+            // Documento que respalda la baja
+            $table->string('evidencia_pdf')->nullable();
+
+            $table->timestamps();
+        });
     }
 
     /**

@@ -14,14 +14,26 @@ return new class extends Migration
         Schema::create('docus', function (Blueprint $table) {
             $table->id();
             $table->foreignId('integrante_id')->constrained()->onDelete('cascade');
-
             $table->string('tipo'); // ej: ine, comprobante_domicilio, curriculum_vitae, etc.
             $table->string('archivo'); // ruta del archivo almacenado
-            $table->unique(['integrante_id', 'tipo']); // Evita duplicados por tipo
-
-            //$table->string('tipo');
             $table->string('ruta')->nullable();
+
+            // Validación del documento
+            $table->enum('estatus', [
+                'pendiente',
+                'aprobado',
+                'rechazado',
+            ])->default('pendiente');
+            $table->text('observacion')->nullable();
+            $table->foreignId('validado_por')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+            $table->timestamp('validado_at')->nullable();
+
             $table->timestamps();
+
+            $table->unique(['integrante_id', 'tipo']); // Evita duplicados por tipo
         });
     }
 

@@ -18,7 +18,33 @@ return new class extends Migration
             $table->date('inicio_cargo');
             $table->date('fin_cargo');
             $table->string('periodo_habil');
+
+            // Documentos de reelección
+            $table->string('doc_nombramiento')->nullable();
+            $table->string('doc_carta_reeleccion')->nullable();
+            $table->string('doc_otros')->nullable();
+            $table->date('fecha_inicio_reeleccion')->nullable();
+
+            // Estatus de la solicitud
+            $table->enum('estatus_reeleccion', [
+                'pendiente',
+                'aprobado',
+                'rechazado'
+            ])->default('pendiente');
+
+            // Control de reelección (solo una vez)
+            $table->boolean('ya_reelegido')->default(false);
+
+            // Fecha en la que se validó
+            $table->date('fecha_validacion')->nullable();
+
             $table->timestamps();
+
+            // Usuario que validó
+            $table->foreignId('validado_por')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
         });
     }
 
