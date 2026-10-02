@@ -16,7 +16,6 @@ return new class extends Migration
             $table->foreignId('integrante_id')->constrained()->onDelete('cascade');
             $table->string('tipo'); // ej: ine, comprobante_domicilio, curriculum_vitae, etc.
             $table->string('archivo'); // ruta del archivo almacenado
-            $table->string('ruta')->nullable();
 
             // Validación del documento
             $table->enum('estatus', [

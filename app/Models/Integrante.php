@@ -36,11 +36,11 @@ class Integrante extends Model
         return $this->belongsTo(User::class);
     }
     
-    //relacion un integrane pertenece a varios consejos
-    public function consejo(){
-        return $this->belongsToMany(Consejo::class);
-   }
-   //relación muchos a muchos con consejos a través de la tabla de apoyo
+    //relacion un integrante pertenece a un consejo
+    public function consejo(): BelongsTo
+    {
+        return $this->belongsTo(Consejo::class);
+    }
     
     public function documentos() 
     {

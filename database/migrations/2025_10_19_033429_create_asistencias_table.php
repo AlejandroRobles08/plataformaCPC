@@ -19,7 +19,6 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->foreignId('integrante_id')->constrained()->onDelete('cascade');
             $table->enum('tipo_sesion', ['ordinaria', 'solemne', 'extraordinaria']);
-            $table->boolean('asistio')->default(true);
             $table->string('evidencia')->nullable();
 
             // Justificante de inasistencia y su estado administrativo
