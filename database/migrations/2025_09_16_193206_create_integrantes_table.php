@@ -13,12 +13,22 @@ return new class extends Migration
     {
         Schema::create('integrantes', function (Blueprint $table) {
             $table->id();
+
+            // Usuario con el que el integrante inicia sesión
+            $table->foreignId('user_id')->unique()->constrained()
+                ->cascadeOnUpdate()->restrictOnDelete();
+
             $table->string('nombre');
             $table->string('apellido');
+            $table->string('genero')->nullable();
+            $table->string('direccion', 500)->nullable();
+            $table->string('discapacidad')->nullable();
+            $table->string('discapacidad_tipo')->nullable();
             $table->string('puesto');
-            $table->string('correo')->unique();
+            $table->string('correo')->nullable()->unique();
             $table->foreignId('consejo_id')->constrained('consejos')
-            ->onUpdate('cascade')->onDelete('restrict');
+                ->onUpdate('cascade')->onDelete('restrict');
+            $table->integer('formula')->nullable();
             $table->timestamps();
         });
     }

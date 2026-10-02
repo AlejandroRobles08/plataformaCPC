@@ -12,9 +12,7 @@ class Asistencia extends Model
     protected $fillable = [
         'sesion_id',
         'integrante_id',
-        'mes',
         'tipo_sesion',
-        //'asistio',
         'estado',
         'evidencia',
         'justificante',
