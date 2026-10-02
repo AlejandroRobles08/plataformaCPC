@@ -29,6 +29,7 @@ class ConvocatoriaController extends Controller
             'fecha' => 'required|date',
 
             // Archivos
+            'convocatoria_documento' => 'nullable|file|mimes:pdf|max:4096',
             'documento' => 'nullable|file|mimes:pdf|max:4096',
             'lista_asistencia' => 'nullable|file|mimes:pdf|max:4096',
             'evidencia' => 'nullable|file|mimes:pdf|max:4096',
@@ -50,6 +51,11 @@ class ConvocatoriaController extends Controller
         }
 
         //Guardar archivos si existen
+        if ($request->hasFile('convocatoria_documento')) {
+            $data['convocatoria_documento'] = $request->file('convocatoria_documento')
+                ->store('convocatorias/convocatorias', 'public');
+        }
+
         if ($request->hasFile('documento')) {
             $data['documento'] = $request->file('documento')
                 ->store('convocatorias/documentos', 'public');

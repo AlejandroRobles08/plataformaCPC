@@ -13,6 +13,7 @@ class Convocatoria extends Model
         'consejo_id',
         'tipo_sesion',
         'fecha',
+        'convocatoria_documento',
         'documento',
         'lista_asistencia',
         'evidencia',
