@@ -267,13 +267,7 @@ const rechazarDocumento = async (documento) => {
                 <ClockIcon class="w-5 h-5" />
                 Pendiente de revisión
               </div>
-              <!-- Estado aprobado -->
-              <div v-else-if="getDoc(doc.key).estatus === 'aprobado'"
-                class="flex items-center gap-2 mb-3 text-sm text-green-700">
-                <CheckCircleIcon class="w-5 h-5" />
-                Documento aprobado
-              </div>
-
+              
               <!-- Estado rechazado -->
               <div v-else-if="getDoc(doc.key).estatus === 'rechazado'"
                 class="flex items-center gap-2 mb-3 text-sm text-red-700">
@@ -309,9 +303,15 @@ const rechazarDocumento = async (documento) => {
 
               <!-- Acciones para alidar (rechazar/aprobar) -->
               <div v-if="isReviewer" class="flex flex-wrap gap-3">
+                <!-- Documento aprobado -->
+                 <div v-if="getDoc(doc.key).estatus === 'aprobado'" 
+                 class="flex items-center gap-2 mb-3 text-sm text-green-700">
+                  <CheckCircleIcon class="w-5 h-5" />
+                  Documento validado y aprobado
+                 </div>
+
                 <!-- Aprobar -->
-                <button v-if="getDoc(doc.key).estatus !== 'aprobado'"
-                  type="button" @click="aprobarDocumento(getDoc(doc.key))"
+                <button v-else type="button" @click="aprobarDocumento(getDoc(doc.key))"
                   class="inline-flex items-center px-3 py-2 text-sm text-white transition bg-green-600 
                   rounded hover:bg-green-700">
                   <HandThumbUpIcon class="w-4 h-4 mr-1" />
@@ -319,12 +319,12 @@ const rechazarDocumento = async (documento) => {
                 </button>
 
                 <!-- Rechazar -->
-                <button v-if="getDoc(doc.key).estatus !== 'rechazado'"
+                <button v-if="getDoc(doc.key).estatus !== 'aprobado'"
                   type="button" @click="rechazarDocumento(getDoc(doc.key))"
                   class="inline-flex items-center px-3 py-2 text-sm text-white 
                   transition bg-red-600 rounded hover:bg-red-700">
                   <HandThumbDownIcon class="w-4 h-4 mr-1" />
-                  Rechazar
+                  No aprobar
                 </button>
               </div>
 

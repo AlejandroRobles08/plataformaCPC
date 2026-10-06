@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use App\Models\Integrante;
 use App\Models\Consejo;
 use App\Models\User;
@@ -14,19 +15,42 @@ use Illuminate\Support\Facades\Hash;
 class IntegranteController extends Controller
 {
     public function index(Consejo $consejo)
-    {
-        $integrantes = $consejo->integrantes()
-        ->with('documentos')
-        ->get();
+    {   
+        Gate::authorize('viewAny', [Integrante::class, $consejo]);
 
+        /** @var User $user */
+        $user = auth()->user();
+        $integranteActualId = null;
+
+        // Si el usuario es un integrante, obtenemos su ID y filtramos los integrantes por la misma fórmula
+        if ($user->hasRole('integrante')) {
+            $integranteActual = $user->integrante;
+            // Si el integrante no tiene un registro asociado, abortamos con un error 403
+            abort_unless($integranteActual, 403);
+            $integranteActualId = $integranteActual->id;
+            $integrantes = $consejo->integrantes()
+                ->where('formula', $integranteActual->formula)
+                ->get();
+            $integrantes
+                ->where('id', $integranteActual->id)
+                ->load('documentos');
+        //admin y super_admin pueden ver todos los integrantes del consejo
+        } else {
+            $integrantes = $consejo->integrantes()
+                ->with('documentos')
+                ->get();
+        }
         return Inertia::render('Integrantes/Index', [
             'consejo' => $consejo,
-            'integrantes' => $integrantes
+            'integrantes' => $integrantes,
+            'integranteActualId' => $integranteActualId,
         ]);
     }
 
     public function store(Request $request)
     {
+        Gate::authorize('create', Integrante::class);
+
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'apellido' => 'required|string|max:255',
@@ -60,6 +84,8 @@ class IntegranteController extends Controller
 
     public function update(Request $request, Integrante $integrante)
     { 
+        Gate::authorize('update', $integrante);
+
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'apellido' => 'required|string|max:255',
@@ -90,6 +116,7 @@ class IntegranteController extends Controller
 
     public function destroy(Request $request, Integrante $integrante)
     {
+        Gate::authorize('delete', $integrante);
         // Validación del formulario de baja
         $request->validate([
             'motivo' => 'required|in:inasistencia,sancion,fin_periodo,renuncia',

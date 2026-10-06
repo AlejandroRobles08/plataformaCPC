@@ -10,10 +10,24 @@ import Swal from 'sweetalert2'
 
 const props = defineProps({
   consejo: Object,
-  integrantes: Array
+  integrantes: Array,
+  integranteActualId: {
+    type: Number,
+    default: null
+  }
 })
 
 const page = usePage()
+const esIntegrante = computed(() =>
+  page.props.auth.roles?.includes('integrante'))
+const esMiIntegrante = (integrante) => {
+  //para integrantes: sólo su propio registro
+  if(esIntegrante.value){
+    return integrante.id === props.integranteActualId
+  }
+  //Administradores y superadmins pueden acceder a todos los registros
+  return true
+}
 const puedeEditarIntegrante = computed(()=> { 
 const esSuperAdmin = 
   page.props.auth.roles?.includes('super_admin')  
@@ -190,6 +204,9 @@ const formulas = computed(() => {
 
 //semaforización de documentos
 const getSemaforoClase = (integrante) => {
+  //si es integrante y no es su propio registro, no mostrar semáforo
+  if(esIntegrante.value && !esMiIntegrante(integrante)) {
+    return null}
   const total = integrante?.documentos?.length || 0
   if (total === 0) return 'bg-red-500'
   if (total < 7) return 'bg-yellow-400'
@@ -243,7 +260,7 @@ const getSemaforoClase = (integrante) => {
 
               <td class="px-4 py-2 border">
                 <div v-if="f[0]" class="flex items-center gap-2">
-                  <span class="semaforo" :class="getSemaforoClase(f[0])"></span>
+                  <span v-if="getSemaforoClase(f[0])"class="semaforo" :class="getSemaforoClase(f[0])"></span>
                   <span>{{ f[0].nombre }} {{ f[0].apellido }}</span>
                 </div>
                 <span v-else class="text-gray-400">Pendiente</span>
@@ -251,7 +268,7 @@ const getSemaforoClase = (integrante) => {
                 <br />
 
                 <div v-if="f[1]" class="flex items-center gap-2">
-                  <span class="semaforo" :class="getSemaforoClase(f[1])"></span>
+                  <span v-if="getSemaforoClase(f[1])" class="semaforo" :class="getSemaforoClase(f[1])"></span>
                   <span>{{ f[1].nombre }} {{ f[1].apellido }}</span>
                 </div>
                 <span v-else class="text-gray-400">Pendiente</span>
@@ -273,7 +290,8 @@ const getSemaforoClase = (integrante) => {
                   <button v-if="puedeEditarIntegrante" @click="solicitarEliminacion(f[0].id)" class="px-2 py-1 bg-red-500 text-white rounded">
                     Eliminar
                   </button>
-                  <button @click="$inertia.get(route('docu.index', f[0].id))"
+                  <button v-if="esMiIntegrante(f[0])"
+                  @click="$inertia.get(route('docu.index', f[0].id))"
                     class="px-2 py-1 bg-red-800 text-white rounded flex items-center">
                     <FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos
                   </button>
@@ -286,7 +304,8 @@ const getSemaforoClase = (integrante) => {
                   <button v-if="puedeEditarIntegrante" @click="solicitarEliminacion(f[1].id)" class="px-2 py-1 bg-red-500 text-white rounded">
                     Eliminar
                   </button>
-                  <button @click="$inertia.get(route('docu.index', f[1].id))"
+                  <button v-if="esMiIntegrante(f[1])"
+                  @click="$inertia.get(route('docu.index', f[1].id))"
                     class="px-2 py-1 bg-red-800 text-white rounded flex items-center">
                     <FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos
                   </button>
