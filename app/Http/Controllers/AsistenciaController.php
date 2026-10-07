@@ -7,6 +7,7 @@ use App\Models\Integrante;
 use App\Models\Asistencia;
 use App\Models\Sesion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
 class AsistenciaController extends Controller
@@ -14,26 +15,41 @@ class AsistenciaController extends Controller
     // Vista principal de asistencias
     public function index(Consejo $consejo)
     {
+        Gate::authorize('viewAny', [Integrante::class, $consejo]);
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        $integranteActual = null;
+
+        if($user->hasRole('integrante')){
+            $integranteActual = $user->integrante;
+            //seguridad adicional: el integrante debe pertenecer al consejo consultado
+            if(!$integranteActual || $integranteActual->consejo_id !== $consejo->id){
+                abort(403, 'No tienes permiso para acceder a este consejo.');
+            }
+            //el integrante solamente ver a los integrantes de su formula
         $integrantes = Integrante::where('consejo_id', $consejo->id)
-            ->orderBy('nombre')
-            ->get();
+            ->where('formula', $integranteActual?->formula)->orderBy('nombre')->get();
 
-        $asistencias = Asistencia::whereIn(
-            'integrante_id',
-            $integrantes->pluck('id')
-        )->get();
+            //IMPORTANTE: Aunque pueda ver el nombre de su compañero,NO se envian sus asistencias al navegador.
+            $isDatos = collect([$integranteActual->id]);
+        } else {
+            //los admins pueden ver todos los integrantes del consejo
+            $integrantes = Integrante::where('consejo_id', $consejo->id)->orderBy('nombre')->get();
+            $isDatos = $integrantes->pluck('id');
+        }
 
+        $asistencias = Asistencia::whereIn('integrante_id', $isDatos)->get();
         $justificantes = Asistencia::with(['integrante', 'sesion'])
-            ->whereIn('integrante_id', $integrantes->pluck('id'))
-            ->whereNotNull('justificante')
-            ->orderBy('fecha', 'desc')
+            ->whereIn('integrante_id', $isDatos)
+            ->whereNotNull('justificante')->orderBy('fecha', 'desc')
             ->get();
-
+        
         return Inertia::render('Asistencia/Index', [
             'consejo' => $consejo,
             'integrantes' => $integrantes,
             'asistencias' => $asistencias,
             'justificantes' => $justificantes,
+            'integranteActualId' => $integranteActual?->id,
         ]);
     }
 
@@ -110,6 +126,7 @@ class AsistenciaController extends Controller
         $integrante = Integrante::where('id', $integranteId)
             ->where('consejo_id', $consejoId)
             ->firstOrFail();
+        Gate::authorize('view', [Integrante::class, $integrante]);
 
         $historial = Asistencia::where('integrante_id', $integranteId)
             ->orderBy('fecha', 'desc')
