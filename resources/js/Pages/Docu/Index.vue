@@ -275,6 +275,20 @@ const rechazarDocumento = async (documento) => {
                 Documento rechazado
               </div>
 
+              <!-- Documento aprobado -->
+              <div v-if="getDoc(doc.key).estatus === 'aprobado'"
+                class="flex items-center gap-2 p-3 mb-4 text-sm font-medium text-green-700
+                bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircleIcon class="w-5 h-5 text-green-600" />
+              <div>
+                <p class="font-semibold">
+                  Documento validado
+                </p>
+                <p class="text-xs font-normal text-green-600">
+                  Este documento ha sido revisado y aprobado por el administrador.
+                </p>
+              </div>
+            </div>
               <!-- Acciones generales -->
               <div class="flex flex-wrap gap-3 mb-4">
                 <a :href="getPublicUrl(getDoc(doc.key).archivo)"

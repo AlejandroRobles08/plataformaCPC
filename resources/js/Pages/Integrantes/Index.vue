@@ -204,14 +204,18 @@ const formulas = computed(() => {
 
 //semaforización de documentos
 const getSemaforoClase = (integrante) => {
-  //si es integrante y no es su propio registro, no mostrar semáforo
-  if(esIntegrante.value && !esMiIntegrante(integrante)) {
-    return null}
-  const total = integrante?.documentos?.length || 0
-  if (total === 0) return 'bg-red-500'
-  if (total < 7) return 'bg-yellow-400'
-  return 'bg-green-500'
-}
+    //si es integrante y no es su propio registro, no mostrar semáforo
+     if(esIntegrante.value && !esMiIntegrante(integrante)) {
+      return null}
+      //conteo de documentos aprobados
+      const aprobados = integrante?.documentos?.filter(
+      documento => documento.estatus === 'aprobado').length ?? 0
+      //0 aprobados: rojo, 1-6: amarillo, 7: verde
+      if (aprobados === 0) {return 'bg-red-500'}
+      if (aprobados < 7) {return 'bg-yellow-400'}
+    return 'bg-green-500'
+  }
+
 </script>
 
 <template>
