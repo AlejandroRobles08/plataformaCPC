@@ -37,9 +37,12 @@ class RolePermissionSeeder extends Seeder
             'asistencias.crear',
             'sesiones.ver',
 
-            // legalidad
-            'legalidad.ver',
-            'legalidad.solicitar_reeleccion',
+            // periodos
+            'periodos.ver',
+            'periodos.crear',
+            'periodos.validar_reeleccion',
+            'periodos.rechazar_reeleccion',
+            'periodos.documentos.ver',
 
             // convocatorias
             'convocatorias.ver',
@@ -79,9 +82,11 @@ class RolePermissionSeeder extends Seeder
             'asistencias.ver',
             'sesiones.ver',
 
-            // legalidad
-            'legalidad.ver',
-            'legalidad.solicitar_reeleccion',
+            //periodos
+            'periodos.ver',
+            'periodos.solicitar_reeleccion',
+            'periodos.documentos.ver',
+            'periodos.documentos.subir',
 
             // convocatorias
             'convocatorias.ver',

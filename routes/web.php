@@ -180,34 +180,28 @@ Route::middleware('auth', 'privacy')->group(function () {
     });
 
     // Periodo en el cargo
-    Route::middleware('permission:legalidad.ver')->group(function () {
-
+    Route::middleware(['auth'])->group(function () {
         Route::get('/consejos/legalidad', [ConsejoController::class, 'index'])
-            ->name('consejos.legalidad');
+            ->middleware('permission:periodos.ver')->name('consejos.legalidad');
 
         Route::get('/legalidad/{consejo}', [LegalidadController::class, 'index'])
-            ->name('legalidad.index');
+            ->middleware('permission:periodos.ver')->name('legalidad.index');
 
         Route::post('/legalidad/{consejo}', [LegalidadController::class, 'store'])
-            ->name('legalidad.store');
+            ->middleware('permission:periodos.crear')->name('legalidad.store');
 
-        Route::post('/legalidad/{legalidad}/reeleccion', [LegalidadController::class, 'solicitarReeleccion'])
+        Route::post('/legalidad/{legalidad}/reeleccion', [LegalidadController::class,
+        'solicitarReeleccion'])->middleware('permission:periodos.solicitar_reeleccion')
             ->name('legalidad.reeleccion');
 
-        Route::delete('/legalidad/{legalidad}', [LegalidadController::class, 'destroy'])
-            ->name('legalidad.destroy');
-    });
+        Route::get('/legalidad/estatus/{consejo}', [LegalidadController::class,'estatus'])
+            ->middleware('permission:periodos.ver')->name('legalidad.estatus');
 
-    // Legalidad - super admin
-    Route::middleware('role:super_admin')->group(function () {
+        Route::post('/legalidad/{legalidad}/aprobar', [ LegalidadController::class, 'aprobarReeleccion'])
+            ->middleware('permission:periodos.validar_reeleccion')->name('legalidad.aprobar');
 
-        Route::get('/legalidad/estatus/{consejo}', [LegalidadController::class, 'estatus'])
-            ->name('legalidad.estatus');
-
-        Route::post('/legalidad/{legalidad}/aprobar', [LegalidadController::class, 'aprobarReeleccion'])
-            ->name('legalidad.aprobar');
-
-        Route::post('/legalidad/{legalidad}/rechazar', [LegalidadController::class, 'rechazarReeleccion'])
+        Route::post('/legalidad/{legalidad}/rechazar', [LegalidadController::class,
+        'rechazarReeleccion']) ->middleware('permission:periodos.rechazar_reeleccion')
             ->name('legalidad.rechazar');
     });
 

@@ -25,9 +25,19 @@ export default {
 
   computed: {
     isSuperAdmin() {
-      const user = this.$page.props.auth?.user;
-      if (!user) return false;
-      return user.roles?.some(r => r.name === "super_admin");
+      const roles = this.$page.props.auth.user.roles ?? [];
+      return roles.some(r => (typeof r === 'string' ? r : r.name) === 'super-admin');
+    },
+    isAdmin() {
+        const roles = this.$page.props.auth?.roles ?? [];
+        return roles.some(r => {
+            const nombre = typeof r === 'string' ? r : r.name;
+            return nombre === 'admin' || nombre === 'super_admin';
+        });
+    },
+    esIntegrante() {
+      const roles = this.$page.props.auth?.roles ?? [];
+      return roles.some(r => (typeof r === 'string' ? r : r.name) === 'integrante');
     },
   },
 
@@ -168,7 +178,7 @@ export default {
         </button>
 
         <!-- CREAR PERIODO -->
-        <div class="ml-auto">
+        <div v-if="isAdmin" class="ml-auto">
           <button @click="openCreateForm" class="px-4 py-2 rounded text-white font-semibold"
             style="background-color:#C7A447;">
             Dar de alta un nuevo periodo
@@ -213,7 +223,8 @@ export default {
               </td>
 
               <td class="px-4 py-3 border text-center">
-                <button class="px-3 py-1 rounded text-white" :class="estaVencido(item.fin_cargo)
+                <button v-if="esIntegrante" class="px-3 py-1 rounded text-white" 
+                :class="estaVencido(item.fin_cargo)
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-[#7A1F32]'" :disabled="estaVencido(item.fin_cargo)"
                   @click="!estaVencido(item.fin_cargo) && openReeleccion(item)">
@@ -244,7 +255,6 @@ export default {
 
       <Form :show="showForm" :consejo="consejo" :integrantes="integrantes" :editData="selectedLegalidad"
         @close="closeForm" />
-
     </div>
   </AuthenticatedLayout>
 </template>

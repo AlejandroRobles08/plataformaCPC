@@ -284,9 +284,10 @@ const rechazarDocumento = async (documento) => {
                 <p class="font-semibold">
                   Documento validado
                 </p>
+                <!-- 
                 <p class="text-xs font-normal text-green-600">
                   Este documento ha sido revisado y aprobado por el administrador.
-                </p>
+                </p> -->
               </div>
             </div>
               <!-- Acciones generales -->
