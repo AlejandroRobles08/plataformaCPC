@@ -8,6 +8,7 @@ export default {
     DraggableModal,
   },
 
+  //datos recibidos desde la vista Index
   props: {
     show: Boolean,
     consejo: Object,
@@ -21,6 +22,7 @@ export default {
     },
   },
 
+  //campos del formulario de periodo
   data() {
     return {
       form: {
@@ -36,13 +38,14 @@ export default {
   },
 
   computed: {
+    //si existe un registro seleccionado el formulario es de reelección
     esReeleccion() {
       return !!this.editData;
     },
   },
 
   watch: {
-    // Se ejecuta cuando cambia el registro seleccionado
+    //se ejecuta cuando cambia el registro seleccionado
     editData: {
       immediate: true,
 
@@ -57,6 +60,7 @@ export default {
   },
 
   methods: {
+    //carga los datos del registro en el formulario
     cargarDatos(registro) {
       this.form.integrante_id = registro.integrante_id ?? "";
       this.form.inicio_cargo = this.formatDateForInput(
@@ -67,12 +71,13 @@ export default {
       );
       this.form.periodo_habil = registro.periodo_habil ?? "";
 
-      // Limpiar documentos al cambiar de registro
+      //limpia los documentos al cambiar de registro
       this.form.doc_nombramiento = null;
       this.form.doc_carta_reeleccion = null;
       this.form.doc_otros = null;
     },
 
+    //restablece el formulario a sus valores iniciales
     limpiarFormulario() {
       this.form = {
         integrante_id: "",
@@ -85,10 +90,11 @@ export default {
       };
     },
 
+    //convierte una fecha al formato YYYY-MM-DD que usa el input date
     formatDateForInput(date) {
       if (!date) return "";
 
-      // Evita desfases de fecha por zona horaria
+      //evita desfases de fecha por zona horaria
       if (typeof date === "string") {
         return date.substring(0, 10);
       }
@@ -102,12 +108,13 @@ export default {
       return `${year}-${month}-${day}`;
     },
 
+    //calcula la fecha de culminación a partir de la fecha de inicio
     autoCalcularFin() {
       if (!this.form.inicio_cargo) return;
 
       const inicio = new Date(`${this.form.inicio_cargo}T00:00:00`);
 
-      // Sumamos 3 años
+      //suma 3 años a la fecha de inicio
       const fin = new Date(inicio);
       fin.setFullYear(fin.getFullYear() + 3);
 
@@ -120,6 +127,7 @@ export default {
       this.calcularPeriodo();
     },
 
+    //calcula los días del periodo hábil entre inicio y fin
     calcularPeriodo() {
       if (!this.form.inicio_cargo || !this.form.fin_cargo) return;
 
@@ -134,6 +142,7 @@ export default {
       this.form.periodo_habil = `${diffDays} días`;
     },
 
+    //guarda el archivo seleccionado de cada documento
     handleNombramiento(e) {
       this.form.doc_nombramiento = e.target.files[0] ?? null;
     },
@@ -146,9 +155,11 @@ export default {
       this.form.doc_otros = e.target.files[0] ?? null;
     },
 
+    //envía el formulario con los documentos adjuntos
     submitForm() {
       const data = new FormData();
 
+      //solo se agregan los campos con valor
       Object.keys(this.form).forEach((key) => {
         if (
           this.form[key] !== null &&
@@ -158,6 +169,7 @@ export default {
         }
       });
 
+      //la ruta depende de si es reelección o alta de periodo
       if (this.esReeleccion) {
         router.post(
           `/legalidad/${this.editData.id}/reeleccion`,
@@ -170,6 +182,7 @@ export default {
         );
       }
 
+      //cierra el modal después de enviar
       setTimeout(() => {
         this.$emit("close");
       }, 300);
@@ -179,10 +192,12 @@ export default {
 </script>
 
 <template>
+  <!-- Modal del formulario -->
   <DraggableModal v-if="show" :title="esReeleccion
       ? 'Iniciar de proceso de reelección'
       : 'Crear periodo'" max-width="max-w-md" @close="$emit('close')">
     <form @submit.prevent="submitForm">
+      <!-- Integrante -->
       <label class="block mb-2 font-semibold">
         Integrante
       </label>
@@ -199,6 +214,7 @@ export default {
         </option>
       </select>
 
+      <!-- Fechas del periodo -->
       <label class="block mb-2 font-semibold">
         Fecha de inicio
       </label>
@@ -213,6 +229,7 @@ export default {
       <input type="date" v-model="form.fin_cargo" class="w-full border rounded px-3 py-2 mb-3"
         :disabled="esReeleccion" @change="calcularPeriodo"/>
 
+      <!-- Documentos de reelección -->
       <div v-if="esReeleccion">
         <label class="block mb-2 font-semibold">
           Nombramiento (PDF)
@@ -241,6 +258,7 @@ export default {
 
       </div>
 
+      <!-- Botones -->
       <div class="flex justify-end mt-4">
         <button type="button" @click="$emit('close')"
           class="px-4 py-2 text-white rounded mr-2" style="background-color:#C91212;">

@@ -121,6 +121,18 @@ class LegalidadController extends Controller
             'Ya existe una solicitud pendiente.'
         );
 
+        // Una solicitud rechazada no puede volver a enviarse
+        abort_if($legalidad->estatus_reeleccion === 'rechazado',
+            403,
+            'La solicitud de reelección fue rechazada.'
+        );
+
+        // Si el periodo ya concluyó, se perdió el derecho a solicitarla
+        abort_if($legalidad->fin_cargo->lt(Carbon::today()),
+            403,
+            'El periodo en el cargo ya está vencido.'
+        );
+
         $request->validate([
             'doc_nombramiento' => 'required|file|mimes:pdf|max:5120',
             'doc_carta_reeleccion' => 'required|file|mimes:pdf|max:5120',
@@ -225,8 +237,8 @@ class LegalidadController extends Controller
         );
     }
 
-    /** Rechaza la solicitud pendiente; el integrante puede volver a solicitarla. */
-    public function rechazarReeleccion(Legalidad $legalidad)
+    /** Rechaza la solicitud pendiente con un motivo; es definitivo. */
+    public function rechazarReeleccion(Request $request, Legalidad $legalidad)
     {
         Gate::authorize('rechazarReeleccion', $legalidad);
         abort_unless(
@@ -236,15 +248,22 @@ class LegalidadController extends Controller
             'No existe una solicitud pendiente por validar.'
         );
 
+        $validated = $request->validate([
+            'motivo_rechazo' => 'required|string|max:1000',
+        ], [
+            'motivo_rechazo.required' => 'Indica el motivo por el cual no se aprueba la reelección.',
+        ]);
+
         $legalidad->update([
             'estatus_reeleccion' => 'rechazado',
+            'motivo_rechazo' => trim($validated['motivo_rechazo']),
             'fecha_validacion' => now(),
             'validado_por' => Auth::id(),
         ]);
 
         return back()->with(
             'warning',
-            'Solicitud de reelección rechazada.'
+            'Reelección no aprobada.'
         );
     }
 }

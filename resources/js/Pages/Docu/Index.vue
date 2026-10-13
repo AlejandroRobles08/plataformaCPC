@@ -181,17 +181,17 @@ const aprobarDocumento = (documento) => {
 // Rechazar documento
 const rechazarDocumento = async (documento) => {
   const result = await Swal.fire({
-    title: 'Rechazar documento',
-    text: 'Indica la observación para el integrante.',
+    title: 'No se aprobará el documento',
+    text: 'Indique las observaciones para el integrante.',
     input: 'textarea',
     inputLabel: 'Observación',
     inputPlaceholder:
-      'Escribe el motivo por el cual el documento fue rechazado...',
+      'Desriba las razones por las que no se aprobará el documento.',
     inputAttributes: {
       'aria-label': 'Observación del documento',
     },
     showCancelButton: true,
-    confirmButtonText: 'Rechazar documento',
+    confirmButtonText: 'No aprobar',
     cancelButtonText: 'Cancelar',
     confirmButtonColor: '#dc2626',
 

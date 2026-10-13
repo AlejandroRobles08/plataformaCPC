@@ -75,16 +75,15 @@ function aprobar() {
 function rechazar() {
   if (!seleccionado.value) return
   Swal.fire({
-    title: '¿Rechazar justificante?',
+    title: 'No aprobar justificante.',
     text: 'La asistencia permanecerá como falta.',
     icon: 'warning',
     input: 'textarea',
-    inputLabel: 'Motivo por el cual no se aprueba',
-    inputPlaceholder: 'Escribe el motivo del rechazo...',
+    inputPlaceholder: 'Describa los motivos por los que no se aprobará el justificante.',
     inputAttributes: { maxlength: 1000 },
     inputValidator: value => !value?.trim() && 'Indica el motivo del rechazo.',
     showCancelButton: true,
-    confirmButtonText: 'Rechazar',
+    confirmButtonText: 'No aprobar',
     cancelButtonText: 'Cancelar',
     confirmButtonColor: '#b91c1c',
   }).then(result => {
@@ -180,7 +179,7 @@ function rechazar() {
         class="flex justify-end gap-3">
         <button type="button" class="rounded bg-red-700 px-4 py-2 text-white hover:bg-red-900"
           @click="rechazar">
-          Rechazar
+          No aprobar
         </button>
 
         <button type="button" class="rounded bg-green-700 px-4 py-2 text-white hover:bg-green-900"

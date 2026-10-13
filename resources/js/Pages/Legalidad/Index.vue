@@ -10,12 +10,14 @@ export default {
     Form, Link
   },
 
+  //datos enviados desde el controlador
   props: {
     consejo: Object,
     integrantes: Array,
     registros: Array,
   },
 
+  //estado del modal y del registro seleccionado
   data() {
     return {
       showForm: false,
@@ -24,6 +26,7 @@ export default {
   },
 
   computed: {
+    //verifica si el usuario tiene rol de administrador
     isAdmin() {
         const roles = this.$page.props.auth?.roles ?? [];
         return roles.some(r => {
@@ -31,7 +34,7 @@ export default {
             return nombre === 'admin' || nombre === 'super_admin';
         });
     },
-    // Reelecciones con documentos enviados en espera de validación
+    //reelecciones con documentos enviados en espera de validación
     solicitudesPendientes() {
       return this.registros.filter(r =>
         r.estatus_reeleccion === 'pendiente' && r.fecha_inicio_reeleccion
@@ -39,6 +42,7 @@ export default {
     },
   },
 
+  //muestra la alerta al cargar y al actualizar la vista
   mounted() {
     this.mostrarAlerta();
   },
@@ -49,7 +53,7 @@ export default {
 
   methods: {
 
-    // mensajes de alerta con sweetalert 
+    //mensajes de alerta con sweetalert
     mostrarAlerta() {
       const flash = this.$page.props.flash;
 
@@ -61,11 +65,12 @@ export default {
           confirmButtonColor: "#7A1F32",
         });
 
+        //limpia el mensaje para no repetir la alerta
         this.$page.props.flash.success = null;
       }
     },
 
-    // Abrir form de "creación"
+    //abre el formulario de creación
     openCreateForm() {
       this.selectedLegalidad = null;
       this.showForm = true;
@@ -76,20 +81,21 @@ export default {
       this.selectedLegalidad = null;
     },
 
+    //redirige a la vista de validación de reelecciones
     irAEstatus() {
       router.get(route("legalidad.estatus", { consejo: this.consejo.id }));
     },
 
-    // Función para formatear fechas a formato DD/MM/YYYY
+    //formatea fechas a DD/MM/YYYY
     formatearFecha(fecha) {
       if (!fecha) return "N/A";
-      // Tomamos solo los primeros 10 caracteres: YYYY-MM-DD
+      //toma solo los primeros 10 caracteres: YYYY-MM-DD
       const limpia = fecha.substring(0, 10);
       const [year, month, day] = limpia.split("-");
       return `${day}/${month}/${year}`;
     },
 
-    // Función para calcular el tiempo restante en formato "YY:MM:DD"
+    //calcula el tiempo restante en formato YY:MM:DD
     calcularTiempoRestante(finCargo) {
       if (!finCargo) return "N/A";
 
@@ -102,6 +108,7 @@ export default {
       let months = fin.getMonth() - hoy.getMonth();
       let days = fin.getDate() - hoy.getDate();
 
+      //ajusta los días si el resultado es negativo
       if (days < 0) {
         months--;
         const lastMonth = new Date(
@@ -112,16 +119,18 @@ export default {
         days += lastMonth.getDate();
       }
 
+      //ajusta los meses si el resultado es negativo
       if (months < 0) {
         years--;
         months += 12;
       }
- 
+
       //formateo con ceros a la izquierda
       const pad = (n) => String(n).padStart(2, "0");
       return `${pad(years)}:${pad(months)}:${pad(days)}`;
     },
 
+    //indica si al periodo le queda menos de un mes
     periodoMenorAUnMes(finCargo) {
       const tiempo = this.calcularTiempoRestante(finCargo);
       if (tiempo === "Vencido" || tiempo === "N/A") return false;
@@ -139,6 +148,7 @@ export default {
 
 <template>
   <AuthenticatedLayout>
+      <!-- Navegación -->
       <div class="mt-6">
       <Link :href="route('consejos.legalidad', consejo.id)" class="text-gray-600 hover:underline">
         ← Volver a Consejos de Participación Ciudadana
@@ -146,6 +156,7 @@ export default {
     </div>
     <div class="p-6 space-y-6">
 
+      <!-- Encabezado -->
       <h1 class="text-2xl font-bold text-center">
         Periodo en el cargo
         <br />
@@ -154,10 +165,10 @@ export default {
         </span>
       </h1>
 
-      <!-- BOTONES SUPERIORES -->
+      <!-- Botones superiores -->
       <div class="flex justify-between items-center">
 
-        <!-- SOLICITUDES DE REELECCIÓN -->
+        <!-- Solicitudes de reelección -->
         <button v-if="isAdmin" @click="irAEstatus" class="relative px-4 py-2 rounded text-white font-semibold"
           style="background-color:#7F977F;">
           Solicitudes
@@ -168,7 +179,7 @@ export default {
           </span>
         </button>
 
-        <!-- CREAR PERIODO -->
+        <!-- Crear periodo -->
         <div v-if="isAdmin" class="ml-auto">
           <button @click="openCreateForm" class="px-4 py-2 rounded text-white font-semibold"
             style="background-color:#C7A447;">
@@ -177,7 +188,7 @@ export default {
         </div>
       </div>
 
-      <!-- TABLA -->
+      <!-- Tabla de periodos -->
       <div class="overflow-x-auto bg-white shadow rounded p-4">
         <table class="min-w-full border-collapse">
           <thead>
@@ -233,6 +244,7 @@ export default {
         </table>
       </div>
 
+      <!-- Formulario de periodo -->
       <Form :show="showForm" :consejo="consejo" :integrantes="integrantes" :editData="selectedLegalidad"
         @close="closeForm" />
     </div>

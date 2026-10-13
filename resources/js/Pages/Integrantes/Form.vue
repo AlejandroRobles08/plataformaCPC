@@ -196,14 +196,14 @@ watch(
             <div class="flex items-center space-x-2">
                 <input type="checkbox" v-model="form.discapacidad" class="w-4 h-4"/>
                 <label class="text-sm font-medium">
-                    Posee discapacidad
+                    ¿Es usted discapacitado?
                 </label>
             </div>
 
             <!-- Tipo de discapacidad -->
             <div v-if="showDiscapacidadTipo">
                 <label class="block text-sm font-medium">
-                    Tipo de discapacidad
+                    Por favor, especifique el tipo de discapacidad
                 </label>
                 <input v-model="form.discapacidad_tipo" type="text"
                     class="w-full border rounded px-3 py-2"/>

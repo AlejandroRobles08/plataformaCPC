@@ -21,6 +21,7 @@ class Legalidad extends Model
         'fin_cargo',
         'periodo_habil',
         'estatus_reeleccion',
+        'motivo_rechazo',
         'fecha_inicio_reeleccion',
         'fecha_validacion',
         'validado_por',
