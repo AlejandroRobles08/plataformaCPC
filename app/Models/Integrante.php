@@ -20,7 +20,8 @@ class Integrante extends Model
     protected $fillable = [
         'user_id',
         'nombre',
-        'apellido',
+        'apellido_paterno',
+        'apellido_materno',
         'genero',
         'direccion',
         'discapacidad',
@@ -30,6 +31,14 @@ class Integrante extends Model
         'consejo_id',
         'formula'
     ];
+
+    // Apellidos completos (paterno + materno) para mostrar en vistas y reportes
+    protected $appends = ['apellido'];
+
+    public function getApellidoAttribute(): string
+    {
+        return trim($this->apellido_paterno . ' ' . $this->apellido_materno);
+    }
 
     //relacion user - integrante: un integrante pertenece a un usuario
     public function user(): BelongsTo{

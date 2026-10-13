@@ -24,10 +24,6 @@ export default {
   },
 
   computed: {
-    isSuperAdmin() {
-      const roles = this.$page.props.auth.user.roles ?? [];
-      return roles.some(r => (typeof r === 'string' ? r : r.name) === 'super-admin');
-    },
     isAdmin() {
         const roles = this.$page.props.auth?.roles ?? [];
         return roles.some(r => {
@@ -35,9 +31,11 @@ export default {
             return nombre === 'admin' || nombre === 'super_admin';
         });
     },
-    esIntegrante() {
-      const roles = this.$page.props.auth?.roles ?? [];
-      return roles.some(r => (typeof r === 'string' ? r : r.name) === 'integrante');
+    // Reelecciones con documentos enviados en espera de validación
+    solicitudesPendientes() {
+      return this.registros.filter(r =>
+        r.estatus_reeleccion === 'pendiente' && r.fecha_inicio_reeleccion
+      ).length;
     },
   },
 
@@ -70,11 +68,6 @@ export default {
     // Abrir form de "creación"
     openCreateForm() {
       this.selectedLegalidad = null;
-      this.showForm = true;
-    },
-
-    openReeleccion(item) {
-      this.selectedLegalidad = item;
       this.showForm = true;
     },
 
@@ -140,13 +133,6 @@ export default {
     estadoReeleccion(item) {
       return item.estatus_reeleccion || "pendiente";
     },
-
-    estaVencido(finCargo) {
-      if (!finCargo) return false;
-      const hoy = new Date();
-      const fin = new Date(finCargo);
-      return fin < hoy;
-    }
   },
 };
 </script>
@@ -171,10 +157,15 @@ export default {
       <!-- BOTONES SUPERIORES -->
       <div class="flex justify-between items-center">
 
-        <!-- PANEL SUPER ADMIN -->
-        <button v-if="isSuperAdmin" @click="irAEstatus" class="px-4 py-2 rounded text-white font-semibold"
+        <!-- SOLICITUDES DE REELECCIÓN -->
+        <button v-if="isAdmin" @click="irAEstatus" class="relative px-4 py-2 rounded text-white font-semibold"
           style="background-color:#7F977F;">
-          Panel de validaciones
+          Solicitudes
+          <span
+            v-if="solicitudesPendientes"
+            class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold">
+            {{ solicitudesPendientes }}
+          </span>
         </button>
 
         <!-- CREAR PERIODO -->
@@ -195,7 +186,6 @@ export default {
               <th class="px-4 py-3 border">Inicio</th>
               <th class="px-4 py-3 border">Fin</th>
               <th class="px-4 py-3 border text-center">Periodo hábil</th>
-              <th class="px-4 py-3 border text-center">Reelección</th>
               <th class="px-4 py-3 border text-center">Estatus</th>
             </tr>
           </thead>
@@ -220,16 +210,6 @@ export default {
                 'bg-yellow-200 text-yellow-900': periodoMenorAUnMes(item.fin_cargo)
               }">
                 {{ calcularTiempoRestante(item.fin_cargo) }}
-              </td>
-
-              <td class="px-4 py-3 border text-center">
-                <button v-if="esIntegrante" class="px-3 py-1 rounded text-white" 
-                :class="estaVencido(item.fin_cargo)
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-[#7A1F32]'" :disabled="estaVencido(item.fin_cargo)"
-                  @click="!estaVencido(item.fin_cargo) && openReeleccion(item)">
-                  {{ estaVencido(item.fin_cargo) ? 'Periodo vencido' : 'Iniciar proceso' }}
-                </button>
               </td>
 
               <td class="px-4 py-3 border text-center font-semibold">

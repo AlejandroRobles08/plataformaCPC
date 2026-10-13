@@ -1,30 +1,16 @@
 <script setup>
-import { computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import DragagableModal from '@/Components/DraggableModal.vue'
-
-const props = defineProps({
-  consejos: {
-    type: Array,
-    default: () => []
-  },
-  formulasOcupadas: {
-    type: Object,
-    default: () => ({})
-  }
-})
 
 const emit = defineEmits(['close'])
 
 const form = useForm({
   nombre: '',
-  apellidos: '',
+  apellido_paterno: '',
+  apellido_materno: '',
   correo: '',
-  puesto: '',
   genero: '',
   direccion: '',
-  consejo_id: '',
-  formula: '',
   documentos: {
     ine: null,
     comprobante_domiciliario: null,
@@ -43,41 +29,6 @@ const generos = [
   { value: 'prefiero_autodescribirme', label: 'Prefiero autodescribirme' },
   { value: 'prefiero_no_responder', label: 'Prefiero no responder' }
 ]
-
-//manejo de fórmulas disponibles
-const formulasDisponibles = computed(() => {
-  if (!form.consejo_id) {
-    return []
-  }
-
-  const formulas = Array.from(
-    { length: 15 },
-    (_, index) => index + 1
-  )
-
-  const ocupacionConsejo =
-    props.formulasOcupadas[form.consejo_id] ?? []
-
-  return formulas.filter(numeroFormula => {
-    const formulaEncontrada = ocupacionConsejo.find(
-      item => Number(item.formula) === Number(numeroFormula)
-    )
-
-    if (!formulaEncontrada) {
-      return true
-    }
-
-    return Number(formulaEncontrada.total) < 2
-  })
-})
-
-//limpia la fórmula al cambiar de consejo
-watch(
-  () => form.consejo_id,
-  () => {
-    form.formula = ''
-  }
-)
 
 const submit = () => {
   form.post(route('postulaciones.store'), {
@@ -111,17 +62,31 @@ const submit = () => {
             </div>
           </div>
 
-          <!-- Apellidos -->
+          <!-- Apellido paterno -->
           <div>
             <label class="block text-sm font-medium text-gray-700">
-              Apellidos
+              Apellido paterno
             </label>
 
-            <input v-model="form.apellidos" type="text"
+            <input v-model="form.apellido_paterno" type="text"
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
 
-            <div v-if="form.errors.apellidos" class="text-red-500 text-sm">
-              {{ form.errors.apellidos }}
+            <div v-if="form.errors.apellido_paterno" class="text-red-500 text-sm">
+              {{ form.errors.apellido_paterno }}
+            </div>
+          </div>
+
+          <!-- Apellido materno -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700">
+              Apellido materno
+            </label>
+
+            <input v-model="form.apellido_materno" type="text"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+
+            <div v-if="form.errors.apellido_materno" class="text-red-500 text-sm">
+              {{ form.errors.apellido_materno }}
             </div>
           </div>
 
@@ -164,66 +129,6 @@ const submit = () => {
 
             <div v-if="form.errors.correo" class="text-red-500 text-sm">
               {{ form.errors.correo }}
-            </div>
-          </div>
-
-          <!-- Cargo -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700">
-              Cargo
-            </label>
-
-            <input v-model="form.puesto" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
-
-            <div v-if="form.errors.puesto" class="text-red-500 text-sm">
-              {{ form.errors.puesto }}
-            </div>
-          </div>
-
-          <!-- Consejo -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700">
-              Consejo
-            </label>
-
-            <select v-model="form.consejo_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-              <option value="">
-                Seleccione un consejo
-              </option>
-
-              <option v-for="c in props.consejos" :key="c.id" :value="c.id">
-                {{ c.nombre }}
-              </option>
-            </select>
-
-            <div v-if="form.errors.consejo_id" class="text-red-500 text-sm">
-              {{ form.errors.consejo_id }}
-            </div>
-          </div>
-
-          <!-- Fórmula -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700">
-              Fórmula
-            </label>
-
-            <select v-model="form.formula" :disabled="!form.consejo_id"
-              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100">
-              <option value="">
-                {{
-                  form.consejo_id
-                    ? 'Seleccione una fórmula'
-                    : 'Primero seleccione un consejo'
-                }}
-              </option>
-
-              <option v-for="formula in formulasDisponibles" :key="formula" :value="formula">
-                Fórmula {{ formula }}
-              </option>
-            </select>
-
-            <div v-if="form.errors.formula" class="text-red-500 text-sm">
-              {{ form.errors.formula }}
             </div>
           </div>
 

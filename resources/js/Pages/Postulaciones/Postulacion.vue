@@ -131,7 +131,6 @@ const rechazar = id => {
             <thead>
               <tr>
                 <th class="px-4 py-3 text-left">Nombre</th>
-                <th class="px-4 py-3 text-left">Consejo</th>
                 <th class="px-4 py-3 text-center">Expediente</th>
                 <th class="px-4 py-3 text-center">Resolución</th>
               </tr>
@@ -141,11 +140,7 @@ const rechazar = id => {
               <tr v-for="p in postulaciones" :key="p.id">
 
                 <td class="px-4 py-3">
-                  {{ p.nombre }} {{ p.apellidos }}
-                </td>
-
-                <td class="px-4 py-3">
-                  {{ p.consejo?.nombre }}
+                  {{ p.nombre }} {{ p.apellido_paterno }} {{ p.apellido_materno }}
                 </td>
 
                 <td class="px-4 py-3 text-center">
@@ -188,7 +183,8 @@ const rechazar = id => {
 
             <p class="text-sm text-gray-500">
               {{ postulacionSeleccionada.nombre }}
-              {{ postulacionSeleccionada.apellidos }}
+              {{ postulacionSeleccionada.apellido_paterno }}
+                {{ postulacionSeleccionada.apellido_materno }}
             </p>
           </div>
 
@@ -208,27 +204,13 @@ const rechazar = id => {
               <div>
                 <span class="font-semibold">Nombre:</span>
                 {{ postulacionSeleccionada.nombre }}
-                {{ postulacionSeleccionada.apellidos }}
+                {{ postulacionSeleccionada.apellido_paterno }}
+                {{ postulacionSeleccionada.apellido_materno }}
               </div>
 
               <div>
                 <span class="font-semibold">Correo:</span>
                 {{ postulacionSeleccionada.correo }}
-              </div>
-
-              <div>
-                <span class="font-semibold">Consejo:</span>
-                {{ postulacionSeleccionada.consejo?.nombre }}
-              </div>
-
-              <div>
-                <span class="font-semibold">Puesto:</span>
-                {{ postulacionSeleccionada.puesto }}
-              </div>
-
-              <div>
-                <span class="font-semibold">Fórmula:</span>
-                {{ postulacionSeleccionada.formula }}
               </div>
             </div>
           </div>

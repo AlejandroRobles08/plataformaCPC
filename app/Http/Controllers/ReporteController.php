@@ -31,7 +31,7 @@ class ReporteController extends Controller
         $asistencias = Asistencia::whereHas('integrante', function ($q) use ($consejo) {
                 $q->where('consejo_id', $consejo->id);
             })
-            ->with('integrante:id,nombre,apellido,puesto') // Carga solo los campos necesarios del integrante
+            ->with('integrante:id,nombre,apellido_paterno,apellido_materno,puesto') // Carga solo los campos necesarios del integrante
             ->get([
                 'id',
                 'integrante_id',
@@ -61,7 +61,7 @@ class ReporteController extends Controller
         // Integrantes
         $integrantes = $consejo->integrantes()
             ->with('documentos:id,integrante_id,tipo,archivo')
-            ->get(['id', 'nombre', 'apellido']);
+            ->get(['id', 'nombre', 'apellido_paterno', 'apellido_materno']);
 
         // Bajas
         $bajas = IntegranteBaja::where('consejo_id', $consejo->id)

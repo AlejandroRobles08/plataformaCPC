@@ -11,9 +11,13 @@ use App\Models\IntegranteBaja;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class IntegranteController extends Controller
 {
+    private const MAX_FORMULAS = 15;
+    private const INTEGRANTES_POR_FORMULA = 2;
+
     public function index(Consejo $consejo)
     {   
         Gate::authorize('viewAny', [Integrante::class, $consejo]);
@@ -53,7 +57,8 @@ class IntegranteController extends Controller
 
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
-            'apellido' => 'required|string|max:255',
+            'apellido_paterno' => 'required|string|max:255',
+            'apellido_materno' => 'nullable|string|max:255',
             'genero' => 'nullable|string|max:50',
             'direccion' => 'nullable|string|max:500',
             'discapacidad' => 'nullable|string|max:25',
@@ -61,11 +66,16 @@ class IntegranteController extends Controller
             'puesto' => 'required|string|max:255',
             'correo' => 'required|email|unique:integrantes,correo|unique:users,email',
             'consejo_id' => 'required|exists:consejos,id',
-            'formula' => 'required|integer|min:1',
+            // Captura manual de fórmula (desactivada: ahora se asigna automáticamente)
+            // 'formula' => 'required|integer|min:1',
         ]);
-        DB::transaction(function () use ($validated){
-            //crear usuario          
-            $user = User::create(['name' => $validated['nombre'] . ' ' . $validated['apellido'],
+        DB::transaction(function () use (&$validated){
+            // Bloquea el consejo para que dos altas simultáneas no tomen la misma fórmula
+            Consejo::whereKey($validated['consejo_id'])->lockForUpdate()->first();
+            $validated['formula'] = $this->siguienteFormula($validated['consejo_id']);
+
+            //crear usuario
+            $user = User::create(['name' => trim($validated['nombre'] . ' ' . $validated['apellido_paterno'] . ' ' . ($validated['apellido_materno'] ?? '')),
              'email' => $validated['correo'], 
              //contrseña temporal inicial
              'password' => Hash::make('pass123'),
@@ -82,13 +92,42 @@ class IntegranteController extends Controller
         return redirect()->route('consejos.integrantes', $request->consejo_id);
     }
 
+    // Fórmula que corresponde al siguiente integrante según el orden de alta:
+    // se llenan en grupos de 2 y los lugares liberados por bajas se respetan.
+    private function siguienteFormula(int $consejoId): int
+    {
+        $ultima = Integrante::where('consejo_id', $consejoId)->max('formula');
+
+        if ($ultima === null) {
+            return 1;
+        }
+
+        $ultima = (int) $ultima;
+
+        $ocupados = Integrante::where('consejo_id', $consejoId)
+            ->where('formula', $ultima)
+            ->count();
+
+        $siguiente = $ocupados >= self::INTEGRANTES_POR_FORMULA ? $ultima + 1 : $ultima;
+
+        if ($siguiente > self::MAX_FORMULAS) {
+            throw ValidationException::withMessages([
+                'formula' => 'El consejo ya tiene las ' . self::MAX_FORMULAS . ' fórmulas completas ('
+                    . self::MAX_FORMULAS * self::INTEGRANTES_POR_FORMULA . ' integrantes).',
+            ]);
+        }
+
+        return $siguiente;
+    }
+
     public function update(Request $request, Integrante $integrante)
     { 
         Gate::authorize('update', $integrante);
 
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
-            'apellido' => 'required|string|max:255',
+            'apellido_paterno' => 'required|string|max:255',
+            'apellido_materno' => 'nullable|string|max:255',
             'genero' => 'nullable|string|max:50',
             'direccion' => 'nullable|string|max:500',
             'discapacidad' => 'nullable|string|max:25',
@@ -106,7 +145,7 @@ class IntegranteController extends Controller
         $integrante->update($validated);
         //ACTUALIZAR USUARIO ASOCIADO
         $integrante->user->update([
-            'name' => $validated['nombre'] . ' ' . $validated['apellido'],
+            'name' => trim($validated['nombre'] . ' ' . $validated['apellido_paterno'] . ' ' . ($validated['apellido_materno'] ?? '')),
             'email' => $validated['correo'],
         ]);
     });

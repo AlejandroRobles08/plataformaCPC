@@ -18,26 +18,31 @@ class LegalidadController extends Controller
     /** Lista los periodos del consejo; un integrante solo ve el suyo. */
     public function index(Consejo $consejo)
     {
-        Gate::authorize('viewAny', Legalidad::class);$usuario = Auth::user();
-        if ($usuario->hasRole('integrante')) {$integrante = Integrante::where(
-                'user_id',$usuario->id)->first();
-
-            // Debe tener integrante asociado y pertenecer a este consejo
+        Gate::authorize('viewAny', Legalidad::class);
+        $usuario = Auth::user();
+        if ($usuario->hasRole('integrante')) {$integrante = $usuario->integrante;
             abort_unless($integrante, 403);
             abort_unless((int) $integrante->consejo_id === (int) $consejo->id,
-                403);
+            403
+        );
 
-            $integrantes = collect([$integrante]);
-            $registros = Legalidad::with('integrante')
-                ->where('consejo_id', $consejo->id)
-                ->where('integrante_id', $integrante->id)->get();
-        } else {
-            $integrantes = Integrante::where('consejo_id',$consejo->id)->get();
-            $registros = Legalidad::with('integrante')
-                ->where('consejo_id', $consejo->id)->get();
-        }
-
-        return Inertia::render('Legalidad/Index', [
+        $integrantes = collect([$integrante]);
+        $registros = Legalidad::with('integrante')
+            ->where('consejo_id', $consejo->id)
+            ->where('integrante_id', $integrante->id)
+            ->get();
+        return Inertia::render('Legalidad/Integrante', [
+            'consejo' => $consejo,
+            'integrantes' => $integrantes,
+            'registros' => $registros,
+        ]);
+    }
+    $integrantes = Integrante::where('consejo_id', $consejo->id)
+        ->get();
+    $registros = Legalidad::with('integrante')
+        ->where('consejo_id', $consejo->id)
+        ->get();
+    return Inertia::render('Legalidad/Index', [
             'consejo' => $consejo,
             'integrantes' => $integrantes,
             'registros' => $registros,

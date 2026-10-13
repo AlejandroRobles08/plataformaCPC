@@ -24,13 +24,11 @@ class Postulacion extends Model
     protected $fillable = [
         'nombre',
         'user_id',
-        'apellidos',
+        'apellido_paterno',
+        'apellido_materno',
         'genero',
         'direccion',
         'correo',
-        'consejo_id',
-        'puesto',
-        'formula',
         'acta_resolucion',
         'estatus',
         'validado_por',
@@ -39,7 +37,6 @@ class Postulacion extends Model
     ];
     
     protected $casts = [
-        'formula' => 'integer',
         'fecha_validacion' => 'datetime',
         'fecha_postulacion' => 'datetime',
     ];
@@ -49,10 +46,6 @@ class Postulacion extends Model
         return $this->belongsTo(User::class);
     }
     
-    public function consejo(){
-        return $this->belongsTo(Consejo::class);
-    }
-
     public function validador(){
         return $this->belongsTo(User::class, 'validado_por');
     }

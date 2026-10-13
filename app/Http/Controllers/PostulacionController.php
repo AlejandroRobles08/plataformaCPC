@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Consejo;
 use App\Models\Docu;
 use App\Models\Integrante;
 use App\Models\Legalidad;
 use App\Models\Postulacion;
 use App\Models\PostulacionDocumento;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class PostulacionController extends Controller
@@ -24,31 +25,14 @@ class PostulacionController extends Controller
             abort(403, 'No tienes acceso al módulo de postulaciones.');
         }
 
-        $query = Postulacion::with(['consejo', 'documentos', 'user'])->latest();
+        $query = Postulacion::with(['documentos', 'user'])->latest();
 
         if ($user->hasRole('invitado')) {
             $query->where('user_id', $user->id);
         }
 
-        $formulasOcupadas = Integrante::select(
-            'consejo_id',
-            'formula',
-            DB::raw('COUNT(*) as total')
-        )
-            ->whereNotNull('formula')
-            ->whereBetween('formula', [1, 15])
-            ->groupBy('consejo_id', 'formula')
-            ->get()
-            ->groupBy('consejo_id')
-            ->map(fn ($formulas) => $formulas->map(fn ($formula) => [
-                'formula' => (int) $formula->formula,
-                'total' => (int) $formula->total,
-            ])->values());
-
         return Inertia::render('Postulaciones/Index', [
             'postulaciones' => $query->get(),
-            'consejos' => Consejo::orderBy('nombre')->get(),
-            'formulasOcupadas' => $formulasOcupadas,
         ]);
     }
 
@@ -68,13 +52,11 @@ class PostulacionController extends Controller
 
         $rules = [
             'nombre' => 'required|string|max:255',
-            'apellidos' => 'required|string|max:255',
+            'apellido_paterno' => 'required|string|max:255',
+            'apellido_materno' => 'nullable|string|max:255',
             'genero' => 'required|in:mujer,hombre,no_binario,prefiero_autodescribirme,prefiero_no_responder',
             'direccion' => 'required|string|max:500',
             'correo' => 'required|email|max:255',
-            'consejo_id' => 'required|exists:consejos,id',
-            'puesto' => 'required|string|max:255',
-            'formula' => 'required|integer|min:1|max:15',
         ];
 
         foreach (Postulacion::TIPOS_DOCUMENTOS as $tipo) {
@@ -83,27 +65,15 @@ class PostulacionController extends Controller
 
         $request->validate($rules);
 
-        $total = Integrante::where('consejo_id', $request->consejo_id)
-            ->where('formula', $request->formula)
-            ->count();
-
-        if ($total >= 2) {
-            return back()->withErrors([
-                'formula' => 'La fórmula seleccionada ya está completa.'
-            ]);
-        }
-
         DB::transaction(function () use ($request, $user) {
             $postulacion = Postulacion::create([
                 'user_id' => $user->id,
                 'nombre' => $request->nombre,
-                'apellidos' => $request->apellidos,
+                'apellido_paterno' => $request->apellido_paterno,
+                'apellido_materno' => $request->apellido_materno,
                 'genero'=> $request->genero,
                 'direccion' => $request->direccion,
                 'correo' => $request->correo,
-                'consejo_id' => $request->consejo_id,
-                'puesto' => $request->puesto,
-                'formula' => $request->formula,
                 'estatus' => 'pendiente',
                 'fecha_postulacion' => now(),
             ]);
@@ -124,6 +94,31 @@ class PostulacionController extends Controller
             ->with('success', 'Tu postulación fue creada correctamente y será enviada a validación.');
     }
 
+    // Crear usuario invitado para que pueda registrar su postulación
+    public function storeInvitado(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                //contraseña temporal inicial
+                'password' => Hash::make('pass123'),
+                'must_change_password' => true,
+            ]);
+
+            $user->assignRole('invitado');
+        });
+
+        return redirect()
+            ->route('postulaciones.index')
+            ->with('success', 'Usuario invitado creado correctamente.');
+    }
+
     public function validacion()
     {
         $user = Auth::user();
@@ -134,7 +129,6 @@ class PostulacionController extends Controller
 
         return Inertia::render('Postulaciones/Postulacion', [
             'postulaciones' => Postulacion::with([
-                'consejo',
                 'documentos',
                 'user',
             ])
@@ -168,14 +162,6 @@ class PostulacionController extends Controller
             abort(422, 'Esta postulación ya fue procesada.');
         }
 
-        $total = Integrante::where('consejo_id', $postulacion->consejo_id)
-            ->where('formula', $postulacion->formula)
-            ->count();
-
-        if ($total >= 2) {
-            abort(422, 'La fórmula seleccionada ya está completa.');
-        }
-
         $archivo = $request->file('acta_resolucion');
 
         $ruta = $archivo->storeAs(
@@ -187,15 +173,13 @@ class PostulacionController extends Controller
         $integrante = Integrante::create([
             'user_id' => $postulacion->user_id,
             'nombre' => $postulacion->nombre,
-            'apellido' => $postulacion->apellidos,
-            'puesto' => $postulacion->puesto,
+            'apellido_paterno' => $postulacion->apellido_paterno,
+            'apellido_materno' => $postulacion->apellido_materno,
             'correo' => $postulacion->correo,
             'genero' => $postulacion->genero,
             'direccion' => $postulacion->direccion,
             'discapacidad' => null,
             'discapacidad_tipo' => null,
-            'consejo_id' => $postulacion->consejo_id,
-            'formula' => $postulacion->formula,
         ]);
 
         foreach ($postulacion->documentos as $doc) {
@@ -209,7 +193,6 @@ class PostulacionController extends Controller
         $fecha = Carbon::parse($request->fecha_validacion);
 
         Legalidad::create([
-            'consejo_id' => $postulacion->consejo_id,
             'integrante_id' => $integrante->id,
             'inicio_cargo' => $fecha->format('Y-m-d'),
             'fin_cargo' => $fecha->copy()->addYears(3)->format('Y-m-d'),

@@ -226,6 +226,9 @@ Route::middleware('auth', 'privacy')->group(function () {
     // Validación de postulaciones
     Route::middleware('role:admin|super_admin')->group(function () {
 
+        Route::post('/postulaciones/invitados', [PostulacionController::class, 'storeInvitado'])
+            ->name('postulaciones.invitados.store');
+
         Route::get('/postulaciones/validacion', [PostulacionController::class, 'validacion'])
             ->name('postulaciones.validacion');
 

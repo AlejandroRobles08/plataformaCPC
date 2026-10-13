@@ -65,7 +65,8 @@ function submitDescripcion() {
 //form para agregar/editar integrantes
 const form = useForm({
   nombre: '',
-  apellido: '',
+  apellido_paterno: '',
+  apellido_materno: '',
   puesto: '',
   correo: '',
   genero: '',
@@ -73,7 +74,8 @@ const form = useForm({
   discapacidad: false,
   discapacidad_tipo: '',
   consejo_id: props.consejo.id,
-  formula: ''
+  // Captura manual de fórmula desactivada: el backend la asigna al dar de alta
+  // formula: ''
 })
 
 function openForm() {
@@ -89,7 +91,8 @@ function editIntegrante(integrante) {
   editingId.value = integrante.id
 
   form.nombre = integrante.nombre
-  form.apellido = integrante.apellido
+  form.apellido_paterno = integrante.apellido_paterno
+  form.apellido_materno = integrante.apellido_materno ?? ''
   form.puesto = integrante.puesto
   form.correo = integrante.correo
   form.genero = integrante.genero
@@ -97,7 +100,8 @@ function editIntegrante(integrante) {
   form.discapacidad = integrante.discapacidad === 'si'
   form.discapacidad_tipo = integrante.discapacidad_tipo ?? ''
   form.consejo_id = integrante.consejo_id
-  form.formula = integrante.formula
+  // La fórmula no se edita; el integrante conserva la que se le asignó al alta
+  // form.formula = integrante.formula
 
   showForm.value = true
 }

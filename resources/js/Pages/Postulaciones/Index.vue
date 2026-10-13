@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ref, watchEffect, computed } from 'vue'
-import { Link, usePage } from '@inertiajs/vue3'
+import { Link, usePage, useForm } from '@inertiajs/vue3'
 import { HandRaisedIcon } from '@heroicons/vue/24/solid'
 import Swal from 'sweetalert2'
 import Form from './Form.vue'
@@ -16,14 +16,6 @@ const props = defineProps({
   postulaciones: {
     type: Array,
     default: () => []
-  },
-  consejos: {
-    type: Array,
-    default: () => []
-  },
-  formulasOcupadas: {
-    type: Object,
-    default: () => ({})
   }
 })
 
@@ -39,6 +31,26 @@ const abrirExpediente = (p) => {
 const cerrarExpediente = () => {
   selected.value = null
   showExpediente.value = false
+}
+
+// Crear usuario invitado
+const showInvitado = ref(false)
+const invitadoForm = useForm({
+  name: '',
+  email: ''
+})
+
+const cerrarInvitado = () => {
+  showInvitado.value = false
+  invitadoForm.reset()
+  invitadoForm.clearErrors()
+}
+
+const crearInvitado = () => {
+  invitadoForm.post(route('postulaciones.invitados.store'), {
+    preserveScroll: true,
+    onSuccess: () => cerrarInvitado()
+  })
 }
 
 watchEffect(() => {
@@ -109,6 +121,11 @@ function exportarPostulacionesExcel() {
         class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
         Panel de validación
       </Link>
+
+      <button @click="showInvitado = true"
+        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-800">
+        Crear usuario invitado
+      </button>
     </div>
 
     <div class="py-12">
@@ -121,7 +138,7 @@ function exportarPostulacionesExcel() {
 
           <button @click="showModal = true"class="px-4 py-2 text-white rounded-md inline-flex items-center gap-2"
             style="background-color:#1E520B;">
-              <span>Nueva Postulación</span>
+              <span>Postularme</span>
                 <HandRaisedIcon class="w-5 h-5" />
           </button>
         </div>
@@ -136,7 +153,6 @@ function exportarPostulacionesExcel() {
               <thead class="bg-gray-100 text-gray-700 uppercase text-xs">
                 <tr>
                   <th class="px-6 py-3">Nombre</th>
-                  <th class="px-6 py-3">Consejo</th>
                   <th class="px-6 py-3">Expediente</th>
                   <th class="px-6 py-3">Acta</th>
                   <th class="px-6 py-3">Estatus</th>
@@ -148,11 +164,8 @@ function exportarPostulacionesExcel() {
               <tbody class="divide-y divide-gray-200">
                 <tr v-for="p in postulaciones" :key="p.id" class="hover:bg-gray-50 transition">
                   <td class="px-6 py-4 font-medium text-gray-900">
-                    {{ p.nombre }} {{ p.apellidos }}
+                    {{ p.nombre }} {{ p.apellido_paterno }} {{ p.apellido_materno }}
                   </td>
-                  <td class="px-6 py-4">
-                    {{ p.consejo?.nombre }}
-                 </td>
                   <td class="px-6 py-4">
                     <button @click="abrirExpediente(p)" class="text-yellow-600 hover:underline font-medium">
                       Ver expediente
@@ -195,9 +208,8 @@ function exportarPostulacionesExcel() {
       <thead>
         <tr>
           <th>Nombre</th>
-          <th>Apellidos</th>
-          <th>Consejo</th>
-          <th>Cargo</th>
+          <th>Apellido Paterno</th>
+          <th>Apellido Materno</th>
           <th>Estatus</th>
           <th>Fecha Postulación</th>
           <th>Fecha Resolución</th>
@@ -207,9 +219,8 @@ function exportarPostulacionesExcel() {
       <tbody>
         <tr v-for="p in postulaciones" :key="p.id">
           <td>{{ p.nombre }}</td>
-          <td>{{ p.apellidos }}</td>
-          <td>{{ p.consejo?.nombre }}</td>
-          <td>{{ p.puesto }}</td>
+          <td>{{ p.apellido_paterno }}</td>
+          <td>{{ p.apellido_materno }}</td>
           <td>{{ estatusLabel(p.estatus) }}</td>
           <td>{{ formatearFecha(p.fecha_postulacion) }}</td>
           <td>{{ formatearFecha(p.fecha_validacion) }}</td>
@@ -242,7 +253,41 @@ function exportarPostulacionesExcel() {
         </div>
       </div>
     </div>
+    <!-- MODAL USUARIO INVITADO -->
+    <div v-if="showInvitado" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white w-full max-w-md rounded-lg shadow-lg p-6 relative">
+        <button @click="cerrarInvitado" class="absolute top-3 right-3 text-gray-500">✕</button>
+        <h3 class="text-lg font-semibold mb-4">
+          Nuevo usuario invitado
+        </h3>
+        <form @submit.prevent="crearInvitado" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Nombre</label>
+            <input v-model="invitadoForm.name" type="text" required
+              class="mt-1 w-full border-gray-300 rounded-md shadow-sm" />
+            <p v-if="invitadoForm.errors.name" class="text-red-600 text-sm mt-1">{{ invitadoForm.errors.name }}</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Correo</label>
+            <input v-model="invitadoForm.email" type="email" required
+              class="mt-1 w-full border-gray-300 rounded-md shadow-sm" />
+            <p v-if="invitadoForm.errors.email" class="text-red-600 text-sm mt-1">{{ invitadoForm.errors.email }}</p>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" @click="cerrarInvitado"
+              class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+              Cancelar
+            </button>
+            <button type="submit" :disabled="invitadoForm.processing"
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+              Crear
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <Form
-  v-if="showModal":consejos="consejos":formulas-ocupadas="formulasOcupadas"@close="showModal = false"/>
+  v-if="showModal" @close="showModal = false"/>
   </AuthenticatedLayout>
 </template>

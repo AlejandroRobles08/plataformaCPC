@@ -118,7 +118,8 @@ class JustificanteController extends Controller
         // Integrantes disponibles para el filtro
         $integrantes = Integrante::where('consejo_id', $consejo->id)
             ->orderBy('nombre')
-            ->orderBy('apellido')
+            ->orderBy('apellido_paterno')
+            ->orderBy('apellido_materno')
             ->get();
 
         // Obtener justificantes del consejo

@@ -81,19 +81,31 @@ watch(
                 </p>
             </div>
 
-            <!-- Apellidos -->
+            <!-- Apellido paterno -->
             <div>
                 <label class="block text-sm font-medium">
-                    Apellidos
+                    Apellido paterno
                 </label>
-                <input v-model="form.apellido" type="text" 
+                <input v-model="form.apellido_paterno" type="text"
                 class="w-full border rounded px-3 py-2"/>
-                <p v-if="form.errors.apellido"class="text-red-500 text-sm">
-                    {{ form.errors.apellido }}
+                <p v-if="form.errors.apellido_paterno" class="text-red-500 text-sm">
+                    {{ form.errors.apellido_paterno }}
                 </p>
             </div>
 
-            <!-- Fórmula -->
+            <!-- Apellido materno -->
+            <div>
+                <label class="block text-sm font-medium">
+                    Apellido materno
+                </label>
+                <input v-model="form.apellido_materno" type="text"
+                class="w-full border rounded px-3 py-2"/>
+                <p v-if="form.errors.apellido_materno" class="text-red-500 text-sm">
+                    {{ form.errors.apellido_materno }}
+                </p>
+            </div>
+
+            <!-- Fórmula: captura manual desactivada, ahora se asigna automáticamente al dar de alta
             <div>
                 <label class="block text-sm font-medium">
                     Fórmula
@@ -101,6 +113,7 @@ watch(
                 <input type="number" min="1" v-model="form.formula"
                     class="w-full border rounded px-3 py-2"/>
             </div>
+            -->
 
             <!-- Cargo -->
             <div>
@@ -198,6 +211,11 @@ watch(
                     {{ form.errors.discapacidad_tipo }}
                 </p>
             </div>
+            <!-- Error de fórmula (p. ej. consejo con las 15 fórmulas completas) -->
+            <p v-if="form.errors.formula" class="text-red-500 text-sm">
+                {{ form.errors.formula }}
+            </p>
+
             <!-- Botones -->
             <div class="flex justify-end space-x-2 pt-4">
                 <button type="button" @click="$emit('close')"
