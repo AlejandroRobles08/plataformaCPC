@@ -43,6 +43,23 @@ watch(
   },
   { immediate: true })
 
+watch(
+  () => page.props.flash?.error,
+  (error) => {
+    if (error) {
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'error',
+        title: error,
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true,
+      })
+    }
+  },
+  { immediate: true })
+
 // Formulario de documentos
 const form = useForm({
   ine: null,
@@ -125,10 +142,6 @@ const getCleanFileName = (doc) => {
   }
   return `${item.label}.pdf`
 }
-
-// URL pública del documento
-const getPublicUrl = (ruta) =>
-  `/storage/${ruta.replace('public/', '')}`
 
 // Manejar selección de archivo
 const handleFileSelect = (event, key) => {
@@ -292,7 +305,7 @@ const rechazarDocumento = async (documento) => {
             </div>
               <!-- Acciones generales -->
               <div class="flex flex-wrap gap-3 mb-4">
-                <a :href="getPublicUrl(getDoc(doc.key).archivo)"
+                <a :href="route('docu.show', getDoc(doc.key).id)"
                   target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
                   <EyeIcon class="w-4 h-4 mr-1" />
                   Ver
@@ -387,8 +400,17 @@ const rechazarDocumento = async (documento) => {
                 </span>
               </div>
             </div>
+
+            <!-- Error de validación del documento -->
+            <p v-if="form.errors[doc.key]" class="mt-2 text-xs text-red-600">
+              {{ form.errors[doc.key] }}
+            </p>
           </div>
         </div>
+
+        <p v-if="form.errors.documentos" class="text-sm text-red-600">
+          {{ form.errors.documentos }}
+        </p>
 
         <!-- Guardar documentos -->
         <div v-if="isIntegrante" class="flex justify-end mt-6">

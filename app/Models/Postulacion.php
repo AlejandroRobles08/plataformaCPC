@@ -29,6 +29,8 @@ class Postulacion extends Model
         'genero',
         'direccion',
         'correo',
+        'consejo_id',
+        'formula',
         'acta_resolucion',
         'estatus',
         'validado_por',
@@ -48,6 +50,10 @@ class Postulacion extends Model
     
     public function validador(){
         return $this->belongsTo(User::class, 'validado_por');
+    }
+
+    public function consejo(){
+        return $this->belongsTo(Consejo::class);
     }
 
     public function documentos(){

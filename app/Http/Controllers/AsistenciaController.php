@@ -66,20 +66,27 @@ class AsistenciaController extends Controller
     // Calendario con sesiones programadas
     public function calendar(Consejo $consejo)
     {
-        $integrantes = Integrante::where('consejo_id', $consejo->id)->get();
+        Gate::authorize('viewAny', [Integrante::class, $consejo]);
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
 
         $sesiones = Sesion::where('consejo_id', $consejo->id)
             ->orderBy('fecha')
             ->get();
-        $asistencias = Asistencia::whereIn( 'integrante_id', $integrantes->pluck('id')
-            )->whereIn('sesion_id', $sesiones->pluck('id'))
-            ->get();
 
         $integrante = null;
+        $integrantes = collect();
+        $asistencias = collect();
 
-        if (auth()->check() && auth()->user()->hasRole('integrante')) {
-            $integrante = Integrante::where('correo', auth()->user()->email)
-                ->where('consejo_id', $consejo->id)->first();
+        if ($user->hasRole('integrante')) {
+            // El integrante solo ve las sesiones y su propio registro (para justificantes);
+            // la lista del consejo y sus asistencias son para el registro administrativo
+            $integrante = $user->integrante;
+        } else {
+            $integrantes = Integrante::where('consejo_id', $consejo->id)->get();
+            $asistencias = Asistencia::whereIn('integrante_id', $integrantes->pluck('id'))
+                ->whereIn('sesion_id', $sesiones->pluck('id'))
+                ->get();
         }
 
         return Inertia::render('Asistencia/Calendar', [
@@ -207,6 +214,8 @@ class AsistenciaController extends Controller
     // Vista de evidencias documentales
     public function evidencias(Consejo $consejo)
     {
+        Gate::authorize('viewAny', [Integrante::class, $consejo]);
+
         $integrantes = Integrante::where('consejo_id', $consejo->id)
             ->pluck('id');
 

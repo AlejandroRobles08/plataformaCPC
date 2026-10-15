@@ -52,6 +52,7 @@ Route::middleware('auth', 'privacy')->group(function () {
         ->name('consejos.index');
 
     Route::patch('/consejos/{consejo}/descripcion', [ConsejoController::class, 'updateDescripcion'])
+        ->middleware('permission:usuarios.editar')
         ->name('consejos.descripcion.update');
 
     /// Asistencias y participación - consulta
@@ -61,16 +62,15 @@ Route::middleware('auth', 'privacy')->group(function () {
     Route::get('/asistencias/{consejo}', [AsistenciaController::class, 'index'])
     ->name('asistencias.index');
 
-    Route::get('/asistencia/{consejo}', [AsistenciaController::class, 'show'])
-    ->name('asistencia.show');
-
     Route::get('/consejos/{consejo}/calendar', [AsistenciaController::class, 'calendar'])
     ->name('asistencia.calendar');
 
     Route::get('/consejos/{consejo}/asistencias/{integrante}/historial', [AsistenciaController::class, 'history'])
     ->name('asistencia.history');
 
+    // Las evidencias contienen la asistencia de todo el consejo: solo administración
     Route::get('/consejos/{consejo}/evidencias', [AsistenciaController::class, 'evidencias'])
+    ->middleware('role:admin|super_admin')
     ->name('asistencias.evidencias');
 
    //Asistencias y participación - registro
@@ -140,29 +140,26 @@ Route::middleware('auth', 'privacy')->group(function () {
             ->name('convocatorias.subir');
     });
 
-    // Documentos
+    // Documentos del integrante (el acceso a cada expediente lo decide DocuPolicy)
     Route::get('/documentos/{integrante}', [DocuController::class, 'index'])
         ->name('docu.index');
 
-    Route::middleware('permission:documentos.subir')->group(function () {
-        Route::post('/documentos/{integrante}', [DocuController::class, 'store'])
-            ->name('docu.store');
-    });
+    Route::post('/documentos/{integrante}', [DocuController::class, 'store'])
+        ->middleware('throttle:20,1')
+        ->name('docu.store');
 
     // Validación de documentos
-    Route::middleware('role:super_admin|admin')->group(function () {
-        Route::patch('/documentos/{documento}/aprobar', [DocuController::class, 'aprobar'])
-            ->name('docu.aprobar');
+    Route::patch('/documentos/{documento}/aprobar', [DocuController::class, 'aprobar'])
+        ->name('docu.aprobar');
 
-        Route::patch('/documentos/{documento}/rechazar', [DocuController::class, 'rechazar'])
-            ->name('docu.rechazar');
-    });
+    Route::patch('/documentos/{documento}/rechazar', [DocuController::class, 'rechazar'])
+        ->name('docu.rechazar');
 
     // Ver y descargar documentos
-    Route::get('/documento/descargar/{id}', [DocuController::class, 'download'])
+    Route::get('/documento/descargar/{documento}', [DocuController::class, 'download'])
         ->name('docu.download');
 
-    Route::get('/documento/ver/{id}', [DocuController::class, 'show'])
+    Route::get('/documento/ver/{documento}', [DocuController::class, 'show'])
         ->name('docu.show');
 
     // Integrantes

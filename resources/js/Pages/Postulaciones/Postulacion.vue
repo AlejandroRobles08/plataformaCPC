@@ -4,10 +4,12 @@ import { ref, watchEffect } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
 import { CheckBadgeIcon, XMarkIcon, EyeIcon, DocumentTextIcon } from '@heroicons/vue/24/solid'
+import Aprobar from './Aprobar.vue'
 
 const page = usePage()
 const props = defineProps({
-  postulaciones: { type: Array, default: () => [] }
+  postulaciones: { type: Array, default: () => [] },
+  consejos: { type: Array, default: () => [] }
 })
 const postulacionSeleccionada = ref(null)
 const mostrarExpediente = ref(false)
@@ -45,38 +47,15 @@ watchEffect(() => {
   }
 })
 
-// Aprobar postulación
-const aprobar = id => {
-  Swal.fire({
-    title: 'Aprobar postulación',
-    html: `
-      <label style="display:block;text-align:left;margin:10px 0 5px">Fecha de validación</label>
-      <input type="date" id="fecha" class="swal2-input">
-      <label style="display:block;text-align:left;margin:10px 0 5px">Acta de resolución (PDF)</label>
-      <input type="file" id="acta" class="swal2-file" accept="application/pdf">
-    `,
-    showCancelButton: true,
-    confirmButtonText: 'Aprobar',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#16a34a',
-    cancelButtonColor: '#6b7280',
-    preConfirm: () => {
-      const fecha = document.getElementById('fecha').value
-      const archivo = document.getElementById('acta').files[0]
-      if (!fecha || !archivo) {
-        Swal.showValidationMessage('Debe capturar la fecha y subir el acta de resolución.')
-        return false
-      }
-      return { fecha, archivo }
-    }
-  }).then(result => {
-    if (!result.isConfirmed) return
+// Aprobar postulación (modal con fecha, acta y consejo)
+const postulacionAprobar = ref(null)
 
-    const formData = new FormData()
-    formData.append('fecha_validacion', result.value.fecha)
-    formData.append('acta_resolucion', result.value.archivo)
-    router.post(route('postulaciones.aprobar', id), formData)
-  })
+const aprobar = postulacion => {
+  postulacionAprobar.value = postulacion
+}
+
+const cerrarAprobar = () => {
+  postulacionAprobar.value = null
 }
 
 // Rechazar postulación
@@ -90,7 +69,7 @@ const rechazar = id => {
       <input type="file" id="acta" class="swal2-file" accept="application/pdf">
     `,
     showCancelButton: true,
-    confirmButtonText: 'Rechazar',
+    confirmButtonText: 'No aprobar',
     cancelButtonText: 'Cancelar',
     confirmButtonColor: '#dc2626',
     cancelButtonColor: '#6b7280',
@@ -152,7 +131,7 @@ const rechazar = id => {
                 </td>
 
                 <td class="px-4 py-3 text-center space-x-3">
-                  <button @click="aprobar(p.id)"
+                  <button @click="aprobar(p)"
                     class="text-green-600 hover:text-green-800"
                     title="Aprobar postulación">
                     <CheckBadgeIcon class="w-6 h-6" />
@@ -160,7 +139,7 @@ const rechazar = id => {
 
                   <button @click="rechazar(p.id)"
                     class="text-red-600 hover:text-red-800"
-                    title="Rechazar postulación">
+                    title="No aprobar postulación">
                     <XMarkIcon class="w-6 h-6" />
                   </button>
                 </td>
@@ -170,6 +149,10 @@ const rechazar = id => {
         </div>
       </div>
     </div>
+
+    <!-- Modal para aprobar -->
+    <Aprobar v-if="postulacionAprobar" :postulacion="postulacionAprobar" :consejos="consejos"
+      @close="cerrarAprobar" />
 
     <!-- Modal del expediente -->
     <div v-if="mostrarExpediente && postulacionSeleccionada"
