@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Consejo;
 use App\Models\Docu;
 use App\Models\Integrante;
 use App\Models\Legalidad;
@@ -13,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class PostulacionController extends Controller
@@ -135,6 +137,7 @@ class PostulacionController extends Controller
                 ->where('estatus', 'pendiente')
                 ->latest()
                 ->get(),
+            'consejos' => Consejo::orderBy('nombre')->get(['id', 'nombre']),
         ]);
     }
 
@@ -149,6 +152,7 @@ class PostulacionController extends Controller
     $request->validate([
         'fecha_validacion' => 'required|date',
         'acta_resolucion' => 'required|file|mimes:pdf|max:4096',
+        'consejo_id' => 'required|exists:consejos,id',
     ]);
 
     if (! $postulacion->user_id) {
@@ -161,6 +165,11 @@ class PostulacionController extends Controller
         if ($postulacion->estatus !== 'pendiente') {
             abort(422, 'Esta postulación ya fue procesada.');
         }
+
+        // Bloquea el consejo para que dos altas simultáneas no tomen la misma fórmula
+        $consejoId = (int) $request->consejo_id;
+        Consejo::whereKey($consejoId)->lockForUpdate()->first();
+        $formula = Integrante::siguienteFormula($consejoId);
 
         $archivo = $request->file('acta_resolucion');
 
@@ -178,15 +187,27 @@ class PostulacionController extends Controller
             'correo' => $postulacion->correo,
             'genero' => $postulacion->genero,
             'direccion' => $postulacion->direccion,
+            'consejo_id' => $consejoId,
+            'formula' => $formula,
             'discapacidad' => null,
             'discapacidad_tipo' => null,
         ]);
 
         foreach ($postulacion->documentos as $doc) {
+            // El expediente del integrante tiene su propia copia en el disco privado,
+            // así reemplazar un documento no afecta el archivo de la postulación
+            $contenido = Storage::disk('public')->get($doc->archivo);
+            if ($contenido === null) {
+                throw new \RuntimeException("No se encontró el documento '{$doc->tipo}' de la postulación.");
+            }
+
+            $destino = Docu::carpetaDe($integrante->id) . '/' . basename($doc->archivo);
+            Docu::disco()->put($destino, $contenido);
+
             Docu::create([
                 'integrante_id' => $integrante->id,
-                'tipo' => $doc->tipo,
-                'archivo' => $doc->archivo,
+                'tipo' => Docu::TIPOS_DESDE_POSTULACION[$doc->tipo] ?? $doc->tipo,
+                'archivo' => $destino,
             ]);
         }
 
@@ -206,6 +227,8 @@ class PostulacionController extends Controller
 
         $postulacion->update([
             'estatus' => 'aprobada',
+            'consejo_id' => $consejoId,
+            'formula' => $formula,
             'validado_por' => $user->id,
             'fecha_validacion' => $fecha->format('Y-m-d'),
             'acta_resolucion' => $ruta,

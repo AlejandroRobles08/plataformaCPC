@@ -11,13 +11,9 @@ use App\Models\IntegranteBaja;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class IntegranteController extends Controller
 {
-    private const MAX_FORMULAS = 15;
-    private const INTEGRANTES_POR_FORMULA = 2;
-
     public function index(Consejo $consejo)
     {   
         Gate::authorize('viewAny', [Integrante::class, $consejo]);
@@ -72,7 +68,7 @@ class IntegranteController extends Controller
         DB::transaction(function () use (&$validated){
             // Bloquea el consejo para que dos altas simultáneas no tomen la misma fórmula
             Consejo::whereKey($validated['consejo_id'])->lockForUpdate()->first();
-            $validated['formula'] = $this->siguienteFormula($validated['consejo_id']);
+            $validated['formula'] = Integrante::siguienteFormula($validated['consejo_id']);
 
             //crear usuario
             $user = User::create(['name' => trim($validated['nombre'] . ' ' . $validated['apellido_paterno'] . ' ' . ($validated['apellido_materno'] ?? '')),
@@ -90,34 +86,6 @@ class IntegranteController extends Controller
         });
 
         return redirect()->route('consejos.integrantes', $request->consejo_id);
-    }
-
-    // Fórmula que corresponde al siguiente integrante según el orden de alta:
-    // se llenan en grupos de 2 y los lugares liberados por bajas se respetan.
-    private function siguienteFormula(int $consejoId): int
-    {
-        $ultima = Integrante::where('consejo_id', $consejoId)->max('formula');
-
-        if ($ultima === null) {
-            return 1;
-        }
-
-        $ultima = (int) $ultima;
-
-        $ocupados = Integrante::where('consejo_id', $consejoId)
-            ->where('formula', $ultima)
-            ->count();
-
-        $siguiente = $ocupados >= self::INTEGRANTES_POR_FORMULA ? $ultima + 1 : $ultima;
-
-        if ($siguiente > self::MAX_FORMULAS) {
-            throw ValidationException::withMessages([
-                'formula' => 'El consejo ya tiene las ' . self::MAX_FORMULAS . ' fórmulas completas ('
-                    . self::MAX_FORMULAS * self::INTEGRANTES_POR_FORMULA . ' integrantes).',
-            ]);
-        }
-
-        return $siguiente;
     }
 
     public function update(Request $request, Integrante $integrante)

@@ -60,8 +60,7 @@ export default {
       if (flash && flash.success) {
         Swal.fire({
           icon: "success",
-          title: "Documento subido / Periodo creado exitosamente",
-          text: flash.success,
+          title: "Periodo creado con éxito",
           confirmButtonColor: "#7A1F32",
         });
 

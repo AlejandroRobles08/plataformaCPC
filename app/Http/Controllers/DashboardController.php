@@ -10,6 +10,11 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        //El rol invitado no ve las gráficas, no se envían datos
+        if (auth()->user()->hasRole('invitado')) {
+            return Inertia::render('Dashboard');
+        }
+
         //Personas totales por consejo
         $consejos = Consejo::withCount('integrantes')->get();
 

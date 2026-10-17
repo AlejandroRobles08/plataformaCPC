@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3'
+import { Head, usePage } from '@inertiajs/vue3'
+import { computed } from 'vue'
 import BarChart from '@/Components/Charts/BarChart.vue'
 import BarGroupedChart from '@/Components/Charts/BarGroupedChart.vue'
 import PieChart from '@/Components/Charts/PieChart.vue';
@@ -11,8 +12,14 @@ const props = defineProps({
   generoLabels: Array,
   generoData: Object,
   generoTotales: Object,
-  discapacidadTotales: Object 
+  discapacidadTotales: Object
 })
+
+const page = usePage()
+
+const esInvitado = computed(() =>
+  page.props.auth?.roles?.includes('invitado')
+)
 
 const generoOrder = [
   'Mujer',
@@ -31,14 +38,14 @@ const colorByGenero = {
 
 const discapacidadLabels = ['Con discapacidad', 'Sin discapacidad']
 
-const discapacidadData = discapacidadLabels.map(d => props.discapacidadTotales[d] ?? 0)
+const discapacidadData = discapacidadLabels.map(d => props.discapacidadTotales?.[d] ?? 0)
 const discapacidadColors = [
   '#AF1731',
   '#246257'
 ]
 
 const pieLabels = generoOrder
-const pieData = generoOrder.map(g => props.generoTotales[g] ?? 0)
+const pieData = generoOrder.map(g => props.generoTotales?.[g] ?? 0)
 const pieColors = generoOrder.map(g => colorByGenero[g])
 </script>
 
@@ -55,14 +62,14 @@ const pieColors = generoOrder.map(g => colorByGenero[g])
             <h1 class="text-3xl font-bold text-gray-800">
                 Instituto Municipal de Planeación de Puebla
             </h1>
-            <p class="mt-5 text-gray-500">
+            <p v-if="!esInvitado" class="mt-5 text-gray-500">
                 Tablero de estadísticas
             </p>
          </div>
        </div>
      </div>
 
-    <div class="px-6 py-8 space-y-10">
+    <div v-if="!esInvitado" class="px-6 py-8 space-y-10">
 
       <!-- === Gráficoa de pastel 2 === -->
       <div class="bg-white border rounded-xl shadow p-6">
