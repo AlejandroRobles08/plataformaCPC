@@ -16,6 +16,7 @@ const props = defineProps({
 })
 
 const tipoReporte = ref('')
+const mesSeleccionado = ref('Enero')
 
 //años para filtro
 const year = ['2025', '2026', '2027', '2028', '2029']
@@ -61,47 +62,66 @@ const meses = [
 ]
 
 function obtenerMes(fecha) {
-  return meses[new Date(fecha).getMonth()]
+  return new Date(fecha).getMonth() >= 0
+  ? meses[new Date(fecha).getMonth()] : ''
 }
 
-// sección para pivotear convocatorias por tipo de sesión y mes
-const tiposSesion = ['ordinaria', 'solemne', 'extraordinaria']
+//sección para pivotear convocatorias por tipo de sesión y mes
+const tipoSesion = ['ordinaria', 'solemne', 'extraordinaria']
+const convocatoriasFiltradas = computed(() => props.convocatorias.filter(c =>
+// asistencias filtradas por año 
+  obtenerAnio(c.fecha) === anioSeleccionado.value
+))
 
-const convocatoriasFiltradas = computed(() =>
-  props.convocatorias.filter(c =>
-    obtenerAnio(c.fecha) === anioSeleccionado.value
-  )
-)
-
+// Tabla anual: meses en filas y tipos de sesión en columnas.
 const tablaConvocatoriasPivot = computed(() => {
   const estructura = {}
-
-  tiposSesion.forEach(tipo => {
-    estructura[tipo] = {}
-    meses.forEach(mes => {
-      estructura[tipo][mes] = { convocada: '', realizada: '' }
+  meses.forEach(mes => {
+    estructura[mes] = {}
+    tipoSesion.forEach(tipo => {
+      estructura[mes][tipo] = {
+        convocada: 0,
+        realizada: 0,
+      }
     })
   })
-
   convocatoriasFiltradas.value.forEach(c => {
+    if(!c.fecha || !c.tipo_sesion) return
     const mes = obtenerMes(c.fecha)
-    estructura[c.tipo_sesion][mes].convocada = c.estado_convocatoria ? 'si' : 'no'
-    estructura[c.tipo_sesion][mes].realizada = c.estado_sesion ? 'si' : 'no'
+    const tipo = String(c.tipo_sesion).toLocaleLowerCase()
+    if (!estructura[mes] || !estructura[mes][tipo]) return
+    if (c.estado_convocatoria) {
+      estructura[mes][tipo].convocada++
+    }
+    if (c.estado_sesion) {
+      estructura[mes][tipo].realizada++
+    }
   })
-
   return estructura
 })
 
-// asistencias filtradas por año 
+const totalesAnualesConvocatorias = computed(() => {
+  const totales = {}
+  tipoSesion.forEach(tipo => {
+    totales[tipo] = {
+      convocada: 0,
+      realizada: 0,
+    }
+    meses.forEach(mes => {
+      const datos = tablaConvocatoriasPivot.value[mes][tipo]
+      totales[tipo].convocada += datos.convocada
+      totales[tipo].realizada += datos.realizada
+    })
+  })
+  return totales
+})
+
 const asistenciasFiltradas = computed(() =>
-  props.asistencias.filter(a =>
-    obtenerAnio(a.fecha) === anioSeleccionado.value
-  )
-)
+    (props.asistencias ?? [].filter(a => 
+      a.fecha && obtenerAnio(a.fecha) === anioSeleccionado.value)))
 
 const asistenciasExcel = computed(() => {
   const mapa = {}
-
   asistenciasFiltradas.value.forEach(a => {
     if (!a.integrante || !a.fecha) return
 
@@ -231,46 +251,139 @@ function exportarAsistenciasExcel() {
           </select>
         </div>
 
-        <!-- CONVOCATORIAS -->
+        <!-- SESIONES -->
         <div v-if="tipoReporte === 'convocatorias'">
-          <h2 class="text-lg font-semibold mb-4">Convocatorias por Mes</h2>
+          <div class="mb-5">
+            <h2 class="text-lg font-semibold">
+              Convocatorias por mes
+            </h2>
+            <p class="text-sm text-gray-500 mt-1">
+              Consejo: {{ consejo.nombre }} | Año {{ anioSeleccionado }}
+            </p>
+          </div>
 
-          <table id="tabla-convocatorias-pivot" class="min-w-full border text-sm">
-            <thead>
-              <tr>
-                <th class="border p-2 bg-gray-100">Tipo de sesión</th>
-                <th v-for="mes in meses" :key="mes" class="border p-2 bg-gray-100 text-center" colspan="2">
-                  {{ mes }}
-                </th>
-              </tr>
-              <tr>
-                <th></th>
-                <template v-for="mes in meses" :key="mes">
-                  <th class="border p-2 bg-gray-200">Convocada</th>
-                  <th class="border p-2 bg-gray-200">Realizada</th>
-                </template>
-              </tr>
-            </thead>
+          <!-- Selector de meses -->
+           <div class="mb-5">
+            <p class="text-sm text-gray-500 mb3">
+              Seleccione un mes para consultar sus datos.
+            </p> <br>
 
-            <tbody>
-              <tr v-for="tipo in tiposSesion" :key="tipo">
-                <td class="border p-2 capitalize font-semibold">{{ tipo }}</td>
-                <template v-for="mes in meses" :key="mes">
-                  <td class="border p-2 text-center">{{ tablaConvocatoriasPivot[tipo][mes].convocada }}</td>
-                  <td class="border p-2 text-center">{{ tablaConvocatoriasPivot[tipo][mes].realizada }}</td>
-                </template>
-              </tr>
-            </tbody>
-          </table>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="mes in meses" :key="mes" type="button" @click="mesSeleccionado=mes"
+              :class="['px-3 py-2 rounded-lg text-sm font-medium transition-colors', 
+              mesSeleccionado === mes ?'bg-blue-500 text-white':
+              'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200']">
+                {{ mes.slice(0, 3) }}
+              </button>
+            </div>
+           </div>
 
-          <div class="text-right mt-4">
-            <button @click="exportarConvocatoriasExcel"
-              class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex ml-auto">
+           <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+            <h3 class="text-lg font-semibold mb-4">
+              {{ mesSeleccionado }} {{ anioSeleccionado }}
+            </h3>
+
+            <!-- Tabla del mes seleccionado -->
+             <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              <table id="tabla-convocatorias-pivot" class="w-full border-collapse text-sm">
+                <thead class="bg-gray-100 dark:bg-gray-800">
+                  <tr>
+                    <th class="px-3 py-3 text-left">
+                      Tipo de sesión
+                    </th>
+                    <th class="px-3 py-3 text-center">
+                      Convocadas
+                    </th>
+                    <th class="px-3 py-3 text-center">
+                      Realizadas
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr v-for="tipo in tipoSesion" :key="tipo" class="border-t border-gray-200 dark:border-gray-700">
+                    <td class="px-3 py-3 font-medium capitalize">
+                      {{ tipo }}
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                      {{ tablaConvocatoriasPivot[mesSeleccionado][tipo].convocada }}
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                      {{ tablaConvocatoriasPivot[mesSeleccionado][tipo].realizada }}
+                    </td>
+                  </tr>
+                </tbody>
+
+                <tfoot class="bg-gray-100 font-semibold dark:bg-gray-800">
+                  <tr>
+                    <td class="px-3 py-3">Total del mes</td>
+                    <td class="px-3 py-3 text-center">
+                      {{ tipoSesion.reduce((total, tipo) =>
+                      total + tablaConvocatoriasPivot[mesSeleccionado][tipo].convocada,0) }}
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                      {{ tipoSesion.reduce((total, tipo) =>
+                      total + tablaConvocatoriasPivot[mesSeleccionado][tipo].realizada,0) }}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+             </div>
+
+             <!-- Resumen anual desplegable -->
+              <details class="mt-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                <summary class="cursor-pointer px-4 py-3 font-semibol">
+                  Consultar totales anuales de {{ anioSeleccionado }}
+                </summary>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead class="bg-gray-100 dark:bg-gray-800">
+                      <tr>
+                        <th class="px-3 py-3 text-left">Tipo de sesión</th>
+                        <th class="px-3 py-3 text-center">Convocadas</th>
+                        <th class="px-3 py-3 text-center">Realizadas</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      <tr v-for="tipo in tipoSesion" :key="tipo" class="border-t border-gray-200 dark:border-gray-700">
+                        <td class="px-3 py-3 capitalize">{{ tipo }}</td>
+                        <td class="px-3 py-3 text-center">
+                          {{ totalesAnualesConvocatorias[tipo].convocada }}
+                        </td>
+                        <td class="px-3 py-3 text-center">
+                          {{ totalesAnualesConvocatorias[tipo].realizada }}
+                        </td>
+                      </tr>
+                    </tbody>
+
+                    <tfoot class="bg-gray-100 font-semibold dark:bg-gray-800">
+                      <tr>
+                        <td class="px-3 py-3">Total anual</td>
+                        <td class="px-3 py-3 text-center">
+                          {{ tipoSesion.reduce((total, tipo) =>
+                        total + totalesAnualesConvocatorias[tipo].convocada, 0) }}
+                        </td>
+                        <td class="px-3 py-3 text-center">
+                          {{ tipoSesion.reduce((total, tipo) =>
+                        total + totalesAnualesConvocatorias[tipo].realizada, 0) }}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </details>
+           </div>
+
+           <div class="flex justify-end mt-4">
+            <button @click="exportarConvocatoriasExcel" 
+              class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center">
               <ArrowDownTrayIcon class="w-5 h-5 mr-2" />
               Exportar a Excel
             </button>
-          </div>
+           </div>
         </div>
+
 
         <!-- ASISTENCIAS -->
         <div v-if="tipoReporte === 'asistencias'">
