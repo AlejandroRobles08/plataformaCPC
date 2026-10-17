@@ -279,15 +279,13 @@ function exportarPostulacionesExcel() {
               Cancelar
             </button>
             <button type="submit" :disabled="invitadoForm.processing"
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+              class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
               Crear
             </button>
           </div>
         </form>
       </div>
     </div>
-
-    <Form
-  v-if="showModal" @close="showModal = false"/>
+    <Form v-if="showModal" @close="showModal = false"/>
   </AuthenticatedLayout>
 </template>

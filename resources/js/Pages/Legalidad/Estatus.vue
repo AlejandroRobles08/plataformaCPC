@@ -213,7 +213,7 @@ export default {
       </h1>
 
       <!-- Información de periodos -->
-      <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-900 text-sm rounded p-4 space-y-1">
+      <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-900 text-sm rounded p-4 space-y-1">
         <p>
           El <strong>"Periodo inicial"</strong> corresponde a la duración en el cargo de la persona consejera,
           desde su alta hasta la fecha posterior a 3 años.
