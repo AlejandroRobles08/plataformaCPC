@@ -1,0 +1,48 @@
+---
+id: fc4be077-c782-4b61-ae93-686c00b278fb
+---
+flowchart TD
+    A([Inicio]) --> B[Usuario captura credenciales]
+    B --> C{¿Credenciales válidas?}
+    C -- No --> D[Mostrar error de autenticación]
+    D --> B
+    C -- Sí --> E{¿Cuenta existente y habilitada?}
+    E -- No --> D
+    E -- Sí --> F[Crear sesión autenticada]
+    F --> G{¿Debe cambiar contraseña?}
+    G -- Sí --> H[Mostrar modal de cambio de contraseña]
+    H --> I{¿Contraseña nueva válida y confirmada?}
+    I -- No --> H
+    I -- Sí --> J[Guardar contraseña y actualizar indicador]
+    G -- No --> K
+    J --> K{¿Aviso de privacidad aceptado?}
+    K -- No --> L[Mostrar aviso de privacidad]
+    L --> M{¿Acepta el aviso?}
+    M -- No --> N[Cerrar sesión y redirigir a login]
+    N --> B
+    M -- Sí --> O[Registrar aceptación según la lógica implementada]
+    K -- Sí --> P[Resolver rol y permisos]
+    O --> P
+    P --> Q[Redirigir al dashboard autorizado]
+    Q --> R{Rol del usuario}
+    R -- super_admin --> S[Acceso administrativo total autorizado]
+    R -- admin --> T[Acceso administrativo según permisos]
+    R -- integrante --> U[Acceso limitado a su identidad, fórmula y consejo]
+    R -- invitado --> V[Acceso únicamente a las funciones permitidas]
+    S --> W[Menú y rutas protegidos por permisos]
+    T --> W
+    U --> W
+    V --> W
+    W --> X[Ejecutar módulo]
+    X --> Y{¿Autorizado y cumple las validaciones?}
+    Y -- No --> Z[Denegar acción o mostrar validación]
+    Y -- Sí --> AA[Procesar operación y persistir cambios]
+    AA --> AB([Fin de la operación])
+    classDef decisionNode stroke:#a78bfa,fill:#f5f3ff
+    classDef processNode stroke:#38bdf8,fill:#f0f9ff
+    classDef startEndNode stroke:#4ade80,fill:#f0fdf4
+    classDef denyNode stroke:#f87171,fill:#fef2f2
+    class C,E,G,I,K,M,R,Y decision
+    class B,F,H,J,L,O,P,Q,W,X processNode
+    class A,AB startEndNode
+    class D,N,Z denyNode
