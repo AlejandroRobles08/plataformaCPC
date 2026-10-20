@@ -24,14 +24,14 @@ const esInvitado = computed(() =>
 const generoOrder = [
   'Mujer',
   'Hombre',
-  'Prefiero autodescribirme',
+  'Otro',
   'Prefiero no responder'
 ];
 
 const colorByGenero = {
   'Mujer': '#7B1E3A',
   'Hombre': '#6E6E6E',
-  'Prefiero autodescribirme': '#C9A227',
+  'Otro': '#C9A227',
   'Prefiero no responder': '#3F6B4C'
 
 };
@@ -75,7 +75,7 @@ const pieColors = generoOrder.map(g => colorByGenero[g])
       <div class="bg-white border rounded-xl shadow p-6">
         <h2 class="text-xl font-bold mb-6">Integrantes por Consejo</h2>
 
-        <div class="h-[420px]">
+        <div class="h-[560px]">
           <BarChart :labels="props.labels" :data="props.data" title="Total de Integrantes por Consejo" />
         </div>
       </div>
@@ -84,7 +84,7 @@ const pieColors = generoOrder.map(g => colorByGenero[g])
       <div class="bg-white border rounded-xl shadow p-6">
         <h2 class="text-xl font-bold mb-6">Integrantes por Género y Consejo</h2>
 
-        <div class="h-[480px]">
+        <div class="h-[760px]">
           <BarGroupedChart :labels="props.labels" :datasets="props.generoData" />
         </div>
       </div>

@@ -11,45 +11,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const showDiscapacidadTipo = ref(false);
-const showGeneroOtro = ref(false);
 
-//resetar modal al abrir
-watch(
-    () => props.show,
-    (open) => {
-        if (open) {
-            showGeneroOtro.value = false;
-            showDiscapacidadTipo.value = !!props.form.discapacidad;
-
-            // limpiar género auxiliar
-            props.form.genero_opcion = '';
-
-            // limpiar texto autodescrito
-            if (props.form.genero && ![
-                'Mujer',
-                'Hombre',
-                'Prefiero no responder'
-            ].includes(props.form.genero)) {
-                props.form.genero_opcion = 'Prefiero autodescribirme'
-                showGeneroOtro.value = true
-            }
-        }
-    }
-);
-watch(
-    () => props.form.genero_opcion,
-    (newVal) => {
-
-        if (newVal === 'Prefiero autodescribirme') {
-            showGeneroOtro.value = true;
-            props.form.genero = '';
-        } else {
-            showGeneroOtro.value = false;
-            props.form.genero = newVal ?? '';
-        }
-
-    }
-);
 watch(
     () => props.form.discapacidad,
     (newVal) => {
@@ -157,13 +119,13 @@ watch(
                 </label>
 
                 <select
-                    v-model="form.genero_opcion"
+                    v-model="form.genero"
                     class="w-full border rounded px-3 py-2">
                     <option value="">Seleccione</option>
-                    <option value="Mujer">Mujer</option>
-                    <option value="Hombre">Hombre</option>
-                    <option value="Prefiero autodescribirme">
-                        Prefiero autodescribirme
+                    <option value="Mujer">Femenino</option>
+                    <option value="Hombre">Masculino</option>
+                    <option value="Otro">
+                        Otro
                     </option>
                     <option value="Prefiero no responder">
                         Prefiero no responder
@@ -176,20 +138,6 @@ watch(
                 >
                     {{ form.errors.genero }}
                 </p>
-            </div>
-
-            <!-- Autodescribir género -->
-            <div v-if="showGeneroOtro">
-                <label class="block text-sm font-medium">
-                    Describa su género
-                </label>
-
-                <input
-                    v-model="form.genero"
-                    type="text"
-                    class="w-full border rounded px-3 py-2"
-                    placeholder="Especifique su género"
-                />
             </div>
 
             <!-- Discapacidad -->

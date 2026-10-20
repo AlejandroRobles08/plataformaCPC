@@ -18,7 +18,7 @@ class IntegranteFactory extends Factory
             'nombre' => fake()->firstName(),
             'apellido_paterno' => fake()->lastName(),
             'apellido_materno' => fake()->lastName(),
-            'genero' => 'prefiero_no_responder',
+            'genero' => 'Prefiero no responder',
             'puesto' => 'Consejero',
             'correo' => fake()->unique()->safeEmail(),
             'consejo_id' => Consejo::factory(),

@@ -23,11 +23,11 @@ const form = useForm({
 })
 
 const generos = [
-  { value: 'mujer', label: 'Mujer' },
-  { value: 'hombre', label: 'Hombre' },
-  { value: 'no_binario', label: 'No binario' },
-  { value: 'prefiero_autodescribirme', label: 'Prefiero autodescribirme' },
-  { value: 'prefiero_no_responder', label: 'Prefiero no responder' }
+  { value: 'Mujer', label: 'Mujer' },
+  { value: 'Hombre', label: 'Hombre' },
+  { value: 'No binario', label: 'No binario' },
+  { value: 'Otro', label: 'Otro' },
+  { value: 'Prefiero no responder', label: 'Prefiero no responder' }
 ]
 
 const submit = () => {

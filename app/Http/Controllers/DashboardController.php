@@ -16,7 +16,7 @@ class DashboardController extends Controller
         }
 
         //Personas totales por consejo
-        $consejos = Consejo::withCount('integrantes')->get();
+        $consejos = Consejo::withCount('integrantes')->orderBy('id')->get();
 
         $labels = $consejos->pluck('nombre');
         $data   = $consejos->pluck('integrantes_count');
@@ -26,7 +26,7 @@ class DashboardController extends Controller
         $generoLabels = [
             'Mujer',
             'Hombre',
-            'Prefiero autodescribirme',
+            'Otro',
             'Prefiero no responder',
         ];
 
@@ -40,7 +40,7 @@ class DashboardController extends Controller
             $counts = [
                 'Mujer' => 0,
                 'Hombre' => 0,
-                'Prefiero autodescribirme' => 0,
+                'Otro' => 0,
                 'Prefiero no responder' => 0,
             ];
 
@@ -59,11 +59,11 @@ class DashboardController extends Controller
                     $counts['Prefiero no responder']++;
 
                 } elseif ($g === '' || $g === null) {
-                    //el null lo tratamos como "Prefiero autodescribirme"
-                    $counts['Prefiero autodescribirme']++;
+                    //el null lo tratamos como "Otro"
+                    $counts['Otro']++;
 
                 } else {
-                    $counts['Prefiero autodescribirme']++;
+                    $counts['Otro']++;
                 }
             }
 
@@ -80,7 +80,7 @@ class DashboardController extends Controller
 
         $noResponderCount = Integrante::whereRaw("LOWER(TRIM(genero)) = 'prefiero no responder'")->count();
 
-        $autodescritoCount = Integrante::whereNotNull('genero')
+        $otroCount = Integrante::whereNotNull('genero')
             ->whereRaw("TRIM(genero) <> ''")
             ->whereRaw("LOWER(TRIM(genero)) NOT IN ('mujer','hombre','prefiero no responder')")
             ->count();
@@ -88,7 +88,7 @@ class DashboardController extends Controller
         $generoTotales = [
             'Mujer' => $mujerCount,
             'Hombre' => $hombreCount,
-            'Prefiero autodescribirme' => $autodescritoCount,
+            'Otro' => $otroCount,
             'Prefiero no responder' => $noResponderCount,
         ];
 

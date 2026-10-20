@@ -20,17 +20,6 @@ const PetsIcon = defineComponent({
   }
 })
 
-const SportsSoccerIcon = defineComponent({
-  name: 'SportsSoccerIcon',
-  render() {
-    return h(
-      'span',
-      { class: 'material-symbols-outlined text-white text-5xl' },
-      'sports_soccer'
-    )
-  }
-})
-
 const AccesibleIcon = defineComponent({
   name: 'AccesibleIcon',
   render() {
@@ -38,17 +27,6 @@ const AccesibleIcon = defineComponent({
       'span',
       { class: 'material-symbols-outlined text-white text-5xl' },
       'accessible_forward'
-    )
-  }
-})
-
-const ElectricCarIcon = defineComponent({
-  name: 'ElectricCarIcon',
-  render() {
-    return h(
-      'span',
-      { class: 'material-symbols-outlined text-white text-5xl' },
-      'electric_car'
     )
   }
 })
@@ -64,72 +42,55 @@ const LocalPoliceIcon = defineComponent({
   }
 })
 
-const ElderlyWomenIcon = defineComponent({
-  name: 'ElderlyWomenIcon',
+const PaletteIcon = defineComponent({
+  name: 'PaletteIcon',
   render() {
     return h(
       'span',
       { class: 'material-symbols-outlined text-white text-5xl' },
-      'elderly_woman'
+      'palette'
     )
   }
 })
 
-const PersonSieldIcon = defineComponent({
-  name: 'PersonSieldIcon',
+const FemaleIcon = defineComponent({
+  name: 'FemaleIcon',
   render() {
     return h(
       'span',
       { class: 'material-symbols-outlined text-white text-5xl' },
-      'person_shield'
+      'female'
     )
   }
 })
 
 import {
-  SunIcon,
   GlobeAmericasIcon,
-  FaceSmileIcon,
-  UserGroupIcon,
   UsersIcon,
   MusicalNoteIcon,
   HeartIcon,
   BuildingOfficeIcon,
-  BuildingOffice2Icon,
-  HandRaisedIcon,
-  TruckIcon,
   WrenchScrewdriverIcon,
-  BriefcaseIcon,
   AcademicCapIcon,
-  MapPinIcon,
 } from '@heroicons/vue/24/solid'
 
+// colapsa espacios y saltos de línea para que nombres largos coincidan con su llave
 const normalize = (text) =>
-  text?.trim().toLowerCase()
+  text?.replace(/\s+/g, ' ').trim().toLowerCase()
 
+// en el mismo orden (por ID) que ConsejoSeeder
 const icons = {
-  'asuntos indígenas': SunIcon,
-  'bienestar': FaceSmileIcon,
+  'discapacidad': AccesibleIcon,
   'bienestar animal': PetsIcon,
   'centro histórico y patrimonio edificado': BuildingOfficeIcon,
-  'cultura': MusicalNoteIcon,
-  'deporte': SportsSoccerIcon,
-  'derechos humanos e igualdad entre géneros': HandRaisedIcon,
-  'desarrollo urbano': BuildingOffice2Icon,
-  'desempeño gubernamental': BriefcaseIcon,
-  'discapacidad': AccesibleIcon,
   'ecología y medio ambiente': GlobeAmericasIcon,
-  'educación': AcademicCapIcon,
-  'juventud': UserGroupIcon,
-  'niñez y la adolescencia': UsersIcon,
-  'obras y servicios públicos': WrenchScrewdriverIcon,
-  'movilidad': ElectricCarIcon,
-  'personas en situación de vulnerabilidad': ElderlyWomenIcon,
-  'protección civil': PersonSieldIcon,
-  'salud': HeartIcon,
   'seguridad pública': LocalPoliceIcon,
-  'turismo': MapPinIcon,
-  'vialidad y transporte': TruckIcon,
+  'salud': HeartIcon,
+  'impulso a las artesanías': PaletteIcon,
+  'niñez y adolescencia': UsersIcon,
+  'cultura': MusicalNoteIcon,
+  'obras y servicios públicos': WrenchScrewdriverIcon,
+  'igualdad de género, y prevención, atención y erradicación de la violencia contra la mujer.': FemaleIcon,
 }
 </script>
 

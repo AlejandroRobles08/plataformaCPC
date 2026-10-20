@@ -56,7 +56,7 @@ class PostulacionController extends Controller
             'nombre' => 'required|string|max:255',
             'apellido_paterno' => 'required|string|max:255',
             'apellido_materno' => 'nullable|string|max:255',
-            'genero' => 'required|in:mujer,hombre,no_binario,prefiero_autodescribirme,prefiero_no_responder',
+            'genero' => 'required|in:Mujer,Hombre,No binario,Otro,Prefiero no responder',
             'direccion' => 'required|string|max:500',
             'correo' => 'required|email|max:255',
         ];

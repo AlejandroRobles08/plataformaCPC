@@ -22,7 +22,7 @@ class ConsejoController extends Controller
                         ? 'legalidad'
                         : 'integrantes')));
 
-        $consejos = Consejo::all();
+        $consejos = Consejo::orderBy('id')->get();
 
         //este es el origen de la vista de los consejos
         return inertia('Consejos/Index', [

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { Chart, registerables } from 'chart.js'
+import { wrapLabel } from './wrapLabel'
 Chart.register(...registerables)
 
 const props = defineProps({
@@ -11,14 +12,14 @@ const props = defineProps({
 const generoOrder = [
   'Mujer',
   'Hombre',
-  'Prefiero autodescribirme',
+  'Otro',
   'Prefiero no responder'
 ]
 
 const colorByGender = {
   'Mujer': '#7B1E3A',
   'Hombre': '#6E6E6E',
-  'Prefiero autodescribirme': '#C9A227',
+  'Otro': '#C9A227',
   'Prefiero no responder': '#3F6B4C'
 }
 
@@ -28,7 +29,7 @@ let chartInstance = null
 function buildChartData() {
   const labels = props.labels || []
   return {
-    labels,
+    labels: labels.map((l) => wrapLabel(l)),
     datasets: generoOrder.map((gen) => {
       const raw = Array.isArray(props.datasets?.[gen]) ? props.datasets[gen] : []
       const data = labels.map((_, i) => raw[i] ?? 0)
@@ -47,16 +48,20 @@ function buildChartData() {
 const options = {
   responsive: true,
   maintainAspectRatio: false,  // 🎯 CLAVE PARA QUE NO SE APLASTE
+  indexAxis: 'y',  // barras horizontales para que los nombres largos se lean completos
   plugins: {
     legend: { position: 'top' },
   },
   scales: {
-    y: {
+    x: {
       beginAtZero: true,
       ticks: {
         stepSize: 1,
         precision: 0,
       }
+    },
+    y: {
+      ticks: { autoSkip: false }  // mostrar todos los consejos
     }
   }
 }
@@ -76,7 +81,7 @@ watch(() => [props.labels, props.datasets], renderChart, { deep: true })
 </script>
 
 <template>
-  <div class="bg-white p-4 rounded-lg shadow h-80">
+  <div class="bg-white p-4 rounded-lg shadow h-full">
     <canvas ref="chartCanvas"></canvas>
   </div>
 </template>

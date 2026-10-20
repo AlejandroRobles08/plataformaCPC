@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { Chart, registerables } from 'chart.js'
+import { wrapLabel } from './wrapLabel'
 Chart.register(...registerables)
 
 const props = defineProps({
@@ -18,7 +19,7 @@ const renderChart = () => {
   chartInstance = new Chart(chartCanvas.value, {
     type: 'bar',
     data: {
-      labels: props.labels,
+      labels: (props.labels || []).map((l) => wrapLabel(l)),
       datasets: [
         {
           label: props.title,
@@ -32,11 +33,15 @@ const renderChart = () => {
     options: {
       responsive: true,
       maintainAspectRatio: false,   // 🎯 CLAVE PARA QUE LA GRÁFICA QUEPA EN SU DIV
-      scales: { 
-        y: { 
+      indexAxis: 'y',               // barras horizontales para que los nombres largos se lean completos
+      scales: {
+        x: {
           beginAtZero: true,
           max: 30,
           ticks: {stepSize:5, precision: 0 }
+        },
+        y: {
+          ticks: { autoSkip: false }  // mostrar todos los consejos
         },
       }
     }
@@ -49,7 +54,7 @@ watch(() => props.data, renderChart)
 
 <template>
   <!-- Alto explícito para que Chart.js se adapte -->
-  <div class="bg-white p-4 rounded-lg shadow h-80">
+  <div class="bg-white p-4 rounded-lg shadow h-full">
     <canvas ref="chartCanvas"></canvas>
   </div>
 </template>
