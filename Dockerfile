@@ -1,4 +1,4 @@
-FROM php:8.3-fpm-bookworm
+FROM php:8.3.36-fpm-bookworm
 
 WORKDIR /var/www/html
 
@@ -20,8 +20,22 @@ RUN apt-get update && apt-get install -y \
         bcmath \
         gd \
         zip \
+        opcache \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# OPcache + caché de rutas de archivo. como máximo cada 2 segundos, así tus ediciones se ven casi al instante.
+RUN { \
+      echo 'opcache.enable=1'; \
+      echo 'opcache.memory_consumption=256'; \
+      echo 'opcache.interned_strings_buffer=16'; \
+      echo 'opcache.max_accelerated_files=20000'; \
+      echo 'opcache.validate_timestamps=1'; \
+      echo 'opcache.revalidate_freq=2'; \
+      echo 'realpath_cache_size=4096K'; \
+      echo 'realpath_cache_ttl=600'; \
+      echo 'session.upload_progress.enabled=0'; \
+    } > /usr/local/etc/php/conf.d/zz-opcache.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

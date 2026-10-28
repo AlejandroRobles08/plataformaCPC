@@ -202,19 +202,23 @@ function exportarConvocatoriasExcel() {
 
                 <tfoot class="bg-gray-100 font-semibold dark:bg-gray-800">
                   <tr>
-                    <td class="px-3 py-3">Total anual</td>
-                    <td class="px-3 py-3 text-center">
-                      {{ tipoSesion.reduce((total, tipo) =>
-                      total + totalesAnualesConvocatorias[tipo].convocada, 0) }}
+                    <td colspan="2" class="border p-2">Total anual</td>
+                    <td v-for="mes in meses" :key="mes" class="border p-2 text-center">
+                      {{ totalesMensualesAnuales[mes] }}
                     </td>
-                    <td class="px-3 py-3 text-center">
-                      {{ tipoSesion.reduce((total, tipo) =>
-                      total + totalesAnualesConvocatorias[tipo].realizada, 0) }}
+                    <td class="border p-2 text-center">
+                      {{ asistenciasExcel.reduce((total,fila) => total + fila.totalA, 0) }}
+                    </td>
+                    <td class="border p-2 text-center">
+                      {{ asistenciasExcel.reduce((total,fila) => total + fila.totalI, 0) }}
+                    </td>
+                    <td class="border p-2 text-center">
+                      {{ asistenciasExcel.reduce((total,fila) => total + fila.totalIJ, 0) }}
                     </td>
                   </tr>
                 </tfoot>
               </table>
-            </div>
+            </div>           
           </details>
         </div>
 
