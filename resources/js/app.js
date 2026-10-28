@@ -30,7 +30,6 @@ createInertiaApp({
             })
             .mount(el);
     },
-    progress: {
-        color: '#4B5563',
-    },
+    // Se reemplaza por el componente LoadingScreen dentro del layout
+    progress: false,
 });

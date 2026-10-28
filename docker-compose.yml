@@ -52,11 +52,11 @@ services:
     working_dir: /var/www/html
     environment:
       DOCKER_ENV: "true"
-      CHOKIDAR_USEPOLLING: "true"
     volumes:
       - .:/var/www/html
+      - vendor:/var/www/html/vendor
       - node_modules:/var/www/html/node_modules
-    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    command: sh -c "[ -x node_modules/.bin/vite ] || npm ci; npm run dev -- --host 0.0.0.0"
     ports:
       - "5173:5173"
     networks:

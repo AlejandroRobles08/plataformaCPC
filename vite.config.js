@@ -4,6 +4,10 @@ import vue from '@vitejs/plugin-vue';
 
 const isDocker = process.env.DOCKER_ENV === 'true';
 
+// El polling solo se activa si lo pides explícitamente.
+// En WSL (disco de Linux) normalmente no hace falta.
+const usePolling = process.env.CHOKIDAR_USEPOLLING === 'true';
+
 export default defineConfig({
     plugins: [
         laravel({
@@ -21,6 +25,19 @@ export default defineConfig({
         }),
     ],
 
+    // Pre-empaqueta estas dependencias al iniciar Vite, para que no se
+    // descubran (y recarguen la página) al entrar por primera vez a una sección.
+    optimizeDeps: {
+        include: [
+            'chart.js',
+            'xlsx',
+            'v-calendar',
+            'sweetalert2',
+            'axios',
+            '@heroicons/vue/24/solid',
+        ],
+    },
+
     server: {
         host: isDocker ? '0.0.0.0' : 'localhost',
         port: 5173,
@@ -28,8 +45,9 @@ export default defineConfig({
 
         //detectar cambios en código y recompilar
         watch: {
-            usePolling: isDocker,
-            interval: isDocker ? 1000 : undefined,
+            usePolling,
+            interval: usePolling ? 1000 : undefined,
+            ignored: ['**/vendor/**', '**/storage/**', '**/public/build/**'],
         },
 
         //Autorizar el cors de ambos origenes
