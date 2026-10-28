@@ -218,7 +218,7 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
               <!-- Convocatoria -->
               <div v-if="item.convocatoria_documento">
                 <a :href="`/storage/${item.convocatoria_documento}`" target="_blank"
-                  class="text-indigo-600 hover:underline">
+                  class="text-gray-600 hover:underline">
                   Convocatoria
                 </a>
               </div>

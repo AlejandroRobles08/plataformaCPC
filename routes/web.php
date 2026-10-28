@@ -210,6 +210,18 @@ Route::middleware('auth', 'privacy')->group(function () {
 
         Route::get('/consejos/{consejo}/reportes', [ReporteController::class, 'show'])
             ->name('reportes.consejo');
+
+        Route::get('/consejos/{consejo}/reportes/sesiones', [ReporteController::class, 'sesiones'])
+            ->name('reportes.sesiones');
+
+        Route::get('/consejos/{consejo}/reportes/asistencias', [ReporteController::class, 'asistencias'])
+            ->name('reportes.asistencias');
+
+        Route::get('/consejos/{consejo}/reportes/documentos', [ReporteController::class, 'documentos'])
+            ->name('reportes.documentos');
+
+        Route::get('/consejos/{consejo}/reportes/bajas', [ReporteController::class, 'bajas'])
+            ->name('reportes.bajas');
     });
 
     // Postulaciones
