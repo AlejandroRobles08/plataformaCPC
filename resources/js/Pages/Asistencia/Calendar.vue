@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Link, usePage, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Calendar } from 'v-calendar'
@@ -23,6 +23,7 @@ const showForm = ref(false)
 const showJustificante = ref(false)
 const fechaSeleccionada = ref(null)
 const sesionSeleccionada = ref(null)
+const sesionJustificante = ref(null)
 const selectedDate = ref(null)
 const asistenciasSesion = ref([])
 
@@ -37,14 +38,101 @@ const esIntegrante = computed(() =>
   page.props.auth?.roles?.includes('integrante') ?? false
 )
 
+// Color de cada tipo de sesión (el rojo queda reservado para faltas)
+const coloresSesion = {
+  ordinaria: 'yellow',
+  solemne: '#4D634B',
+  extraordinaria: '#782347'
+}
+
+// Equivalente hex de los colores de paleta de v-calendar (para el punto del popover)
+const hexPaleta = {
+  yellow: '#facc15',
+  red: '#ef4444',
+  gray: '#9ca3af'
+}
+
+// Simbología arriba del calendario; "Falta" solo para el integrante
+const simbologia = computed(() => [
+  { label: 'Ordinaria', clase: 'bg-yellow-400' },
+  { label: 'Solemne', clase: 'bg-[#4D634B]' },
+  { label: 'Extraordinaria', clase: 'bg-[#782347]'},
+  ...(esIntegrante.value ? [{ label: 'Falta', clase: 'bg-red-500' }] : [])
+])
+
+// Texto según el estado del justificante de una falta
+const textoJustificante = {
+  pendiente: 'Justificante en revisión',
+  rechazado: 'Justificante rechazado, puedes subir otro'
+}
+
+// Faltas del integrante (al aprobar el justificante pasan a 'justificada' y dejan de contar)
+const faltas = computed(() => {
+  if (!esIntegrante.value) return []
+  return props.asistencias
+    .filter(a => a.estado === 'falto')
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+})
+
+const sesionesConFalta = computed(() =>
+  new Set(faltas.value.map(a => Number(a.sesion_id)))
+)
+
 // Formato YYYY-MM-DD sin problemas de zona horaria
 const formatearFechaLocal = date =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
+// Fecha legible en es-MX (ej. 1 de octubre de 2026)
+const formatearFechaLegible = fecha =>
+  new Date(`${fecha}T00:00:00`).toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
+
+// Justificantes aprobados que aún no se le han notificado al integrante (se guardan por navegador)
+const justificantesAprobados = ref([])
+const claveAprobados = `justificantes-aprobados-${props.consejo.id}-${props.integrante?.id}`
+
+onMounted(() => {
+  if (!esIntegrante.value || !props.integrante) return
+
+  let notificados = []
+  try {
+    notificados = JSON.parse(localStorage.getItem(claveAprobados)) ?? []
+  } catch {
+    notificados = []
+  }
+
+  const nuevos = props.asistencias.filter(
+    a => a.estado_justificante === 'aprobado' && !notificados.includes(a.id)
+  )
+  if (!nuevos.length) return
+
+  justificantesAprobados.value = nuevos
+
+  try {
+    localStorage.setItem(claveAprobados, JSON.stringify([...notificados, ...nuevos.map(a => a.id)]))
+  } catch {
+    // Sin almacenamiento disponible la alerta se mostrará de nuevo en la próxima visita
+  }
+
+  // Ocultar la alerta después de 6 segundos
+  setTimeout(() => {
+    justificantesAprobados.value = []
+  }, 6000)
+})
+
 // Click sobre una fecha del calendario
 function abrirFormulario(day) {
-  if (!puedeCrearAsistencia.value) return
   const fecha = formatearFechaLocal(day.date)
+
+  if (esIntegrante.value) {
+    abrirJustificante(fecha)
+    return
+  }
+
+  if (!puedeCrearAsistencia.value) return
   const sesion = props.sesiones.find(s => s.fecha === fecha)
   fechaSeleccionada.value = fecha
   selectedDate.value = fecha
@@ -59,6 +147,21 @@ function abrirFormulario(day) {
   }
   // Programar una nueva sesión
   showProgramarSesion.value = true
+}
+
+// Abrir justificante solo si el integrante tiene falta en esa fecha
+function abrirJustificante(fecha) {
+  if (!props.integrante) return
+
+  // PENDIENTE: si el integrante faltó a dos sesiones el mismo día, por ahora se toma la primera falta de ese día
+  const falta = faltas.value.find(a => a.fecha === fecha)
+  if (!falta) return
+
+  sesionJustificante.value = {
+    fecha: falta.fecha,
+    tipo_sesion: falta.tipo_sesion
+  }
+  showJustificante.value = true
 }
 
 // Cerrar modal de programación
@@ -77,6 +180,7 @@ function cerrarForm() {
 // Cerrar modal de justificante
 function cerrarJustificante() {
   showJustificante.value = false
+  sesionJustificante.value = null
 }
 
 function justificanteGuardado() {
@@ -99,22 +203,33 @@ function handleAsistenciaGuardada() {
   router.reload({ only: ['sesiones'], preserveScroll: true })
 }
 
-// Sesiones mostradas en el calendario
+// Sesiones mostradas en el calendario (en rojo si el integrante tiene falta)
 const calendarAttributes = computed(() =>
   props.sesiones.map(s => {
-    const color = {
-      ordinaria: 'yellow',
-      solemne: 'green',
-      extraordinaria: 'red'
-    }[s.tipo_sesion] || 'gray'
+    const conFalta = sesionesConFalta.value.has(Number(s.id))
+    const color = conFalta ? 'red' : (coloresSesion[s.tipo_sesion] || 'gray')
+
+    // v-calendar solo reconoce nombres de su paleta; los colores hex se aplican con style
+    const esHex = color.startsWith('#')
+    const highlight = esHex
+      ? { fillMode: 'solid', style: { backgroundColor: color }, contentStyle: { color: '#fff' } }
+      : { fillMode: 'solid', color }
+    const dot = esHex
+      ? { style: { backgroundColor: color }, class: 'opacity-80' }
+      : { color, class: 'opacity-80' }
 
     return {
       key: s.id,
       dates: new Date(`${s.fecha}T00:00:00`),
-      highlight: { fillMode: 'solid', color },
-      dot: { color, class: 'opacity-80' },
-      popover: {
-        label: `Sesión ${s.tipo_sesion} (${s.fecha})`
+      highlight,
+      dot,
+      // El popover se dibuja en el slot day-popover para usar el mismo color de la sesión
+      popover: { visibility: 'hover' },
+      customData: {
+        color: esHex ? color : (hexPaleta[color] || hexPaleta.gray),
+        label: conFalta
+          ? `Falta: sesión ${s.tipo_sesion} (${s.fecha})`
+          : `Sesión ${s.tipo_sesion} (${s.fecha})`
       }
     }
   })
@@ -123,33 +238,76 @@ const calendarAttributes = computed(() =>
 
 <template>
   <AuthenticatedLayout>
-    <!-- Navegación y acciones -->
+    <!-- Navegación -->
     <div class="mb-4 flex items-center justify-between gap-4">
       <!-- Volver -->
       <Link :href="route('asistencias.index', consejo.id)"
         class="inline-flex items-center px-3 py-2 bg-gray-200 text-gray-800 text-sm rounded hover:bg-gray-300 transition">
         ← Volver a Asistencias
       </Link>
-
-      <!-- Justificante para integrante -->
-      <button v-if="esIntegrante && integrante" type="button"
-        class="px-4 py-2 bg-yellow-700 text-white rounded hover:bg-yellow-800 transition"
-        @click="showJustificante = true">
-        Subir justificante
-      </button>
     </div>
 
-    <div v-if="mensajeExito" class="mb-4 rounden-lg border border-green-200 
+    <div v-if="mensajeExito" class="mb-4 rounded-lg border border-green-200 
     bg-green-100 px-4 py-3 text-green-800">
       {{ mensajeExito }} 
+    </div>
+
+    <!-- Alerta de justificantes aprobados (se oculta a los 6 segundos) -->
+    <div v-if="justificantesAprobados.length"
+      class="mb-4 rounded-lg border border-green-200 bg-green-100 px-4 py-3 text-green-800">
+      <ul class="space-y-1">
+        <li v-for="aprobado in justificantesAprobados" :key="aprobado.id">
+          Tu justificante de la sesión {{ aprobado.tipo_sesion }} del día {{ formatearFechaLegible(aprobado.fecha) }} fue aprobado.
+        </li>
+      </ul>
+    </div>
+
+    <!-- Aviso de faltas del integrante -->
+    <div v-if="esIntegrante && faltas.length"
+      class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+      <ul class="space-y-1">
+        <li v-for="falta in faltas" :key="falta.id">
+          Tienes falta el día {{ formatearFechaLegible(falta.fecha) }} a la sesión {{ falta.tipo_sesion }}
+          <span v-if="textoJustificante[falta.estado_justificante]" class="font-semibold">
+            — {{ textoJustificante[falta.estado_justificante] }}
+          </span>
+        </li>
+      </ul>
+
+      <p class="mt-2 text-sm">
+        Da clic sobre la fecha en el calendario para subir tu justificante.
+      </p>
     </div>
 
     <!-- Calendario -->
     <div class="p-4 md:p-6 w-full">
       <div class="w-full max-w-7xl mx-auto bg-white rounded-lg shadow p-4 md:p-6">
+        <!-- Simbología -->
+        <div v-if="puedeCrearAsistencia || esIntegrante" class="mb-4 flex flex-wrap items-center gap-4 text-sm text-gray-700">
+          <div v-for="item in simbologia" :key="item.label" class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full" :class="item.clase"></span>
+            {{ item.label }}
+          </div>
+        </div>
+
         <Calendar v-model="selectedDate" :attributes="calendarAttributes"
+          expanded
           @dayclick="abrirFormulario"
-          class="big-calendar"/>
+          class="big-calendar">
+          <!-- Popover con el punto del mismo color que la sesión -->
+          <template #day-popover="{ dayTitle, attributes }">
+            <div class="px-1 text-xs">
+              <div class="mb-1 text-center font-semibold">
+                {{ dayTitle }}
+              </div>
+
+              <div v-for="attr in attributes" :key="attr.key" class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: attr.customData.color }"></span>
+                {{ attr.customData.label }}
+              </div>
+            </div>
+          </template>
+        </Calendar>
       </div>
     </div>
 
@@ -167,8 +325,9 @@ const calendarAttributes = computed(() =>
       @saved="handleAsistenciaGuardada"/>
 
     <!-- Subir justificante -->
-    <Justificante v-if="showJustificante && integrante" :consejo="consejo"
+    <Justificante v-if="showJustificante && integrante && sesionJustificante" :consejo="consejo"
       :integrante="integrante"
+      :sesion="sesionJustificante"
       @close="cerrarJustificante"
       @saved="justificanteGuardado"/>
   </AuthenticatedLayout>

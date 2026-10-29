@@ -12,6 +12,11 @@ const props = defineProps({
   integrante: {
     type: Object,
     required: true
+  },
+  // Sesión de la falta seleccionada en el calendario (fecha y tipo_sesion)
+  sesion: {
+    type: Object,
+    required: true
   }
 })
 
@@ -19,11 +24,18 @@ const emit = defineEmits(['close', 'saved'])
 
 const errorArchivo = ref('')
 
-// Datos del justificante.
+// Datos del justificante (fecha y tipo vienen de la falta seleccionada).
 const form = useForm({
-  fecha: '',
-  tipo_sesion: '',
+  fecha: props.sesion.fecha,
+  tipo_sesion: props.sesion.tipo_sesion,
   justificante: null
+})
+
+// Fecha legible en es-MX (ej. 1 de octubre de 2026)
+const fechaLegible = new Date(`${props.sesion.fecha}T00:00:00`).toLocaleDateString('es-MX', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric'
 })
 
 // Valida que el archivo sea PDF.
@@ -87,7 +99,7 @@ function cerrarModal() {
     @close="cerrarModal">
     <!-- Descripción -->
     <p class="mb-5 text-sm text-gray-500">
-      Adjunta un justificante correspondiente a una sesión.
+      Adjunta el justificante de la sesión a la que faltaste.
     </p>
 
     <!-- Integrante -->
@@ -107,8 +119,8 @@ function cerrarModal() {
         Fecha de la sesión
       </label>
 
-      <input v-model="form.fecha" type="date"
-        class="w-full rounded border px-3 py-2"/>
+      <input type="text" :value="fechaLegible" readonly
+        class="w-full rounded border bg-gray-100 px-3 py-2 text-gray-600"/>
 
       <p v-if="form.errors.fecha" class="mt-1 text-sm text-red-600">
         {{ form.errors.fecha }}
@@ -121,23 +133,8 @@ function cerrarModal() {
         Tipo de sesión
       </label>
 
-      <select v-model="form.tipo_sesion" class="w-full rounded border px-3 py-2">
-        <option value="" disabled>
-          Seleccione el tipo de sesión
-        </option>
-
-        <option value="ordinaria">
-          Ordinaria
-        </option>
-
-        <option value="solemne">
-          Solemne
-        </option>
-
-        <option value="extraordinaria">
-          Extraordinaria
-        </option>
-      </select>
+      <input type="text" :value="sesion.tipo_sesion" readonly
+        class="w-full rounded border bg-gray-100 px-3 py-2 capitalize text-gray-600"/>
 
       <p v-if="form.errors.tipo_sesion" class="mt-1 text-sm text-red-600">
         {{ form.errors.tipo_sesion }}
@@ -163,7 +160,7 @@ function cerrarModal() {
         {{ form.errors.justificante }}
       </p>
 
-      <p c   lass="mt-1 text-xs text-gray-500">
+      <p class="mt-1 text-xs text-gray-500">
         Solo se permiten archivos PDF de hasta 4 MB.
       </p>
     </div>
@@ -178,7 +175,7 @@ function cerrarModal() {
 
       <button type="button"
         class="rounded bg-yellow-700 px-5 py-2 text-white transition hover:bg-yellow-800 disabled:opacity-50"
-        :disabled="form.processing"@click="guardar">
+        :disabled="form.processing" @click="guardar">
         {{ form.processing ? 'Enviando...' : 'Enviar justificante' }}
       </button>  
     </div>

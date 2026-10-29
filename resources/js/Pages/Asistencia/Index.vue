@@ -102,6 +102,13 @@ function badgeRechazados(integrante) {
   return justificantesRechazados(integrante.id)
 }
 
+// total de faltas del integrante (burbuja del boton ver calendario)
+const totalFaltas = computed(() => {
+  if (!esIntegrante.value) return 0
+  return props.asistencias.filter(
+    a => a.integrante_id === props.integranteActualId && a.estado === 'falto').length
+})
+
 const formulas = computed(() => {
   const grupos = {}
   props.integrantes.forEach(integrante => {
@@ -177,10 +184,13 @@ function colorClase(color) {
           Evidencia documental
         </Link>
 
-        <Link :href="route('asistencia.calendar', props.consejo.id)" class="flex items-center gap-2 
+        <Link :href="route('asistencia.calendar', props.consejo.id)" class="relative flex items-center gap-2 
         px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-800">
           <CalendarIcon class="w-5 h-5" />
           Ver calendario
+          <span v-if="totalFaltas" class="absolute- top-2 -right min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold">
+            {{ totalFaltas }}
+          </span>
         </Link>
 
         <button v-if="esAdministrador" @click="abrirJustificantes" class="relative flex items-center 
@@ -283,16 +293,13 @@ function colorClase(color) {
       <p v-else class="text-gray-500">
         No hay integrantes registrados.
       </p>
-
+      
       <Form v-if="showModal":integrantes="props.integrantes":consejo-id="props.consejo.id"
         @close="cerrarModal"/>
-
       <HistoryModal :show="showHistorial" :integrante="integranteSeleccionado":historial="historialSeleccionado"
         @close="cerrarHistorial"/>
-
       <JustificantesAdmin :show="showJustificantes" :justificantes="props.justificantes"
         @close="cerrarJustificantes"/>
-
     </div>
   </AuthenticatedLayout>
 </template>

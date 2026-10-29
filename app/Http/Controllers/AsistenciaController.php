@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers;
-
 use App\Models\Consejo;
 use App\Models\Integrante;
 use App\Models\Asistencia;
@@ -82,6 +80,19 @@ class AsistenciaController extends Controller
             // El integrante solo ve las sesiones y su propio registro (para justificantes);
             // la lista del consejo y sus asistencias son para el registro administrativo
             $integrante = $user->integrante;
+
+            if ($integrante && $integrante->consejo_id === $consejo->id) {
+                $asistencias = Asistencia::where('integrante_id', $integrante->id)
+                ->whereIn('sesion_id', $sesiones->pluck('id'))->get([
+                    'id',
+                    'integrante_id',
+                    'sesion_id',
+                    'fecha',
+                    'tipo_sesion',
+                    'estado',
+                    'estado_justificante'
+                ]);
+            }
         } else {
             $integrantes = Integrante::where('consejo_id', $consejo->id)->get();
             $asistencias = Asistencia::whereIn('integrante_id', $integrantes->pluck('id'))
@@ -163,7 +174,7 @@ class AsistenciaController extends Controller
             'asistencias' => 'required|array',
             'asistencias.*.integrante_id' => 'required|exists:integrantes,id',
             'asistencias.*.estado' => 'required|in:asistio,falto,justificada',
-            'evidencia' => 'nullable|file|mimes:pdf|max:4096',
+            'evidencia' => 'required|file|mimes:pdf|max:4096',
         ]);
 
         $sesion = Sesion::where('consejo_id', $consejo->id)
