@@ -74,6 +74,10 @@ const faltas = computed(() => {
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
 })
 
+//si es que hay justificantes pendientes para revisar
+const justificantesPendientes = computed(() => 
+  faltas.value.some(a => a.estado_justificante !== 'pendiente')) 
+
 const sesionesConFalta = computed(() =>
   new Set(faltas.value.map(a => Number(a.sesion_id)))
 )
@@ -267,16 +271,18 @@ const calendarAttributes = computed(() =>
       class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
       <ul class="space-y-1">
         <li v-for="falta in faltas" :key="falta.id">
-          Tienes falta el día {{ formatearFechaLegible(falta.fecha) }} a la sesión {{ falta.tipo_sesion }}
+          Tienes una inasistencia a  la sesión {{ falta.tipo_sesion }} el día {{ formatearFechaLegible(falta.fecha) }}
           <span v-if="textoJustificante[falta.estado_justificante]" class="font-semibold">
             — {{ textoJustificante[falta.estado_justificante] }}
           </span>
         </li>
       </ul>
-
+      <!--Mensaje se muestra solo si hay justificantes en revisión-->
       <p class="mt-2 text-sm">
-        Da clic sobre la fecha en el calendario para subir tu justificante.
+        Si tienes un justificante, puedes subirlo <strong>dando clic en el calendario sobre la fecha de inasistencia
+          para adjuntarlo y enviarlo</strong>
       </p>
+      <p class="mt-2 text-sm"><strong>IMPORTANTE:</strong> El documento deberá ser aprobado por el administrador   </p>
     </div>
 
     <!-- Calendario -->
