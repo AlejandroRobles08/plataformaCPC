@@ -99,6 +99,10 @@ Route::middleware('auth', 'privacy')->group(function () {
       Route::post('/consejos/{consejo}/justificantes', [JustificanteController::class, 'store'])
         ->name('justificantes.store');
 
+      // Ver el justificante propio en PDF
+      Route::get('/justificantes/{asistencia}/mi-justificante', [JustificanteController::class, 'verPropio'])
+        ->name('justificantes.propio');
+
       // Marcar como vistos los comentarios de justificantes rechazados
       Route::patch('/consejos/{consejo}/justificantes/comentarios-vistos', [JustificanteController::class, 'marcarComentariosVistos'])
         ->name('justificantes.comentarios.vistos');

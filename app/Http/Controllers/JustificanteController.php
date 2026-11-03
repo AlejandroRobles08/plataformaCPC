@@ -84,7 +84,14 @@ class JustificanteController extends Controller
             ]);
         }
 
-        // Eliminar justificante anterior si existe
+        // El justificante solo se envía una vez; únicamente se puede reenviar si fue rechazado
+        if ($asistencia->justificante && $asistencia->estado_justificante !== 'rechazado') {
+            return back()->withErrors([
+                'justificante' => 'Ya enviaste un justificante para esta sesión.',
+            ]);
+        }
+
+        // Eliminar justificante anterior si existe (solo llega aquí si fue rechazado)
         if ($asistencia->justificante) {
             Storage::disk('public')->delete($asistencia->justificante);
         }
@@ -215,6 +222,16 @@ class JustificanteController extends Controller
             ->update(['comentario_visto_at' => now()]);
 
         return back();
+    }
+
+    // Visualizar el justificante propio (integrante)
+    public function verPropio(Asistencia $asistencia) {
+        // Validar que la asistencia pertenezca al integrante autenticado
+        if ($asistencia->integrante?->correo !== auth()->user()->email) {
+            abort(403, 'No tienes permiso para ver este justificante.');
+        }
+
+        return $this->show($asistencia);
     }
 
     //visualizar justificantes en PDF

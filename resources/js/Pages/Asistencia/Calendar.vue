@@ -163,7 +163,9 @@ function abrirJustificante(fecha) {
 
   sesionJustificante.value = {
     fecha: falta.fecha,
-    tipo_sesion: falta.tipo_sesion
+    tipo_sesion: falta.tipo_sesion,
+    asistencia_id: falta.id,
+    estado_justificante: falta.estado_justificante
   }
   showJustificante.value = true
 }
@@ -249,6 +251,22 @@ const calendarAttributes = computed(() =>
         class="inline-flex items-center px-3 py-2 bg-gray-200 text-gray-800 text-sm rounded hover:bg-gray-300 transition">
         ← Volver a Asistencias
       </Link>
+    </div>
+
+    <!-- Instrucciones para administrador -->
+    <div v-if="puedeCrearAsistencia" class="mb-6 space-y-1 text-lg text-gray-500">
+      <p>
+        Para programar una sesión, da clic sobre la fecha deseada en el calendario. 
+        Para registrar la asistencia de una sesión ya programada, da clic sobre la misma fecha de la sesión.
+      </p>
+    </div>
+
+    <!-- Instrucciones para integrante -->
+    <div v-if="esIntegrante" class="mb-6 space-y-1 text-lg text-gray-500">
+      <p>
+        Si usted no pudo asistir a una sesión pero cuenta con un justificante, puede subirlo dando clic sobre la fecha de la sesión en el calendario.
+      <br><strong>IMPORTANTE:</strong> El sistema le notificará cuando no haya asistido a una sesión y cuando su justificante haya sido aprobado o rechazado.
+      </p>
     </div>
 
     <div v-if="mensajeExito" class="mb-4 rounded-lg border border-green-200 

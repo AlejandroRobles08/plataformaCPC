@@ -179,9 +179,9 @@ class FriendlyErrorResponse
         return match (true) {
             $user->hasRole('super_admin') => 'Esta sección está pensada para otro tipo de usuario.',
             $user->hasRole('admin') => 'Tu rol de administrador no incluye este permiso. Si lo necesitas, solicítalo al super administrador.',
-            $user->hasRole('integrante') => 'Esta sección está reservada para la administración o para integrantes de otro consejo. Si crees que deberías tener acceso, comunícate con la administración.',
-            $user->hasRole('invitado') => 'Tu cuenta de invitado tiene acceso limitado. Una vez que tu postulación sea aprobada podrás acceder a más secciones de la plataforma.',
-            default => 'Si crees que deberías tener acceso, comunícate con la administración.',
+            $user->hasRole('integrante') => 'Esta sección está reservada para la administración o para integrantes de otro consejo.',
+            $user->hasRole('invitado') => 'Tu cuenta de invitado tiene acceso limitado. Una vez que tu postulación sea aprobada podrás acceder a más secciones del sistema.',
+            default => 'Por favor regresa a la página anterior.',
         };
     }
 }

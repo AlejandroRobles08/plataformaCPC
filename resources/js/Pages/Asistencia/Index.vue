@@ -176,6 +176,23 @@ function colorClase(color) {
       <h1 class="text-2xl font-bold mb-2">
         Registro de asistencias del consejo: {{ props.consejo.nombre }}
       </h1>
+      <!-- Instrucciones para administrador -->
+      <div v-if="esAdministrador" class="mb-6 space-y-1 text-lg text-gray-500">
+        <p>
+          En el botón <strong>Evidencia documental</strong>, estarán disponibles para visualización las listas de asistencia de cada sesión.
+        </p>
+        <p>
+          En el botón <strong>Ver calendario</strong>, usted podrá programar las sesiones que se llevarán a cabo, así como pasar lista de asistencia.
+        </p>
+      </div>
+
+      <!-- Instrucciones para integrante -->
+      <div v-if="esIntegrante" class="mb-6 text-lg text-gray-500">
+        <p>
+          En el botón <strong>Ver calendario</strong>, usted podrá visualizar sus asistencias e inasistencias, así como el total acumulado de las mismas.
+          En caso de que haya faltado a alguna sesión, podrá adjuntar un justificante en formato PDF para su revisión.
+        </p>
+      </div>
 
       <div class="flex gap-4 mb-6">
         <Link v-if="!esIntegrante" :href="route('asistencias.evidencias', consejo.id)"
@@ -188,7 +205,7 @@ function colorClase(color) {
         px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-800">
           <CalendarIcon class="w-5 h-5" />
           Ver calendario
-          <span v-if="totalFaltas" class="absolute- top-2 -right min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold">
+          <span v-if="totalFaltas" class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold">
             {{ totalFaltas }}
           </span>
         </Link>

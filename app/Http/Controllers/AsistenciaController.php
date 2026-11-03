@@ -6,6 +6,7 @@ use App\Models\Asistencia;
 use App\Models\Sesion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class AsistenciaController extends Controller
@@ -174,7 +175,8 @@ class AsistenciaController extends Controller
             'asistencias' => 'required|array',
             'asistencias.*.integrante_id' => 'required|exists:integrantes,id',
             'asistencias.*.estado' => 'required|in:asistio,falto,justificada',
-            'evidencia' => 'required|file|mimes:pdf|max:4096',
+            // Obligatoria solo en el primer pase de lista (se valida más abajo)
+            'evidencia' => 'nullable|file|mimes:pdf|max:4096',
         ]);
 
         $sesion = Sesion::where('consejo_id', $consejo->id)
@@ -187,6 +189,27 @@ class AsistenciaController extends Controller
                 'fecha' => 'La fecha seleccionada no pertenece a ninguna sesión programada.',
             ]);
         }
+
+        // Pase de lista ya enviado: solo el super_admin puede modificarlo
+        $listaGuardada = Asistencia::where('sesion_id', $sesion->id)->exists();
+
+        if ($listaGuardada && !$request->user()->hasRole('super_admin')) {
+            return back()->withErrors([
+                'asistencias' => 'La lista de asistencia de esta sesión ya fue guardada y no se puede modificar.',
+            ]);
+        }
+
+        // La evidencia es obligatoria en el primer pase de lista
+        if (!$listaGuardada && !$request->hasFile('evidencia')) {
+            return back()->withErrors([
+                'evidencia' => 'La evidencia documental es obligatoria.',
+            ]);
+        }
+
+        // Evidencia actual de la sesión (se elimina si se reemplaza)
+        $evidenciaAnterior = Asistencia::where('sesion_id', $sesion->id)
+            ->whereNotNull('evidencia')
+            ->value('evidencia');
 
         $evidenciaPath = null;
 
@@ -202,18 +225,29 @@ class AsistenciaController extends Controller
 
             if (!$perteneceAlConsejo) continue;
 
+            $datos = [
+                'fecha' => $validated['fecha'],
+                'tipo_sesion' => $validated['tipo_sesion'],
+                'estado' => $item['estado'],
+            ];
+
+            // Solo se actualiza la evidencia si se adjuntó un archivo nuevo
+            if ($evidenciaPath) {
+                $datos['evidencia'] = $evidenciaPath;
+            }
+
             Asistencia::updateOrCreate(
                 [
                     'integrante_id' => $item['integrante_id'],
                     'sesion_id' => $sesion->id,
                 ],
-                [
-                    'fecha' => $validated['fecha'],
-                    'tipo_sesion' => $validated['tipo_sesion'],
-                    'estado' => $item['estado'],
-                    'evidencia' => $evidenciaPath,
-                ]
+                $datos
             );
+        }
+
+        // Eliminar el archivo de la evidencia reemplazada
+        if ($evidenciaPath && $evidenciaAnterior && $evidenciaAnterior !== $evidenciaPath) {
+            Storage::disk('public')->delete($evidenciaAnterior);
         }
 
         return back()->with(

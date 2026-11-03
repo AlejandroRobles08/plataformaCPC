@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, defineEmits } from 'vue'
+import { computed } from 'vue'
 import DraggableModal from '@/Components/DraggableModal.vue'
 import * as XLSX from 'xlsx'
 
@@ -14,8 +14,8 @@ const emit = defineEmits(['close'])
 function textoEstado(estado) {
   switch (estado) {
     case 'asistio': return 'Asistió'
-    case 'falto': return 'Faltó'
-    case 'justificada': return 'Falta justificada'
+    case 'falto': return 'Inasistencia'
+    case 'justificada': return 'Inasistencia justificada'
     default: return '-'
   }
 }
@@ -34,10 +34,22 @@ function comentarioRechazo(h) {
   return h.estado_justificante === 'rechazado' ? h.comentario_justificante : null
 }
 
+// Filas del historial: una falta justificada se muestra como dos filas (la inasistencia y su justificación)
+const filas = computed(() =>
+  (props.historial ?? []).flatMap(h =>
+    h.estado === 'justificada'
+      ? [
+          { ...h, estado: 'falto', clave: `${h.id}-falto` },
+          { ...h, clave: `${h.id}-justificada` }
+        ]
+      : [{ ...h, clave: `${h.id}` }]
+  )
+)
+
 // export a excel
 function exportarExcel() {
 
-  const data = props.historial.map(h => ({
+  const data = filas.value.map(h => ({
     'Tipo de sesión': h.tipo_sesion,
     'Fecha': h.fecha,
     'Estado': textoEstado(h.estado),
@@ -81,8 +93,8 @@ function exportarExcel() {
         </thead>
 
         <tbody>
-          <tr v-for="h in historial"
-            :key="h.id" class="hover:bg-gray-50">
+          <tr v-for="h in filas"
+            :key="h.clave" class="hover:bg-gray-50">
             <td class="px-3 py-2 border capitalize">
               {{ h.tipo_sesion }}
             </td>

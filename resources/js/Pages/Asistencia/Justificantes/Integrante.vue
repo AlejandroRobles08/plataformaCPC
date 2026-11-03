@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
 import DraggableModal from '@/Components/DraggableModal.vue'
@@ -13,7 +13,7 @@ const props = defineProps({
     type: Object,
     required: true
   },
-  // Sesión de la falta seleccionada en el calendario (fecha y tipo_sesion)
+  // Falta seleccionada en el calendario (fecha, tipo_sesion, asistencia_id y estado_justificante)
   sesion: {
     type: Object,
     required: true
@@ -38,6 +38,11 @@ const fechaLegible = new Date(`${props.sesion.fecha}T00:00:00`).toLocaleDateStri
   year: 'numeric'
 })
 
+// Ya se envió y no fue rechazado: no se puede reenviar, solo consultar
+const yaEnviado = computed(() =>
+  ['pendiente', 'aprobado'].includes(props.sesion.estado_justificante)
+)
+
 // Valida que el archivo sea PDF.
 function seleccionarArchivo(event) {
   const file = event.target.files[0]
@@ -61,6 +66,7 @@ function seleccionarArchivo(event) {
 
 // Envía el justificante.
 function guardar() {
+  if (yaEnviado.value) return
   errorArchivo.value = ''
 
   form.post(
@@ -99,7 +105,7 @@ function cerrarModal() {
     @close="cerrarModal">
     <!-- Descripción -->
     <p class="mb-5 text-sm text-gray-500">
-      Adjunta el justificante de la sesión a la que faltaste.
+      Adjunte el justificante de la sesión a la que no pudo asistir. El archivo debe ser adjuntado en formato PDF. Se le notificará si fue aprobado o rechazado.
     </p>
 
     <!-- Integrante -->
@@ -147,7 +153,18 @@ function cerrarModal() {
         Justificante (PDF)
       </label>
 
-      <input type="file" accept="application/pdf" class="w-full rounded border px-3 py-2"
+      <!-- Justificante ya enviado: solo se puede consultar -->
+      <div v-if="yaEnviado" class="rounded border bg-gray-100 px-3 py-2">
+        <a :href="route('justificantes.propio', sesion.asistencia_id)" target="_blank" rel="noopener"
+          class="font-medium text-blue-700 underline hover:text-blue-900">
+          Ver justificante enviado
+        </a>
+        <p class="mt-1 text-xs text-gray-500">
+          Tu justificante ya ha sido enviado y está en revisión.
+        </p>
+      </div>
+
+      <input v-else type="file" accept="application/pdf" class="w-full rounded border px-3 py-2"
         @change="seleccionarArchivo"/>
 
       <!-- Error de validación frontend -->
@@ -160,7 +177,7 @@ function cerrarModal() {
         {{ form.errors.justificante }}
       </p>
 
-      <p class="mt-1 text-xs text-gray-500">
+      <p v-if="!yaEnviado" class="mt-1 text-xs text-gray-500">
         Solo se permiten archivos PDF de hasta 4 MB.
       </p>
     </div>
@@ -175,7 +192,7 @@ function cerrarModal() {
 
       <button type="button"
         class="rounded bg-yellow-700 px-5 py-2 text-white transition hover:bg-yellow-800 disabled:opacity-50"
-        :disabled="form.processing" @click="guardar">
+        :disabled="form.processing || yaEnviado" @click="guardar">
         {{ form.processing ? 'Enviando...' : 'Enviar justificante' }}
       </button>  
     </div>

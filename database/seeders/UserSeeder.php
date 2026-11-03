@@ -39,11 +39,6 @@ class UserSeeder extends Seeder
 
             // admin
             [
-                'name' => 'Jesus Alejandro',
-                'email' => 'jesus.alejandro@plataformacpc.test',
-                'role' => 'admin',
-            ],
-            [
                 'name' => 'Admin Prueba',
                 'email' => 'admin@plataformacpc.test',
                 'role' => 'admin',
