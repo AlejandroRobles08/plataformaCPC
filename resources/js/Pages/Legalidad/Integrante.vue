@@ -43,8 +43,8 @@ export default {
       return completo || this.$page.props.auth?.user?.name || "Integrante";
     },
 
-    puesto() {
-      return this.integrante.puesto || "Integrante";
+    cargo() {
+      return this.integrante.cargo || "Integrante";
     },
 
     //estatus de la reelección del periodo actual
@@ -234,7 +234,7 @@ export default {
             <div class="space-y-4">
               <div class="flex flex-wrap items-center gap-3">
                 <h3 class="text-2xl font-bold">{{ nombre }}</h3>
-                <span class="rounded border px-3 py-1 text-sm">{{ puesto }}</span>
+                <span class="rounded border px-3 py-1 text-sm">{{ cargo }}</span>
               </div>
 
               <div class="grid gap-3 sm:grid-cols-[150px_1fr]">

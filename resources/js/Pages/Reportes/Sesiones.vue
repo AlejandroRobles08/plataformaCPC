@@ -77,13 +77,13 @@ function exportarConvocatoriasExcel() {
         ← Volver a Reportes
       </Link>
     </div>
-    <div class="p-6 bg-white rounded-lg shadow-md">
+    <div class="p-6 bg-white text-gray-700 rounded-lg shadow-md">
 
       <h1 class="text-2xl font-bold mb-6">
         Reporte de Sesiones del Consejo de Participación Ciudadana de {{ consejo.nombre }}
       </h1>
 
-      <div v-if="!convocatorias?.length" class="text-center text-gray-500 p-10 border rounded-lg bg-gray-50">
+      <div v-if="!convocatorias?.length" class="text-center text-gray-500 p-10 border border-gray-200 rounded-lg bg-gray-50">
         No hay convocatorias registradas en este consejo.
       </div>
 
@@ -91,7 +91,7 @@ function exportarConvocatoriasExcel() {
         <!-- SELECTOR DE AÑO -->
         <div class="mb-6">
           <label class="block font-semibold mb-2">Selecciona el año</label>
-          <select v-model="anioSeleccionado" class="border rounded-lg p-2 w-full sm:w-1/3">
+          <select v-model="anioSeleccionado" class="border border-gray-300 bg-white text-gray-700 rounded-lg p-2 w-full sm:w-1/3">
             <option v-for="y in anios" :key="y" :value="y">{{ y }}</option>
           </select>
         </div>
@@ -115,21 +115,21 @@ function exportarConvocatoriasExcel() {
             <button v-for="mes in meses" :key="mes" type="button" @click="mesSeleccionado = mes"
               :class="['px-3 py-2 rounded-lg text-sm font-medium transition-colors',
               mesSeleccionado === mes ? 'bg-blue-500 text-white' :
-              'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200']">
+              'bg-gray-100 text-gray-700 hover:bg-gray-200']">
               {{ mes.slice(0, 3) }}
             </button>
           </div>
         </div>
 
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+        <div class="border-t border-gray-200 pt-5">
           <h3 class="text-lg font-semibold mb-4">
             {{ mesSeleccionado }} {{ anioSeleccionado }}
           </h3>
 
           <!-- Tabla del mes seleccionado -->
-          <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+          <div class="overflow-x-auto rounded-lg border border-gray-200">
             <table id="tabla-convocatorias-pivot" class="w-full border-collapse text-sm">
-              <thead class="bg-gray-100 dark:bg-gray-800">
+              <thead class="bg-gray-50 text-gray-600">
                 <tr>
                   <th class="px-3 py-3 text-left">
                     Tipo de sesión
@@ -144,7 +144,7 @@ function exportarConvocatoriasExcel() {
               </thead>
 
               <tbody>
-                <tr v-for="tipo in tipoSesion" :key="tipo" class="border-t border-gray-200 dark:border-gray-700">
+                <tr v-for="tipo in tipoSesion" :key="tipo" class="border-t border-gray-200">
                   <td class="px-3 py-3 font-medium capitalize">
                     {{ tipo }}
                   </td>
@@ -157,7 +157,7 @@ function exportarConvocatoriasExcel() {
                 </tr>
               </tbody>
 
-              <tfoot class="bg-gray-100 font-semibold dark:bg-gray-800">
+              <tfoot class="bg-gray-50 font-semibold">
                 <tr>
                   <td class="px-3 py-3">Total del mes</td>
                   <td class="px-3 py-3 text-center">
@@ -174,13 +174,13 @@ function exportarConvocatoriasExcel() {
           </div>
 
           <!-- Resumen anual desplegable -->
-          <details class="mt-4 rounded-lg border border-gray-200 dark:border-gray-700">
+          <details class="mt-4 rounded-lg border border-gray-200">
             <summary class="cursor-pointer px-4 py-3 font-semibold">
               Consultar totales anuales de {{ anioSeleccionado }}
             </summary>
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
-                <thead class="bg-gray-100 dark:bg-gray-800">
+                <thead class="bg-gray-50 text-gray-600">
                   <tr>
                     <th class="px-3 py-3 text-left">Tipo de sesión</th>
                     <th class="px-3 py-3 text-center">Convocadas</th>
@@ -189,7 +189,7 @@ function exportarConvocatoriasExcel() {
                 </thead>
 
                 <tbody>
-                  <tr v-for="tipo in tipoSesion" :key="tipo" class="border-t border-gray-200 dark:border-gray-700">
+                  <tr v-for="tipo in tipoSesion" :key="tipo" class="border-t border-gray-200">
                     <td class="px-3 py-3 capitalize">{{ tipo }}</td>
                     <td class="px-3 py-3 text-center">
                       {{ totalesAnualesConvocatorias[tipo].convocada }}
@@ -200,20 +200,16 @@ function exportarConvocatoriasExcel() {
                   </tr>
                 </tbody>
 
-                <tfoot class="bg-gray-100 font-semibold dark:bg-gray-800">
+                <tfoot class="bg-gray-50 font-semibold">
                   <tr>
-                    <td colspan="2" class="border p-2">Total anual</td>
-                    <td v-for="mes in meses" :key="mes" class="border p-2 text-center">
-                      {{ totalesMensualesAnuales[mes] }}
+                    <td class="px-3 py-3">Total anual</td>
+                    <td class="px-3 py-3 text-center">
+                      {{ tipoSesion.reduce((total, tipo) =>
+                      total + totalesAnualesConvocatorias[tipo].convocada, 0) }}
                     </td>
-                    <td class="border p-2 text-center">
-                      {{ asistenciasExcel.reduce((total,fila) => total + fila.totalA, 0) }}
-                    </td>
-                    <td class="border p-2 text-center">
-                      {{ asistenciasExcel.reduce((total,fila) => total + fila.totalI, 0) }}
-                    </td>
-                    <td class="border p-2 text-center">
-                      {{ asistenciasExcel.reduce((total,fila) => total + fila.totalIJ, 0) }}
+                    <td class="px-3 py-3 text-center">
+                      {{ tipoSesion.reduce((total, tipo) =>
+                      total + totalesAnualesConvocatorias[tipo].realizada, 0) }}
                     </td>
                   </tr>
                 </tfoot>

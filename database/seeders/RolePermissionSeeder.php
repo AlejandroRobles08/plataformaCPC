@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class RolePermissionSeeder extends Seeder
@@ -13,7 +14,8 @@ class RolePermissionSeeder extends Seeder
         $superAdmin = Role::firstOrCreate([
             'name' => 'super_admin',
         ]);
-        $superAdmin->syncPermissions([]);
+        // el super_admin tiene todos los permisos sin excepción
+        $superAdmin->syncPermissions(Permission::all());
 
 
         //------------ADMIN-------------

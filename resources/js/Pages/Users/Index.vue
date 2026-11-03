@@ -6,6 +6,15 @@ import { Head } from '@inertiajs/vue3';
 const props = defineProps({
 	users: {
 		type: Object
+	},
+	// solo es verdadero para el super_admin
+	verRoles: {
+		type: Boolean,
+		default: false
+	},
+	roles: {
+		type: Array,
+		default: () => []
 	}
 })
 </script>
@@ -42,8 +51,8 @@ const props = defineProps({
 							<tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase bg-gray-50 border-b">
 								<th class="px-4 py-3">Nombre</th>
 								<th class="px-4 py-3">Email</th>
-								<th class="px-4 py-3">Rol</th>
-								<th class="px-4 py-3">Permisos</th>
+								<th v-if="verRoles" class="px-4 py-3">Rol</th>
+								<th v-if="verRoles" class="px-4 py-3">Permisos</th>
 							</tr>
 						</thead>
 						<tbody class="bg-white divide-y">
@@ -54,6 +63,29 @@ const props = defineProps({
 								<td class="px-4 py-3 text-sm">
 									{{ user.email }}
 								</td>
+								<td v-if="verRoles" class="px-4 py-3 text-sm">
+									<div class="flex flex-wrap gap-1">
+										<span v-for="rol in user.roles" :key="rol"
+											class="px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full">
+											{{ rol }}
+										</span>
+										<span v-if="!user.roles.length" class="text-gray-400">Sin rol</span>
+									</div>
+								</td>
+								<td v-if="verRoles" class="px-4 py-3 text-sm">
+									<details v-if="user.permisos.length">
+										<summary class="text-blue-600 cursor-pointer hover:underline">
+											Ver {{ user.permisos.length }} permisos
+										</summary>
+										<div class="flex flex-wrap gap-1 mt-2">
+											<span v-for="permiso in user.permisos" :key="permiso"
+												class="px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded">
+												{{ permiso }}
+											</span>
+										</div>
+									</details>
+									<span v-else class="text-gray-400">Sin permisos</span>
+								</td>
 							</tr>
 						</tbody>
 					</table>
@@ -61,6 +93,28 @@ const props = defineProps({
 				<div
 					class="px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase bg-gray-50 border-t sm:grid-cols-9">
 					<pagination :links="users.links" />
+				</div>
+			</div>
+
+			<!-- Catálogo de roles registrados (solo super_admin) -->
+			<div v-if="verRoles" class="overflow-hidden mb-8 w-full rounded-lg border shadow-xs">
+				<div class="px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase bg-gray-50 border-b">
+					Roles registrados y sus permisos
+				</div>
+				<div class="divide-y">
+					<div v-for="rol in roles" :key="rol.id" class="px-4 py-3">
+						<p class="mb-2 text-sm font-semibold text-gray-800">
+							{{ rol.name }}
+							<span class="ml-1 text-xs font-normal text-gray-500">({{ rol.permisos.length }} permisos)</span>
+						</p>
+						<div class="flex flex-wrap gap-1">
+							<span v-for="permiso in rol.permisos" :key="permiso"
+								class="px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded">
+								{{ permiso }}
+							</span>
+							<span v-if="!rol.permisos.length" class="text-xs text-gray-400">Sin permisos asignados</span>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -39,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Mensajes de error comprensibles para el usuario (403, 404, 419, 500...)
+        $exceptions->respond(new \App\Exceptions\FriendlyErrorResponse());
     })
     ->create();

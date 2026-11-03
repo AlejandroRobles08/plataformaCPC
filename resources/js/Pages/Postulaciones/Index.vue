@@ -11,6 +11,10 @@ const page = usePage()
 const esInvitado = computed(() =>
   page.props.auth?.roles?.includes('invitado')
 )
+// El invitado y el super_admin pueden postularse
+const puedePostularse = computed(() =>
+  esInvitado.value || page.props.auth?.roles?.includes('super_admin')
+)
 
 const props = defineProps({
   postulaciones: {
@@ -136,7 +140,7 @@ function exportarPostulacionesExcel() {
             Exportar Excel
           </button>
 
-          <button @click="showModal = true"class="px-4 py-2 text-white rounded-md inline-flex items-center gap-2"
+          <button v-if="puedePostularse" @click="showModal = true" class="px-4 py-2 text-white rounded-md inline-flex items-center gap-2"
             style="background-color:#1E520B;">
               <span>Postularme</span>
                 <HandRaisedIcon class="w-5 h-5" />
@@ -286,6 +290,6 @@ function exportarPostulacionesExcel() {
         </form>
       </div>
     </div>
-    <Form v-if="showModal" @close="showModal = false"/>
+    <Form v-if="puedePostularse && showModal" @close="showModal = false"/>
   </AuthenticatedLayout>
 </template>

@@ -11,6 +11,7 @@ use App\Models\IntegranteBaja;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class IntegranteController extends Controller
 {
@@ -59,7 +60,7 @@ class IntegranteController extends Controller
             'direccion' => 'nullable|string|max:500',
             'discapacidad' => 'nullable|string|max:25',
             'discapacidad_tipo' => 'nullable|string|max:255|required_if:discapacidad,si',
-            'puesto' => 'required|string|max:255',
+            'cargo' => ['required', Rule::in(Integrante::CARGOS)],
             'correo' => 'required|email|unique:integrantes,correo|unique:users,email',
             'consejo_id' => 'required|exists:consejos,id',
             // Captura manual de fórmula (desactivada: ahora se asigna automáticamente)
@@ -100,7 +101,7 @@ class IntegranteController extends Controller
             'direccion' => 'nullable|string|max:500',
             'discapacidad' => 'nullable|string|max:25',
             'discapacidad_tipo' => 'nullable|string|max:255|required_if:discapacidad,si',
-            'puesto' => 'required|string|max:255',
+            'cargo' => ['required', Rule::in(Integrante::CARGOS)],
             'correo' => ['required','email',
                 'unique:integrantes,correo,' . $integrante->id,
                 'unique:users,email,' . $integrante->user_id,

@@ -2,6 +2,7 @@
 <script>
 import { router } from "@inertiajs/vue3";
 import DraggableModal from "@/Components/DraggableModal.vue";
+import Swal from "sweetalert2";
 
 export default {
   components: {
@@ -175,17 +176,25 @@ export default {
           `/legalidad/${this.editData.id}/reeleccion`,
           data
         );
-      } else {
-        router.post(
-          `/legalidad/${this.consejo.id}`,
-          data
-        );
-      }
 
-      //cierra el modal después de enviar
-      setTimeout(() => {
-        this.$emit("close");
-      }, 300);
+        //cierra el modal después de enviar
+        setTimeout(() => {
+          this.$emit("close");
+        }, 300);
+      } else {
+        //el modal solo se cierra si el periodo se creó
+        router.post(`/legalidad/${this.consejo.id}`, data, {
+          onSuccess: () => this.$emit("close"),
+          onError: (errors) => {
+            Swal.fire({
+              icon: "error",
+              title: "No se pudo crear el periodo",
+              text: Object.values(errors)[0],
+              confirmButtonColor: "#7A1F32",
+            });
+          },
+        });
+      }
     },
   },
 };

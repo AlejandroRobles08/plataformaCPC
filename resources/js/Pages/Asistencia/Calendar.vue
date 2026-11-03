@@ -278,6 +278,7 @@ const calendarAttributes = computed(() =>
         </li>
       </ul>
       <!--Mensaje se muestra solo si hay justificantes en revisión-->
+      <span v-if="!esIntegrante"></span>
       <p class="mt-2 text-sm">
         Si tienes un justificante, puedes subirlo <strong>dando clic en el calendario sobre la fecha de inasistencia
           para adjuntarlo y enviarlo</strong>

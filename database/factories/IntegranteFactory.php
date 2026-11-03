@@ -19,7 +19,7 @@ class IntegranteFactory extends Factory
             'apellido_paterno' => fake()->lastName(),
             'apellido_materno' => fake()->lastName(),
             'genero' => 'Prefiero no responder',
-            'puesto' => 'Consejero',
+            'cargo' => 'Persona Consejera Titular',
             'correo' => fake()->unique()->safeEmail(),
             'consejo_id' => Consejo::factory(),
             'formula' => 1,

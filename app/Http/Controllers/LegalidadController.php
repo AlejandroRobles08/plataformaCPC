@@ -73,6 +73,15 @@ class LegalidadController extends Controller
             'integrante_id' => ['required',
                 Rule::exists('integrantes', 'id')
                     ->where('consejo_id', $consejo->id),
+                // No puede tener otro periodo que siga vigente
+                function ($attribute, $value, $fail) {
+                    $tienePeriodoActivo = Legalidad::where('integrante_id', $value)
+                        ->whereDate('fin_cargo', '>=', Carbon::today())
+                        ->exists();
+                    if ($tienePeriodoActivo) {
+                        $fail('Este integrante ya tiene un periodo activo.');
+                    }
+                },
             ],
             'inicio_cargo' => 'required|date',
             'fin_cargo' => 'required|date|after_or_equal:inicio_cargo',

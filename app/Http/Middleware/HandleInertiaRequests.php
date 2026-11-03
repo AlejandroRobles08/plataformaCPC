@@ -38,13 +38,18 @@ class HandleInertiaRequests extends Middleware
                         : [];
                 },
                 'permissions' => function () use ($request) {
-                    return $request->user()
-                        ? $request->user()
-                            ->getAllPermissions()
-                            ->pluck('name')
-                            ->values()
-                            ->all()
-                        : [];
+                    $user = $request->user();
+
+                    if (! $user) {
+                        return [];
+                    }
+
+                    // el super_admin recibe todos los permisos existentes
+                    if ($user->hasRole('super_admin')) {
+                        return \Spatie\Permission\Models\Permission::pluck('name')->values()->all();
+                    }
+
+                    return $user->getAllPermissions()->pluck('name')->values()->all();
                 },
             ],
             'flash' => function () use ($request) {
@@ -52,6 +57,8 @@ class HandleInertiaRequests extends Middleware
                     'success' => $request->session()->get('success'),
                     'warning' => $request->session()->get('warning'),
                     'error' => $request->session()->get('error'),
+                    // Errores HTTP de acciones (permisos, sesión expirada...), ver FriendlyErrorResponse
+                    'errorGlobal' => $request->session()->get('error_global'),
                 ];
             },
             'showingMobileMenu' => false,

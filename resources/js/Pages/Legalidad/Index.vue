@@ -40,6 +40,18 @@ export default {
         r.estatus_reeleccion === 'pendiente' && r.fecha_inicio_reeleccion
       ).length;
     },
+    //integrantes sin un periodo vigente, los únicos a los que se les puede crear uno
+    integrantesDisponibles() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const hoy = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const conPeriodoActivo = new Set(
+        this.registros
+          .filter(r => r.fin_cargo && r.fin_cargo.substring(0, 10) >= hoy)
+          .map(r => r.integrante_id)
+      );
+      return this.integrantes.filter(i => !conPeriodoActivo.has(i.id));
+    },
   },
 
   //muestra la alerta al cargar y al actualizar la vista
@@ -244,7 +256,7 @@ export default {
       </div>
 
       <!-- Formulario de periodo -->
-      <Form :show="showForm" :consejo="consejo" :integrantes="integrantes" :editData="selectedLegalidad"
+      <Form :show="showForm" :consejo="consejo" :integrantes="integrantesDisponibles" :editData="selectedLegalidad"
         @close="closeForm" />
     </div>
   </AuthenticatedLayout>
