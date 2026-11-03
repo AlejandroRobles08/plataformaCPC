@@ -52,7 +52,7 @@ class ReporteController extends Controller
         Gate::authorize('viewAny', [Integrante::class, $consejo]);
 
         $asistencias = $this->asistenciasQuery($consejo)
-            ->with('integrante:id,nombre,apellido_paterno,apellido_materno,puesto') // Carga solo los campos necesarios del integrante
+            ->with('integrante:id,nombre,apellido_paterno,apellido_materno,cargo') // Carga solo los campos necesarios del integrante
             ->get([
                 'id',
                 'integrante_id',

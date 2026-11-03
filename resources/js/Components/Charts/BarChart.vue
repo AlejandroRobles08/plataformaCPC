@@ -38,7 +38,7 @@ const renderChart = () => {
         x: {
           beginAtZero: true,
           max: 30,
-          ticks: {stepSize:5, precision: 0 }
+          ticks: {stepSize:2, precision: 0 }
         },
         y: {
           ticks: { autoSkip: false }  // mostrar todos los consejos

@@ -141,6 +141,10 @@ const icons = {
         </Link>
       </div>
 
+      <p v-if="!consejos.length" class="text-center text-gray-500">
+        Aún no estás asignado a ningún consejo. Si crees que es un error, comunícate con la administración.
+      </p>
+
     </div>
   </AuthenticatedLayout>
 </template>

@@ -67,7 +67,7 @@ const form = useForm({
   nombre: '',
   apellido_paterno: '',
   apellido_materno: '',
-  puesto: '',
+  cargo: '',
   correo: '',
   genero: '',
   direccion: '',
@@ -93,7 +93,7 @@ function editIntegrante(integrante) {
   form.nombre = integrante.nombre
   form.apellido_paterno = integrante.apellido_paterno
   form.apellido_materno = integrante.apellido_materno ?? ''
-  form.puesto = integrante.puesto
+  form.cargo = integrante.cargo ?? ''
   form.correo = integrante.correo
   form.genero = integrante.genero
   form.direccion = integrante.direccion
@@ -271,7 +271,7 @@ const getSemaforoClase = (integrante) => {
                   <span v-if="getSemaforoClase(f[0])"class="semaforo" :class="getSemaforoClase(f[0])"></span>
                   <span>{{ f[0].nombre }} {{ f[0].apellido }}</span>
                 </div>
-                <span v-else class="text-gray-400">Pendiente</span>
+                <span v-else class="text-gray-400">En espera de asignación de Persona Consejera</span>
 
                 <br />
 
@@ -279,15 +279,15 @@ const getSemaforoClase = (integrante) => {
                   <span v-if="getSemaforoClase(f[1])" class="semaforo" :class="getSemaforoClase(f[1])"></span>
                   <span>{{ f[1].nombre }} {{ f[1].apellido }}</span>
                 </div>
-                <span v-else class="text-gray-400">Pendiente</span>
+                <span v-else class="text-gray-400">En espera de asignación de Persona Consejera</span>
               </td>
 
               <td class="px-4 py-2 border">
-                <span v-if="f[0]">{{ f[0].puesto }}</span>
-                <span v-else class="text-gray-400">Pendiente</span>
+                <span v-if="f[0]">{{ f[0].cargo }}</span>
+                <span v-else class="text-gray-400">En espera de asignación de cargo</span>
                 <br />
-                <span v-if="f[1]">{{ f[1].puesto }}</span>
-                <span v-else class="text-gray-400">Pendiente</span>
+                <span v-if="f[1]">{{ f[1].cargo }}</span>
+                <span v-else class="text-gray-400">En espera de asignación de cargo</span>
               </td>
 
               <td class="px-4 py-2 border">

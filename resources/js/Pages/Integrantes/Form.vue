@@ -82,9 +82,13 @@ watch(
                 <label class="block text-sm font-medium">
                     Cargo
                 </label>
-                <input v-model="form.puesto" type="text" class="w-full border rounded px-3 py-2"/>
-                <p v-if="form.errors.puesto" class="text-red-500 text-sm">
-                    {{ form.errors.puesto }}
+                <select v-model="form.cargo" class="w-full border rounded px-3 py-2">
+                    <option value="">Selecciona</option>
+                    <option value="Persona Consejera Titular">Persona Consejera Titular</option>
+                    <option value="Persona Consejera Suplente">Persona Consejera Suplente</option>
+                </select>
+                <p v-if="form.errors.cargo" class="text-red-500 text-sm">
+                    {{ form.errors.cargo }}
                 </p>
             </div>
 
@@ -121,7 +125,7 @@ watch(
                 <select
                     v-model="form.genero"
                     class="w-full border rounded px-3 py-2">
-                    <option value="">Seleccione</option>
+                    <option value="">Selecciona</option>
                     <option value="Mujer">Femenino</option>
                     <option value="Hombre">Masculino</option>
                     <option value="Otro">
@@ -170,7 +174,6 @@ watch(
                     class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-800">
                     Cancelar
                 </button>
-
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white 
                 rounded hover:bg-green-800">
                     Guardar

@@ -229,7 +229,7 @@ Route::middleware('auth', 'privacy')->group(function () {
         ->name('postulaciones.index');
 
     Route::post('/postulaciones', [PostulacionController::class, 'store'])
-        ->middleware('role:invitado')
+        ->middleware('role:invitado|super_admin')
         ->name('postulaciones.store');
 
     // Validación de postulaciones

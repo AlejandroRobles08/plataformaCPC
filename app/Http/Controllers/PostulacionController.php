@@ -42,7 +42,7 @@ class PostulacionController extends Controller
     {
         $user = Auth::user();
 
-        if (! $user->hasRole('invitado')) {
+        if (! $user->hasAnyRole(['invitado', 'super_admin'])) {
             abort(403, 'No tienes permiso para crear una postulación.');
         }
 
@@ -236,7 +236,12 @@ class PostulacionController extends Controller
         //cambio de rol del usuario a integrante
         $postulante = $postulacion->user;
         if ($postulante) {
-            $postulante->syncRoles(['integrante']);
+            // el super_admin conserva su rol y solo se le agrega el de integrante
+            if ($postulante->hasRole('super_admin')) {
+                $postulante->assignRole('integrante');
+            } else {
+                $postulante->syncRoles(['integrante']);
+            }
         }
 
         return redirect()

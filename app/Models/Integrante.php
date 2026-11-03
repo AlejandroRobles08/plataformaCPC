@@ -20,6 +20,7 @@ class Integrante extends Model
 
     public const MAX_FORMULAS = 15;
     public const INTEGRANTES_POR_FORMULA = 2;
+    public const CARGOS = ['Persona Consejera Titular', 'Persona Consejera Suplente'];
     
     protected $fillable = [
         'user_id',
@@ -30,7 +31,7 @@ class Integrante extends Model
         'direccion',
         'discapacidad',
         'discapacidad_tipo',
-        'puesto',
+        'cargo',
         'correo',
         'consejo_id',
         'formula'

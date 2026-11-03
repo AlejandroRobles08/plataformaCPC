@@ -22,7 +22,15 @@ class ConsejoController extends Controller
                         ? 'legalidad'
                         : 'integrantes')));
 
-        $consejos = Consejo::orderBy('id')->get();
+        // Los administradores ven todos los consejos; el resto de usuarios solo el suyo
+        $user = request()->user();
+        $consejos = Consejo::query()
+            ->unless(
+                $user->hasAnyRole(['admin', 'super_admin']),
+                fn ($query) => $query->whereKey($user->integrante?->consejo_id)
+            )
+            ->orderBy('id')
+            ->get();
 
         //este es el origen de la vista de los consejos
         return inertia('Consejos/Index', [

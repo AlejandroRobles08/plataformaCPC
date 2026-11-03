@@ -219,7 +219,7 @@ export default {
           desde su alta hasta la fecha posterior a 3 años.
         </p> <br>
         <p>
-          El <strong>"Primer periodo"</strong> corresponde a la reelección y, en su caso, aprobación de la misma
+          El <strong>"Primer periodo"</strong> corresponde a la reelección y la posible aprobación del periodo
           de la persona consejera. Cada persona tendrá derecho a una sola reelección.
         </p>
       </div>

@@ -24,6 +24,10 @@ const isReviewer = computed(() =>
 const isIntegrante = computed(() =>
   roles.value.includes('integrante')
 )
+// El super_admin también puede subir documentos
+const canUpload = computed(() =>
+  isIntegrante.value || roles.value.includes('super_admin')
+)
 
 //Sweet Alert para mensajes flash
 watch(
@@ -357,7 +361,7 @@ const rechazarDocumento = async (documento) => {
               </div>
 
               <!-- Reemplazar documento -->
-              <div v-if=" isIntegrante && getDoc(doc.key).estatus === 'rechazado'
+              <div v-if=" canUpload && getDoc(doc.key).estatus === 'rechazado'
                 "class="mt-4">
                 <label
                   class="inline-flex items-center px-3 py-2 text-xs transition bg-white 
@@ -382,8 +386,8 @@ const rechazarDocumento = async (documento) => {
                 Aún no se ha subido
               </div>
 
-              <!-- Solo integrante puede cargar -->
-              <div v-if="isIntegrante" class="mt-4">
+              <!-- Integrante y super_admin pueden cargar -->
+              <div v-if="canUpload" class="mt-4">
 
                 <label
                   class="inline-flex items-center px-3 py-2 text-xs transition bg-white border border-gray-300 
@@ -413,7 +417,7 @@ const rechazarDocumento = async (documento) => {
         </p>
 
         <!-- Guardar documentos -->
-        <div v-if="isIntegrante" class="flex justify-end mt-6">
+        <div v-if="canUpload" class="flex justify-end mt-6">
           <button type="submit" :disabled="form.processing" class="flex items-center px-4 py-2 
             text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50">
             <CloudArrowUpIcon class="w-5 h-5 mr-1" />

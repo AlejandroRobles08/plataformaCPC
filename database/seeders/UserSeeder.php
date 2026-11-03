@@ -58,7 +58,7 @@ class UserSeeder extends Seeder
                 'integrante' => [
                     'nombre' => 'Usuario',
                     'apellido_paterno' => 'Integrante',
-                    'puesto' => 'Consejero',
+                    'cargo' => 'Persona Consejera Titular',
                     'correo' => 'integrante@ejemplo.com',
                 ],
             ],
@@ -71,7 +71,7 @@ class UserSeeder extends Seeder
                 'integrante' => [
                     'nombre' => 'Integrante',
                     'apellido_paterno' => 'Prueba',
-                    'puesto' => 'Consejero',
+                    'cargo' => 'Persona Consejera Titular',
                     'correo' => 'integrante.prueba@plataformacpc.test',
                 ],
             ],
@@ -120,7 +120,7 @@ class UserSeeder extends Seeder
                     [
                         'nombre' => $data['integrante']['nombre'],
                         'apellido_paterno' => $data['integrante']['apellido_paterno'],
-                        'puesto' => $data['integrante']['puesto'],
+                        'cargo' => $data['integrante']['cargo'],
                         'correo' => $data['integrante']['correo'],
                         'consejo_id' => $consejo->id,
                     ]
