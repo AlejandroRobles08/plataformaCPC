@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { Head, Link } from '@inertiajs/vue3'
-import { defineComponent, h } from 'vue'
+import { Head, Link, usePage } from '@inertiajs/vue3'
+import { computed, defineComponent, h } from 'vue'
 
 defineProps({
   consejos: Array,
@@ -71,8 +71,19 @@ import {
   HeartIcon,
   BuildingOfficeIcon,
   WrenchScrewdriverIcon,
-  AcademicCapIcon,
+  PlusIcon,
 } from '@heroicons/vue/24/solid'
+
+// Solo admin y super_admin tienen el permiso para agregar consejos
+const page = usePage()
+const puedeCrearConsejo = computed(() =>
+  page.props.auth?.permissions?.includes('consejos.crear')
+)
+
+// Los integrantes no ven la simbología de instalado/no instalado
+const esIntegrante = computed(() =>
+  page.props.auth?.roles?.includes('integrante')
+)
 
 // colapsa espacios y saltos de línea para que nombres largos coincidan con su llave
 const normalize = (text) =>
@@ -115,6 +126,18 @@ const icons = {
         }}
       </h1>
 
+      <!-- SIMBOLOGÍA -->
+      <div v-if="consejos.length && !esIntegrante" class="flex justify-center gap-6 mb-4 text-sm text-gray-600">
+        <span class="flex items-center gap-2">
+          <span class="w-4 h-4 rounded bg-[#7D2447]"></span>
+          Instalado
+        </span>
+        <span class="flex items-center gap-2">
+          <span class="w-4 h-4 rounded bg-gray-600"></span>
+          No instalado
+        </span>
+      </div>
+
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link
           v-for="consejo in consejos"
@@ -130,14 +153,26 @@ const icons = {
                     ? route('legalidad.index', { consejo: consejo.id })
                     : route('consejos.integrantes', consejo.id)
           "
+          :class="consejo.instalado || esIntegrante
+            ? 'bg-[#7D2447] hover:bg-[#5E1B35]'
+            : 'bg-gray-600 hover:bg-black'"
           class="p-4 shadow rounded-lg flex flex-col items-center justify-center
-                 font-semibold text-center text-white bg-gray-600 hover:bg-black transition">
+                 font-semibold text-center text-white transition">
 
-          <component
-            :is="icons[normalize(consejo.nombre)] || AcademicCapIcon"
+          <!-- los consejos agregados desde la plataforma aún no tienen ícono -->
+          <component v-if="icons[normalize(consejo.nombre)]"
+            :is="icons[normalize(consejo.nombre)]"
             class="w-10 h-10 text-white mb-2"/>
 
           {{ consejo.nombre }}
+        </Link>
+
+        <!-- AGREGAR CONSEJO -->
+        <Link v-if="puedeCrearConsejo" :href="route('consejos.create', { origen })"
+          class="p-4 rounded-lg flex flex-col items-center justify-center font-semibold text-center
+                 border-2 border-dashed border-[#7D2447] text-[#7D2447] bg-white hover:bg-[#7D2447]/10 transition">
+          <PlusIcon class="w-10 h-10 mb-2" />
+          Agregar consejo
         </Link>
       </div>
 

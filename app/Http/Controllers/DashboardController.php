@@ -10,8 +10,8 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        //El rol invitado no ve las gráficas, no se envían datos
-        if (auth()->user()->hasRole('invitado')) {
+        //Solo admin y super_admin ven las gráficas, a los demás roles no se envían datos
+        if (! auth()->user()->hasAnyRole(['admin', 'super_admin'])) {
             return Inertia::render('Dashboard');
         }
 

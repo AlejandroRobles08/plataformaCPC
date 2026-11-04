@@ -137,7 +137,8 @@ class PostulacionController extends Controller
                 ->where('estatus', 'pendiente')
                 ->latest()
                 ->get(),
-            'consejos' => Consejo::orderBy('nombre')->get(['id', 'nombre']),
+            'consejos' => Consejo::orderBy('nombre')->get(['id', 'nombre'])
+                ->each(fn ($consejo) => $consejo->lleno = Integrante::consejoLleno($consejo->id)),
         ]);
     }
 
@@ -189,6 +190,7 @@ class PostulacionController extends Controller
             'direccion' => $postulacion->direccion,
             'consejo_id' => $consejoId,
             'formula' => $formula,
+            'alta_completada_at' => now(),
             'discapacidad' => null,
             'discapacidad_tipo' => null,
         ]);

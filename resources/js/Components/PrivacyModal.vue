@@ -1,36 +1,15 @@
 <script setup>
-import { computed } from 'vue'
-import { usePage, useForm, router } from '@inertiajs/vue3'
+// Modal de aviso de privacidad. Solo presenta el texto: quien lo usa (el login)
+// decide qué hacer al aceptar o rechazar.
+defineProps({
+    processing: { type: Boolean, default: false },
+})
 
-const page = usePage()
-const form = useForm({})
-const emit = defineEmits(['accepted']) 
-
-// visible mientras el usuario no haya aceptado el aviso de privacidad
-const visible = computed(() => !page.props.privacyAccepted)
-
-// aceptar aviso
-function aceptar() {
-    form.post(route('privacy.accept'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            emit('accepted')
-        },
-    })
-}
-
-// rechazar aviso
-function rechazar() {
-    router.post(route('logout'), {
-        onFinish: () => {
-            window.location.replace(route('login'))
-        }
-    })
-}
+const emit = defineEmits(['aceptar', 'rechazar'])
 </script>
 
 <template>
-<div v-if="visible"
+<div
 class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
     <div class="bg-white w-full max-w-2xl rounded-lg shadow-lg p-6">
         <h2 class="text-xl font-bold mb-4 text-gray-800">
@@ -57,15 +36,16 @@ class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
 
         <div class="flex justify-end gap-3 mt-6">
             <button
-            @click="rechazar"
+            type="button"
+            @click="emit('rechazar')"
             class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
             Rechazar
             </button>
 
-            <button @click="aceptar"
-            :disabled="form.processing"
+            <button type="button" @click="emit('aceptar')"
+            :disabled="processing"
             class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-            {{ form.processing ? 'Procesando...' : 'Aceptar' }}
+            {{ processing ? 'Procesando...' : 'Aceptar' }}
             </button>
         </div>
     </div>

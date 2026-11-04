@@ -12,6 +12,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class IntegranteController extends Controller
 {
@@ -22,6 +23,7 @@ class IntegranteController extends Controller
         /** @var User $user */
         $user = auth()->user();
         $integranteActualId = null;
+        $altaPendiente = false;
 
         // Si el usuario es un integrante, obtenemos su ID y filtramos los integrantes por la misma fórmula
         if ($user->hasRole('integrante')) {
@@ -29,6 +31,7 @@ class IntegranteController extends Controller
             // Si el integrante no tiene un registro asociado, abortamos con un error 403
             abort_unless($integranteActual, 403);
             $integranteActualId = $integranteActual->id;
+            $altaPendiente = $integranteActual->alta_completada_at === null;
             $integrantes = $consejo->integrantes()
                 ->where('formula', $integranteActual->formula)
                 ->get();
@@ -45,48 +48,93 @@ class IntegranteController extends Controller
             'consejo' => $consejo,
             'integrantes' => $integrantes,
             'integranteActualId' => $integranteActualId,
+            'consejoLleno' => Integrante::consejoLleno($consejo->id),
+            'altaPendiente' => $altaPendiente,
+            // Solo el admin crea usuarios: lista de consejos y ocupación de sus fórmulas
+            'consejos' => $user->hasRole('integrante')
+                ? []
+                : Consejo::orderBy('nombre')->get(['id', 'nombre']),
+            'ocupacion' => $user->hasRole('integrante')
+                ? (object) []
+                : (object) Integrante::ocupacionPorConsejo(),
         ]);
     }
 
+    // El admin da de alta en la plataforma a quien ya forma parte de un consejo:
+    // crea su usuario (contraseña temporal) y un registro de integrante con datos mínimos.
+    // El integrante captura el resto de sus datos con "Darme de alta".
     public function store(Request $request)
     {
         Gate::authorize('create', Integrante::class);
 
         $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email|unique:integrantes,correo',
+            'consejo_id' => 'required|exists:consejos,id',
+            'formula' => ['required', 'integer', 'min:1', 'max:' . Integrante::MAX_FORMULAS],
+            'cargo' => ['required', Rule::in(Integrante::CARGOS)],
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            // Bloquea el consejo para que dos altas simultáneas no llenen de más la fórmula
+            Consejo::whereKey($validated['consejo_id'])->lockForUpdate()->first();
+            Integrante::asegurarEspacioEnFormula($validated['consejo_id'], $validated['formula']);
+
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                //contraseña temporal inicial
+                'password' => Hash::make('pass123'),
+                'must_change_password' => true,
+            ]);
+            $user->assignRole('integrante');
+
+            Integrante::create([
+                'user_id' => $user->id,
+                'nombre' => $validated['name'],
+                'correo' => $validated['email'],
+                'consejo_id' => $validated['consejo_id'],
+                'formula' => $validated['formula'],
+                'cargo' => $validated['cargo'],
+                'alta_completada_at' => null,
+            ]);
+        });
+
+        return redirect()
+            ->route('consejos.integrantes', $validated['consejo_id'])
+            ->with('success', 'Usuario integrante creado correctamente.');
+    }
+
+    // "Darme de alta": el integrante captura sus propios datos una sola vez.
+    // El cargo, el correo, el consejo y la fórmula los definió el admin y no se modifican aquí.
+    public function completarAlta(Request $request, Integrante $integrante)
+    {
+        Gate::authorize('update', $integrante);
+
+        abort_if($integrante->alta_completada_at !== null, 403, 'Ya completaste tu alta.');
+
+        $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'apellido_paterno' => 'required|string|max:255',
             'apellido_materno' => 'nullable|string|max:255',
-            'genero' => 'nullable|string|max:50',
-            'direccion' => 'nullable|string|max:500',
-            'discapacidad' => 'nullable|string|max:25',
+            'genero' => 'required|string|max:50',
+            'direccion' => 'required|string|max:500',
+            'discapacidad' => 'required|in:si,no',
             'discapacidad_tipo' => 'nullable|string|max:255|required_if:discapacidad,si',
-            'cargo' => ['required', Rule::in(Integrante::CARGOS)],
-            'correo' => 'required|email|unique:integrantes,correo|unique:users,email',
-            'consejo_id' => 'required|exists:consejos,id',
-            // Captura manual de fórmula (desactivada: ahora se asigna automáticamente)
-            // 'formula' => 'required|integer|min:1',
         ]);
-        DB::transaction(function () use (&$validated){
-            // Bloquea el consejo para que dos altas simultáneas no tomen la misma fórmula
-            Consejo::whereKey($validated['consejo_id'])->lockForUpdate()->first();
-            $validated['formula'] = Integrante::siguienteFormula($validated['consejo_id']);
 
-            //crear usuario
-            $user = User::create(['name' => trim($validated['nombre'] . ' ' . $validated['apellido_paterno'] . ' ' . ($validated['apellido_materno'] ?? '')),
-             'email' => $validated['correo'], 
-             //contrseña temporal inicial
-             'password' => Hash::make('pass123'),
-             'must_change_password' => true,
+        if ($validated['discapacidad'] === 'no') {
+            $validated['discapacidad_tipo'] = null;
+        }
+
+        DB::transaction(function () use ($validated, $integrante) {
+            $integrante->update($validated + ['alta_completada_at' => now()]);
+            $integrante->user->update([
+                'name' => trim($validated['nombre'] . ' ' . $validated['apellido_paterno'] . ' ' . ($validated['apellido_materno'] ?? '')),
             ]);
-            //ASIGNAR ROL
-            $user->assignRole('integrante');
-            //crear integrante y asociar el user_id
-            $validated['user_id'] = $user->id;
-            
-            Integrante::create($validated);
         });
 
-        return redirect()->route('consejos.integrantes', $request->consejo_id);
+        return redirect()->route('consejos.integrantes', $integrante->consejo_id);
     }
 
     public function update(Request $request, Integrante $integrante)
@@ -120,6 +168,34 @@ class IntegranteController extends Controller
     });
 
     return redirect()->route('consejos.integrantes',$integrante->consejo_id); 
+    }
+
+    // Mueve al integrante a otra fórmula del mismo consejo, solo si esa fórmula tiene lugar libre
+    public function moverFormula(Request $request, Integrante $integrante)
+    {
+        Gate::authorize('update', $integrante);
+
+        $validated = $request->validate([
+            'formula' => ['required', 'integer', 'min:1', 'max:' . Integrante::MAX_FORMULAS],
+        ]);
+        $formula = (int) $validated['formula'];
+
+        if ($formula === (int) $integrante->formula) {
+            throw ValidationException::withMessages([
+                'formula' => 'El integrante ya pertenece a esta fórmula.',
+            ]);
+        }
+
+        DB::transaction(function () use ($integrante, $formula) {
+            // Bloquea el consejo para que dos movimientos simultáneos no llenen de más la fórmula
+            Consejo::whereKey($integrante->consejo_id)->lockForUpdate()->first();
+
+            Integrante::asegurarEspacioEnFormula($integrante->consejo_id, $formula, $integrante->id);
+
+            $integrante->update(['formula' => $formula]);
+        });
+
+        return redirect()->route('consejos.integrantes', $integrante->consejo_id);
     }
 
     public function destroy(Request $request, Integrante $integrante)

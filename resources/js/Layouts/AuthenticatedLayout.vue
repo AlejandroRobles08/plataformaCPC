@@ -1,24 +1,16 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
 import Navigation from './Navigation.vue'
 import TopMenu from './TopMenu.vue'
 import NavigationMobile from './NavigationMobile.vue'
-import PrivacyModal from '@/Components/PrivacyModal.vue'
 import PasswordReminderModal from '@/Components/PasswordReminderModal.vue'
 import LoadingScreen from '@/Components/LoadingScreen.vue'
 
-const showPrivacyModal = ref(true)
-const showPasswordModal = ref(false)
 
 const handlePageShow = (event) => {
   if (event.persisted) {
     window.location.reload()
   }
-}
-
-const privacyAccepted = () => {
-  showPrivacyModal.value = false
-  showPasswordModal.value = true
 }
 
 onMounted(() => {
@@ -31,8 +23,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <PrivacyModal v-if="showPrivacyModal" @accepted="privacyAccepted" />
-  <PasswordReminderModal v-if="showPasswordModal" />
+  <!-- El aviso de privacidad ya se aceptó en el login; aquí solo el cambio de contraseña temporal -->
+  <PasswordReminderModal />
 
   <div>
     <div class="flex h-screen bg-gray-50">

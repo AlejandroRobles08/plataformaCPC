@@ -1,10 +1,11 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ref, watchEffect, computed } from 'vue'
-import { Link, usePage, useForm } from '@inertiajs/vue3'
+import { Link, usePage } from '@inertiajs/vue3'
 import { HandRaisedIcon } from '@heroicons/vue/24/solid'
 import Swal from 'sweetalert2'
 import Form from './Form.vue'
+import CrearUsuarioModal from '@/Components/CrearUsuarioModal.vue'
 
 const page = usePage()
 
@@ -39,23 +40,6 @@ const cerrarExpediente = () => {
 
 // Crear usuario invitado
 const showInvitado = ref(false)
-const invitadoForm = useForm({
-  name: '',
-  email: ''
-})
-
-const cerrarInvitado = () => {
-  showInvitado.value = false
-  invitadoForm.reset()
-  invitadoForm.clearErrors()
-}
-
-const crearInvitado = () => {
-  invitadoForm.post(route('postulaciones.invitados.store'), {
-    preserveScroll: true,
-    onSuccess: () => cerrarInvitado()
-  })
-}
 
 watchEffect(() => {
   if (page.props.flash?.success) {
@@ -258,38 +242,8 @@ function exportarPostulacionesExcel() {
       </div>
     </div>
     <!-- MODAL USUARIO INVITADO -->
-    <div v-if="showInvitado" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white w-full max-w-md rounded-lg shadow-lg p-6 relative">
-        <button @click="cerrarInvitado" class="absolute top-3 right-3 text-gray-500">✕</button>
-        <h3 class="text-lg font-semibold mb-4">
-          Nuevo usuario invitado
-        </h3>
-        <form @submit.prevent="crearInvitado" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input v-model="invitadoForm.name" type="text" required
-              class="mt-1 w-full border-gray-300 rounded-md shadow-sm" />
-            <p v-if="invitadoForm.errors.name" class="text-red-600 text-sm mt-1">{{ invitadoForm.errors.name }}</p>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Correo</label>
-            <input v-model="invitadoForm.email" type="email" required
-              class="mt-1 w-full border-gray-300 rounded-md shadow-sm" />
-            <p v-if="invitadoForm.errors.email" class="text-red-600 text-sm mt-1">{{ invitadoForm.errors.email }}</p>
-          </div>
-          <div class="flex justify-end gap-2">
-            <button type="button" @click="cerrarInvitado"
-              class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
-              Cancelar
-            </button>
-            <button type="submit" :disabled="invitadoForm.processing"
-              class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
-              Crear
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <CrearUsuarioModal v-if="showInvitado" rol="invitado" ruta="postulaciones.invitados.store"
+      titulo="Nuevo usuario invitado" @close="showInvitado = false" @created="showInvitado = false" />
     <Form v-if="puedePostularse && showModal" @close="showModal = false"/>
   </AuthenticatedLayout>
 </template>

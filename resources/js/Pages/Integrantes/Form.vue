@@ -1,14 +1,17 @@
 <script setup>
 import { ref, watch } from 'vue';
 import DraggableModal from '@/Components/DraggableModal.vue';
+import { ArrowsRightLeftIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     show: Boolean,
     form: Object,
     editingId: Number,
+    // 'editar' (admin) o 'alta' (el integrante captura sus datos: cargo y correo fijos)
+    modo: { type: String, default: 'editar' },
 });
 
-const emit = defineEmits(['close', 'submit']);
+const emit = defineEmits(['close', 'submit', 'mover']);
 
 const showDiscapacidadTipo = ref(false);
 
@@ -28,8 +31,15 @@ watch(
 
 <template>
     <DraggableModal v-if="show"
-        :title="editingId ? 'Editar Integrante' : 'Nuevo Integrante'"
+        :title="modo === 'alta' ? 'Darme de alta' : 'Editar Integrante'"
         max-width="max-w-2xl" @close="$emit('close')">
+        <template v-if="modo === 'editar'" #header-actions>
+            <button type="button" @click="$emit('mover')" title="Mover a otra fórmula"
+                class="flex items-center gap-1 rounded border border-green-400 px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-600 hover:text-white">
+                <ArrowsRightLeftIcon class="h-4 w-4" />
+                Mover de fórmula
+            </button>
+        </template>
         <form @submit.prevent="$emit('submit')" class="space-y-4">
             <!-- Nombre -->
             <div>
@@ -82,7 +92,8 @@ watch(
                 <label class="block text-sm font-medium">
                     Cargo
                 </label>
-                <select v-model="form.cargo" class="w-full border rounded px-3 py-2">
+                <select v-model="form.cargo" :disabled="modo === 'alta'"
+                    class="w-full border rounded px-3 py-2 disabled:bg-gray-100">
                     <option value="">Selecciona</option>
                     <option value="Persona Consejera Titular">Persona Consejera Titular</option>
                     <option value="Persona Consejera Suplente">Persona Consejera Suplente</option>
@@ -97,7 +108,8 @@ watch(
                 <label class="block text-sm font-medium">
                     Correo
                 </label>
-                <input v-model="form.correo" type="email" class="w-full border rounded px-3 py-2"/>
+                <input v-model="form.correo" type="email" :disabled="modo === 'alta'"
+                    class="w-full border rounded px-3 py-2 disabled:bg-gray-100"/>
                 <p v-if="form.errors.correo" class="text-red-500 text-sm">
                     {{ form.errors.correo }}
                 </p>

@@ -25,6 +25,7 @@ class PermissionSeeder extends Seeder
 
             // ---------consejos------
             'consejos.ver',
+            'consejos.crear',
 
             // -----------asistencias-------
             'asistencias.ver',

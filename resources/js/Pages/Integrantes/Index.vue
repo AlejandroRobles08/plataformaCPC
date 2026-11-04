@@ -1,11 +1,12 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import DraggableModal from '@/Components/DraggableModal.vue'
-import { ref, computed } from 'vue'
-import { useForm, Link, usePage } from '@inertiajs/vue3'
+import { ref, computed, onMounted } from 'vue'
+import { useForm, Link, usePage, router } from '@inertiajs/vue3'
 import { FolderOpenIcon } from '@heroicons/vue/24/solid'
 import { PencilIcon } from '@heroicons/vue/24/outline'
 import Form from './Form.vue'
+import CrearUsuarioModal from '@/Components/CrearUsuarioModal.vue'
 import Swal from 'sweetalert2'
 
 const props = defineProps({
@@ -14,8 +15,30 @@ const props = defineProps({
   integranteActualId: {
     type: Number,
     default: null
+  },
+  consejoLleno: {
+    type: Boolean,
+    default: false
+  },
+  // El integrante aún no captura sus datos ("Darme de alta")
+  altaPendiente: {
+    type: Boolean,
+    default: false
+  },
+  // Solo para el admin: consejos y ocupación de fórmulas para crear usuarios integrantes
+  consejos: {
+    type: Array,
+    default: () => []
+  },
+  ocupacion: {
+    type: Object,
+    default: () => ({})
   }
 })
+
+// Deben coincidir con Integrante::MAX_FORMULAS e Integrante::INTEGRANTES_POR_FORMULA
+const MAX_FORMULAS = 15
+const INTEGRANTES_POR_FORMULA = 2
 
 const page = usePage()
 const esIntegrante = computed(() =>
@@ -36,8 +59,19 @@ const tienePermiso =
   return esSuperAdmin || tienePermiso
 })
 
+// Aviso cuando el integrante intenta entrar a otro módulo sin completar su alta
+onMounted(() => {
+  const aviso = page.props.flash?.warning
+  if (aviso) {
+    Swal.fire({ icon: 'info', title: 'Completa tu alta', text: aviso, confirmButtonColor: '#16a34a' })
+  }
+})
+
 const showForm = ref(false)
 const editingId = ref(null)
+// 'editar': el admin edita un integrante; 'alta': el integrante captura sus propios datos
+const modoForm = ref('editar')
+const showCrearUsuario = ref(false)
 
 //editar descripción del consejo
 const showDescripcionModal = ref(false)
@@ -78,25 +112,37 @@ const form = useForm({
   // formula: ''
 })
 
-function openForm() {
-  editingId.value = null
-  form.reset()
-  form.discapacidad = false
-  form.discapacidad_tipo = ''
-  showForm.value = true
+// El admin crea el usuario del integrante (nombre, correo, consejo, fórmula y cargo)
+function usuarioCreado() {
+  showCrearUsuario.value = false
+  Swal.fire({
+    icon: 'success',
+    title: 'Usuario creado',
+    text: 'El integrante ya puede ingresar con su correo y la contraseña temporal para completar su alta.',
+    confirmButtonColor: '#16a34a'
+  })
 }
 
-function editIntegrante(integrante) {
+// "Darme de alta": el integrante completa sus datos sobre su propio registro
+function abrirAlta() {
+  const propio = props.integrantes.find(i => i.id === props.integranteActualId)
+  if (!propio) return
+  editIntegrante(propio, 'alta')
+}
+
+function editIntegrante(integrante, modo = 'editar') {
 
   editingId.value = integrante.id
+  modoForm.value = modo
+  form.clearErrors()
 
   form.nombre = integrante.nombre
-  form.apellido_paterno = integrante.apellido_paterno
+  form.apellido_paterno = integrante.apellido_paterno ?? ''
   form.apellido_materno = integrante.apellido_materno ?? ''
   form.cargo = integrante.cargo ?? ''
   form.correo = integrante.correo
-  form.genero = integrante.genero
-  form.direccion = integrante.direccion
+  form.genero = integrante.genero ?? ''
+  form.direccion = integrante.direccion ?? ''
   form.discapacidad = integrante.discapacidad === 'si'
   form.discapacidad_tipo = integrante.discapacidad_tipo ?? ''
   form.consejo_id = integrante.consejo_id
@@ -107,8 +153,23 @@ function editIntegrante(integrante) {
 }
 
 function submitForm() {
-  form.discapacidad = form.discapacidad ? 'si' : 'no'
-  if (editingId.value) {
+  // Convierte el check a 'si'/'no' solo en los datos enviados, sin tocar el estado del form
+  // (mutarlo a 'no', que es truthy, hacía aparecer el campo de tipo de discapacidad)
+  form.transform(data => ({ ...data, discapacidad: data.discapacidad ? 'si' : 'no' }))
+  if (modoForm.value === 'alta') {
+    form.patch(route('integrantes.alta', editingId.value), {
+      onSuccess: () => {
+        form.reset()
+        showForm.value = false
+        Swal.fire({
+          icon: 'success',
+          title: 'Alta completada',
+          text: 'Tus datos se guardaron correctamente. Ahora puedes digitalizar tus documentos.',
+          confirmButtonColor: '#16a34a'
+        })
+      }
+    })
+  } else {
     form.put(route('integrantes.update', editingId.value), {
       onSuccess: () => {
         form.reset()
@@ -121,20 +182,60 @@ function submitForm() {
         })
       }
     })
-  } else {
-    form.post(route('integrantes.store'), {
-      onSuccess: () => {
-        form.reset()
-        showForm.value = false
-        Swal.fire({
-          icon: 'success',
-          title: 'Integrante agregado',
-          text: 'El integrante se registró correctamente.',
-          confirmButtonColor: '#16a34a'
-        })
-      }
-    })
   }
+}
+
+// MOVER DE FÓRMULA
+async function moverFormula() {
+  const integrante = props.integrantes.find(i => i.id === editingId.value)
+  if (!integrante) return
+
+  // Ocupación actual de cada fórmula para orientar la elección
+  const ocupacion = {}
+  props.integrantes.forEach(i => {
+    if (i.formula) ocupacion[i.formula] = (ocupacion[i.formula] ?? 0) + 1
+  })
+  const opciones = {}
+  for (let n = 1; n <= MAX_FORMULAS; n++) {
+    if (n === integrante.formula) continue
+    opciones[n] = `Fórmula ${n} (${ocupacion[n] ?? 0}/${INTEGRANTES_POR_FORMULA})`
+  }
+
+  const { value: formula } = await Swal.fire({
+    title: 'Mover de fórmula',
+    text: `${integrante.nombre} ${integrante.apellido} está en la fórmula ${integrante.formula ?? '-'}.`,
+    input: 'select',
+    inputOptions: opciones,
+    inputPlaceholder: 'Selecciona la fórmula destino',
+    showCancelButton: true,
+    confirmButtonText: 'Mover',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#16a34a',
+    inputValidator: value => !value && 'Selecciona una fórmula',
+  })
+  if (!formula) return
+
+  router.patch(route('integrantes.mover', integrante.id), { formula }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      showForm.value = false
+      form.reset()
+      Swal.fire({
+        icon: 'success',
+        title: 'Integrante movido',
+        text: `El integrante se movió a la fórmula ${formula}.`,
+        confirmButtonColor: '#16a34a'
+      })
+    },
+    onError: errors => {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al mover de fórmula',
+        text: errors.formula ?? 'La fórmula seleccionada se encuentra llena.',
+        confirmButtonColor: '#dc2626'
+      })
+    }
+  })
 }
 
 // BAJA / ELIMINACIÓN
@@ -234,9 +335,19 @@ const getSemaforoClase = (integrante) => {
         <h1 class="text-2xl font-bold">
           Integrantes del Consejo de Participación Ciudadana de {{ consejo.nombre }}
         </h1>
-        <button v-if="puedeEditarIntegrante" @click="openForm" class="px-4 py-2 bg-black text-white rounded hover:bg-gray-500">
+        <button v-if="puedeEditarIntegrante" @click="showCrearUsuario = true" :disabled="consejoLleno"
+          class="px-4 py-2 bg-black text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black">
           + Agregar Integrante
         </button>
+        <!-- Desaparece en cuanto el integrante guarda sus datos -->
+        <button v-else-if="esIntegrante && altaPendiente" @click="abrirAlta"
+          class="px-4 py-2 bg-black text-white rounded hover:bg-gray-500">
+          Darme de alta
+        </button>
+      </div>
+
+      <div v-if="consejoLleno" class="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-yellow-800">
+        Este consejo ha llegado a su máximo de fórmulas
       </div>
 
       <!-- DESCRIPCIÓN CON BOTÓN MINIMALISTA -->
@@ -298,7 +409,7 @@ const getSemaforoClase = (integrante) => {
                   <button v-if="puedeEditarIntegrante" @click="solicitarEliminacion(f[0].id)" class="px-2 py-1 bg-red-500 text-white rounded">
                     Eliminar
                   </button>
-                  <button v-if="esMiIntegrante(f[0])"
+                  <button v-if="esMiIntegrante(f[0]) && !(esIntegrante && altaPendiente)"
                   @click="$inertia.get(route('docu.index', f[0].id))"
                     class="px-2 py-1 bg-red-800 text-white rounded flex items-center">
                     <FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos
@@ -312,7 +423,7 @@ const getSemaforoClase = (integrante) => {
                   <button v-if="puedeEditarIntegrante" @click="solicitarEliminacion(f[1].id)" class="px-2 py-1 bg-red-500 text-white rounded">
                     Eliminar
                   </button>
-                  <button v-if="esMiIntegrante(f[1])"
+                  <button v-if="esMiIntegrante(f[1]) && !(esIntegrante && altaPendiente)"
                   @click="$inertia.get(route('docu.index', f[1].id))"
                     class="px-2 py-1 bg-red-800 text-white rounded flex items-center">
                     <FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos
@@ -349,7 +460,13 @@ const getSemaforoClase = (integrante) => {
     </div>
 
     <!-- FORMULARIO -->
-    <Form :show="showForm" :form="form" :editingId="editingId" @close="showForm = false" @submit="submitForm" />
+    <Form :show="showForm" :form="form" :editingId="editingId" :modo="modoForm"
+      @close="showForm = false" @submit="submitForm" @mover="moverFormula" />
+
+    <!-- CREAR USUARIO INTEGRANTE (admin) -->
+    <CrearUsuarioModal v-if="showCrearUsuario" rol="integrante" ruta="integrantes.store"
+      titulo="Nuevo usuario integrante" :consejos="consejos" :consejo-id="consejo.id" :ocupacion="ocupacion"
+      @close="showCrearUsuario = false" @created="usuarioCreado" />
 
     <!-- MODAL DE BAJA -->
     <DraggableModal v-if="showDeleteModal" title="Registrar baja de integrante" max-width="max-w-md"

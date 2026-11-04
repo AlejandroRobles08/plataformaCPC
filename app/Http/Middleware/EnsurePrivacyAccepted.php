@@ -26,8 +26,6 @@ class EnsurePrivacyAccepted
         */
 
         if (
-            $request->routeIs('dashboard') ||
-            $request->routeIs('privacy.accept') ||
             $request->routeIs('logout')
         ) {
             $response = $next($request);

@@ -37,6 +37,14 @@ class HandleInertiaRequests extends Middleware
                             ->all()
                         : [];
                 },
+                // Integrante que aún no termina "Darme de alta": solo ve Archivo digital
+                'altaPendiente' => function () use ($request) {
+                    $user = $request->user();
+
+                    return (bool) ($user?->hasRole('integrante')
+                        && $user->integrante
+                        && $user->integrante->alta_completada_at === null);
+                },
                 'permissions' => function () use ($request) {
                     $user = $request->user();
 
@@ -62,8 +70,6 @@ class HandleInertiaRequests extends Middleware
                 ];
             },
             'showingMobileMenu' => false,
-            'privacyAccepted' =>
-                optional($request->user())->privacy_accepted ?? false,
             'mustChangePassword' =>
                 optional($request->user())->must_change_password ?? false,
         ]);

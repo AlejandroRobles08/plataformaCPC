@@ -3,9 +3,10 @@ import { router, usePage, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Swal from "sweetalert2";
 import { watch } from "vue";
+import { DocumentTextIcon, MagnifyingGlassIcon } from "@heroicons/vue/24/solid";
 
 export default {
-  components: { AuthenticatedLayout, Link },
+  components: { AuthenticatedLayout, Link, DocumentTextIcon, MagnifyingGlassIcon },
 
   //datos enviados desde el controlador
   props: {
@@ -21,45 +22,18 @@ export default {
       () => page.props.flash,
       (flash) => {
         if (!flash) return;
-
-        //alerta de reelección aprobada
-        if (flash.success) {
+        ["success", "warning", "error"].forEach(tipo => {
+          if (!flash[tipo]) return;
           Swal.fire({
             toast: true,
             position: "top-end",
-            icon: "success",
-            title: flash.success,
+            icon: tipo,
+            title: flash[tipo],
             showConfirmButton: false,
             timer: 3000,
             timerProgressBar: true,
           });
-        }
-
-        //alerta de reelección no aprobada
-        if (flash.warning) {
-          Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "warning",
-            title: flash.warning,
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true,
-          });
-        }
-
-        //alerta de error
-        if (flash.error) {
-          Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "error",
-            title: flash.error,
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true,
-          });
-        }
+        });
       },
       { immediate: true }
     );
@@ -67,51 +41,61 @@ export default {
     return {};
   },
 
-  //estado del modal y del historial desplegado
+  //estado del modal y texto de búsqueda
   data() {
     return {
       showModal: false,
       seleccionado: null,
-      historialAbierto: null,
+      busqueda: "",
     };
   },
 
   computed: {
-    //agrupa los periodos por integrante
-    historialPorIntegrante() {
-      const grupos = {};
-
-      this.registros.forEach(r => {
-        const id = r.integrante_id;
-
-        if (!grupos[id]) {
-          grupos[id] = {
-            integrante: r.integrante,
-            periodos: [],
-          };
-        }
-
-        grupos[id].periodos.push(r);
-      });
-
-      //ordena los periodos del más reciente al más antiguo
-      Object.values(grupos).forEach(g => {
-        g.periodos.sort(
-          (a, b) => new Date(b.inicio_cargo) - new Date(a.inicio_cargo)
-        );
-      });
-
-      return grupos;
-    }
+    //registros que coinciden con la búsqueda por nombre
+    registrosFiltrados() {
+      const texto = this.busqueda.trim().toLowerCase();
+      return this.registros.filter(r => !texto || this.nombreCompleto(r).toLowerCase().includes(texto));
+    },
   },
 
-  //funciones para formatear fechas, abrir modal, cerrar modal, aprobar, rechazar, obtener estatus
   methods: {
     formatearFecha(fecha) {
-      if (!fecha) return "N/A";
+      if (!fecha) return "—";
       //se toma solo la parte de la fecha en hora local para evitar el desfase de un día por UTC
-      return new Date(`${String(fecha).substring(0, 10)}T00:00:00`)
-        .toLocaleDateString("es-MX"); //formato de fecha en español
+      return new Date(`${String(fecha).substring(0, 10)}T00:00:00`).toLocaleDateString("es-MX");
+    },
+
+    nombreCompleto(p) {
+      return `${p.integrante?.nombre ?? ""} ${p.integrante?.apellido ?? ""}`.trim();
+    },
+
+    //en_revision (documentos enviados), aprobado, rechazado o sin_solicitud
+    estado(p) {
+      if (p.estatus_reeleccion === "aprobado") return "aprobado";
+      if (p.estatus_reeleccion === "rechazado") return "rechazado";
+      return p.fecha_inicio_reeleccion ? "en_revision" : "sin_solicitud";
+    },
+
+    etiqueta(p) {
+      return {
+        en_revision: { texto: "Por validar", clase: "bg-yellow-100 text-yellow-800" },
+        aprobado: { texto: "Aprobada", clase: "bg-green-100 text-green-800" },
+        rechazado: { texto: "No aprobada", clase: "bg-red-100 text-red-800" },
+        sin_solicitud: { texto: "Sin solicitud", clase: "bg-gray-100 text-gray-600" },
+      }[this.estado(p)];
+    },
+
+    //"Primer periodo" cuando ya se aprobó la reelección, "Periodo inicial" en otro caso
+    tipoPeriodo(p) {
+      return p.ya_reelegido || p.estatus_reeleccion === "aprobado" ? "Primer periodo" : "Periodo inicial";
+    },
+
+    documentos(p) {
+      return [
+        { campo: "doc_nombramiento", nombre: "Nombramiento" },
+        { campo: "doc_carta_reeleccion", nombre: "Carta de reelección" },
+        { campo: "doc_otros", nombre: "Otros documentos" },
+      ].filter(d => p[d.campo]);
     },
 
     //abre el modal con el periodo seleccionado
@@ -125,10 +109,23 @@ export default {
       this.seleccionado = null;
     },
 
-    //aprueba la reelección del periodo seleccionado
+    //confirma y aprueba la reelección; reinicia el periodo por 3 años desde hoy
     aprobar() {
-      router.post(`/legalidad/${this.seleccionado.id}/aprobar`);
-      this.cerrarModal();
+      Swal.fire({
+        title: "¿Aprobar la reelección?",
+        text: "El periodo se reiniciará por 3 años a partir de hoy. Esta acción no se puede deshacer.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Aprobar",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#15803d",
+      }).then(result => {
+        if (!result.isConfirmed) return;
+        router.post(`/legalidad/${this.seleccionado.id}/aprobar`, {}, {
+          preserveScroll: true,
+          onSuccess: () => this.cerrarModal(),
+        });
+      });
     },
 
     //solicita el motivo y rechaza la reelección
@@ -166,26 +163,6 @@ export default {
         );
       });
     },
-
-    estado(p) {
-      return p.estatus_reeleccion || "pendiente";
-    },
-
-    //texto de la columna periodos según si fue reelegido
-    vecesReelegido(periodos) {
-      //al aprobarse la reelección el registro queda como "aprobado" y marcado como ya_reelegido
-      const reelegido = periodos.some(
-        p => p.estatus_reeleccion === "aprobado" || p.ya_reelegido
-      );
-
-      return reelegido ? "Primer periodo" : "Periodo inicial";
-    },
-
-    //muestra u oculta el historial del integrante
-    toggleHistorial(integranteId) {
-      this.historialAbierto =
-        this.historialAbierto === integranteId ? null : integranteId;
-    }
   },
 };
 </script>
@@ -194,168 +171,131 @@ export default {
 <template>
   <AuthenticatedLayout>
     <!-- Navegación -->
-    <div class="mb-4">
-      <Link :href="route('legalidad.index', {consejo: consejo.id})"
-        class="inline-flex items-center px-3 py-2 bg-gray-200 text-gray-800 text-sm rounded hover:bg-gray-300 transition">
-      ← Volver a Panel de Integrantes
+    <div class="mt-6">
+      <Link :href="route('legalidad.index', { consejo: consejo.id })" class="text-gray-600 hover:underline">
+        ← Volver a Periodo en el cargo
       </Link>
     </div>
 
-  <div class="p-6 space-y-6">
+    <div class="p-6 space-y-6">
 
       <!-- Encabezado -->
-      <h1 class="text-2xl font-bold text-center">
-        Validación de Reelecciones
-        <br />
-        <span class="text-gray-600 text-lg">
-          Consejo de {{ consejo.nombre }}
-        </span>
-      </h1>
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-wide" style="color:#7A1F32;">
+          Validación de reelecciones
+        </p>
+        <h1 class="text-2xl font-bold text-gray-900">Consejo de {{ consejo.nombre }}</h1>
+        <p class="text-sm text-gray-500 mt-1">
+          Revisa los documentos enviados por las personas consejeras y aprueba o rechaza su reelección.
+        </p>
+      </div>
 
       <!-- Información de periodos -->
-      <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-900 text-sm rounded p-4 space-y-1">
+      <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-900 text-sm rounded p-4 space-y-2">
         <p>
           El <strong>"Periodo inicial"</strong> corresponde a la duración en el cargo de la persona consejera,
           desde su alta hasta la fecha posterior a 3 años.
-        </p> <br>
+        </p>
         <p>
           El <strong>"Primer periodo"</strong> corresponde a la reelección y la posible aprobación del periodo
           de la persona consejera. Cada persona tendrá derecho a una sola reelección.
         </p>
       </div>
 
-      <!-- Tabla de integrantes -->
-      <div class="overflow-x-auto bg-white shadow rounded p-4">
-        <table class="min-w-full border-collapse">
-          <thead>
-            <tr class="bg-gray-100">
-              <th class="px-4 py-3 border">Integrante</th>
-              <th class="px-4 py-3 border text-center">Periodos</th>
-              <th class="px-4 py-3 border text-center">Acciones</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <template v-for="(grupo, integranteId) in historialPorIntegrante" :key="integranteId">
-              <tr class="bg-gray-50 hover:bg-gray-100">
-                <td class="px-4 py-3 border font-semibold">
-                  {{ grupo.integrante.nombre }}
-                  {{ grupo.integrante.apellido }}
-                </td>
-                <td class="px-4 py-3 border text-center">
-                  {{ vecesReelegido(grupo.periodos) }}
-                </td>
-                <td class="px-4 py-3 border text-center">
-                  <button class="px-3 py-1 rounded text-white bg-red-800" @click="toggleHistorial(integranteId)">
-                    {{ historialAbierto === integranteId
-                      ? "Ocultar historial"
-                      : "Ver historial" }}
-                  </button>
-                </td>
-              </tr>
-
-              <!-- Historial de periodos -->
-              <tr v-if="historialAbierto === integranteId">
-                <td colspan="3" class="bg-white p-4 border">
-                  <table class="min-w-full border-collapse">
-                    <thead>
-                      <tr class="bg-gray-100">
-                        <th class="px-3 py-2 border">Inicio</th>
-                        <th class="px-3 py-2 border">Fin</th>
-                        <th class="px-3 py-2 border text-center">Estatus</th>
-                        <th class="px-3 py-2 border text-center">Acciones</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      <tr v-for="periodo in grupo.periodos" :key="periodo.id" class="hover:bg-gray-50">
-                        <td class="px-3 py-2 border">
-                          {{ formatearFecha(periodo.inicio_cargo) }}
-                        </td>
-                        <td class="px-3 py-2 border">
-                          {{ formatearFecha(periodo.fin_cargo) }}
-                        </td>
-                        <td class="px-3 py-2 border text-center font-semibold">
-                          {{ estado(periodo) }}
-                        </td>
-                        <td class="px-3 py-2 border text-center">
-                          <button v-if="estado(periodo) === 'pendiente'"
-                            class="px-3 py-1 rounded text-white bg-yellow-700" @click="abrirValidacion(periodo)">
-                            Validar
-                          </button>
-
-                          <button v-else class="px-3 py-1 rounded text-white bg-gray-700"
-                            @click="abrirValidacion(periodo)" style="background-color: #A6A6A8;">
-                            Ver
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+      <!-- Búsqueda -->
+      <div class="relative md:w-72 md:ml-auto">
+        <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input v-model="busqueda" type="text" placeholder="Buscar integrante..."
+          class="w-full pl-10 pr-3 py-2 rounded-lg border-gray-300 text-sm focus:border-[#7A1F32] focus:ring-[#7A1F32]" />
       </div>
 
-      <!-- Modal de validación -->
-      <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div class="bg-white rounded shadow p-6 w-96 space-y-4">
-          <h2 class="text-xl font-bold text-center">
-            Validar documentos
-          </h2>
+      <!-- Tabla de solicitudes -->
+      <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+            <tr>
+              <th class="px-4 py-3 text-left">Integrante</th>
+              <th class="px-4 py-3 text-left">Periodo</th>
+              <th class="px-4 py-3 text-left">Tipo</th>
+              <th class="px-4 py-3 text-center">Estatus</th>
+              <th class="px-4 py-3 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            <tr v-for="p in registrosFiltrados" :key="p.id" class="hover:bg-gray-50 transition">
+              <td class="px-4 py-3 font-semibold text-gray-900">{{ nombreCompleto(p) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-gray-700">
+                {{ formatearFecha(p.inicio_cargo) }} <span class="text-gray-400 mx-1">→</span> {{ formatearFecha(p.fin_cargo) }}
+              </td>
+              <td class="px-4 py-3 text-gray-700">{{ tipoPeriodo(p) }}</td>
+              <td class="px-4 py-3 text-center">
+                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+                  :class="etiqueta(p).clase">
+                  {{ etiqueta(p).texto }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-center">
+                <button v-if="estado(p) !== 'sin_solicitud'" @click="abrirValidacion(p)"
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  :class="estado(p) === 'en_revision' ? 'text-white' : 'border text-gray-700 hover:bg-gray-50'"
+                  :style="estado(p) === 'en_revision' ? 'background-color:#C7A447;' : ''">
+                  {{ estado(p) === 'en_revision' ? 'Validar' : 'Ver' }}
+                </button>
+                <span v-else class="text-xs text-gray-400">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p v-if="!registrosFiltrados.length" class="p-6 text-center text-gray-500">
+          No hay registros para mostrar.
+        </p>
+      </div>
+
+      <!-- Modal de detalle / validación -->
+      <div v-if="showModal && seleccionado" class="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 text-sm">
+          <div>
+            <h2 class="text-lg font-bold">Validar reelección</h2>
+            <p class="text-gray-500">{{ nombreCompleto(seleccionado) }} · {{ tipoPeriodo(seleccionado) }}</p>
+          </div>
+
+          <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" :class="etiqueta(seleccionado).clase">
+            {{ etiqueta(seleccionado).texto }}
+          </span>
 
           <!-- Documentos del periodo -->
-          <div v-if="seleccionado">
-            <p>
-              <strong>Integrante:</strong>
-              {{ seleccionado.integrante?.nombre }}
-              {{ seleccionado.integrante?.apellido }}
-            </p>
-
-            <a v-if="seleccionado.doc_nombramiento" :href="`/storage/${seleccionado.doc_nombramiento}`" target="_blank"
-              class="block text-blue-600 underline mt-2">
-              Ver Nombramiento
+          <div class="space-y-2">
+            <a v-for="d in documentos(seleccionado)" :key="d.campo" :href="`/storage/${seleccionado[d.campo]}`"
+              target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-lg border font-medium hover:bg-gray-50">
+              <DocumentTextIcon class="w-5 h-5" style="color:#7A1F32;" />
+              {{ d.nombre }}
             </a>
+          </div>
 
-            <a v-if="seleccionado.doc_carta_reeleccion" :href="`/storage/${seleccionado.doc_carta_reeleccion}`"
-              target="_blank" class="block text-blue-600 underline mt-2">
-              Ver Carta de Reelección
-            </a>
-
-            <a v-if="seleccionado.doc_otros" :href="`/storage/${seleccionado.doc_otros}`" target="_blank"
-              class="block text-blue-600 underline mt-2">
-              Ver Otros documentos
-            </a>
-
-            <!-- Motivo del rechazo -->
-            <div v-if="estado(seleccionado) === 'rechazado' && seleccionado.motivo_rechazo"
-              class="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-              <strong class="block">Motivo del rechazo:</strong>
-              <p class="mt-1 whitespace-pre-line">{{ seleccionado.motivo_rechazo }}</p>
-            </div>
+          <!-- Motivo del rechazo -->
+          <div v-if="estado(seleccionado) === 'rechazado' && seleccionado.motivo_rechazo"
+            class="rounded-lg border border-red-300 bg-red-50 p-3 text-red-700">
+            <strong class="block">Motivo del rechazo:</strong>
+            <p class="mt-1 whitespace-pre-line">{{ seleccionado.motivo_rechazo }}</p>
           </div>
 
           <!-- Acciones del modal -->
-          <div class="flex justify-between mt-4">
-            <button @click="cerrarModal" class="px-4 py-2 bg-gray-500 text-white rounded">
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="cerrarModal" class="px-4 py-2 rounded-lg border text-gray-700 font-medium hover:bg-gray-50">
               Cerrar
             </button>
-
-            <div v-if="seleccionado && estado(seleccionado) === 'pendiente' && seleccionado.fecha_inicio_reeleccion"
-              class="space-x-2">
-              <button @click="no_aprobar" class="px-4 py-2 bg-red-700 text-white rounded">
+            <template v-if="estado(seleccionado) === 'en_revision'">
+              <button @click="no_aprobar" class="px-4 py-2 rounded-lg border border-red-300 text-red-700 font-semibold hover:bg-red-50">
                 No aprobar
               </button>
-
-              <button @click="aprobar" class="px-4 py-2 bg-green-700 text-white rounded">
+              <button @click="aprobar" class="px-4 py-2 rounded-lg bg-green-700 text-white font-semibold hover:bg-green-800">
                 Aprobar
               </button>
-            </div>
+            </template>
           </div>
         </div>
       </div>
-  </div>
+    </div>
   </AuthenticatedLayout>
 </template>

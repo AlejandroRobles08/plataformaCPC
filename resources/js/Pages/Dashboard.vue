@@ -17,8 +17,8 @@ const props = defineProps({
 
 const page = usePage()
 
-const esInvitado = computed(() =>
-  page.props.auth?.roles?.includes('invitado')
+const puedeVerGraficas = computed(() =>
+  ['admin', 'super_admin'].some(r => page.props.auth?.roles?.includes(r))
 )
 
 const generoOrder = [
@@ -62,14 +62,14 @@ const pieColors = generoOrder.map(g => colorByGenero[g])
             <h1 class="text-3xl font-bold text-gray-800">
                 Instituto Municipal de Planeación de Puebla
             </h1>
-            <p v-if="!esInvitado" class="mt-5 text-gray-500">
+            <p v-if="puedeVerGraficas" class="mt-5 text-gray-500">
                 Tablero de estadísticas
             </p>
          </div>
        </div>
      </div>
 
-    <div v-if="!esInvitado" class="px-6 py-8 space-y-10">
+    <div v-if="puedeVerGraficas" class="px-6 py-8 space-y-10">
 
       <!-- === Gráficoa de pastel 2 === -->
       <div class="bg-white border rounded-xl shadow p-6">

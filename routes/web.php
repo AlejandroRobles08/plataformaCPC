@@ -35,21 +35,20 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 // Rutas autenticadas
-Route::middleware('auth', 'privacy')->group(function () {
-
-    // Aviso de privacidad
-    Route::post('/privacy/accept', function (Request $request) {
-        $request->user()->update([
-            'privacy_accepted' => true,
-            'privacy_accepted_at' => now(),
-        ]);
-
-        return back();
-    })->name('privacy.accept');
+Route::middleware('auth', 'privacy', 'alta')->group(function () {
 
     // Consejos
     Route::get('/consejos', [ConsejoController::class, 'index'])
         ->name('consejos.index');
+
+    // Alta e instalación de un consejo nuevo
+    Route::get('/consejos/crear', [ConsejoController::class, 'create'])
+        ->middleware('permission:consejos.crear')
+        ->name('consejos.create');
+
+    Route::post('/consejos', [ConsejoController::class, 'store'])
+        ->middleware('permission:consejos.crear')
+        ->name('consejos.store');
 
     Route::patch('/consejos/{consejo}/descripcion', [ConsejoController::class, 'updateDescripcion'])
         ->middleware('permission:usuarios.editar')
@@ -171,6 +170,11 @@ Route::middleware('auth', 'privacy')->group(function () {
         ->middleware('permission:consejos.ver')
         ->name('consejos.integrantes');
 
+    // "Darme de alta": el integrante captura sus propios datos (la policy limita a su registro)
+    Route::patch('/integrantes/{integrante}/alta', [IntegranteController::class, 'completarAlta'])
+        ->middleware('role:integrante')
+        ->name('integrantes.alta');
+
     Route::middleware('permission:usuarios.editar')->group(function () {
 
         Route::resource('integrantes', IntegranteController::class)
@@ -178,6 +182,9 @@ Route::middleware('auth', 'privacy')->group(function () {
 
         Route::post('/integrantes/{integrante}/baja', [IntegranteBajaController::class, 'store'])
             ->name('integrantes.baja');
+
+        Route::patch('/integrantes/{integrante}/formula', [IntegranteController::class, 'moverFormula'])
+            ->name('integrantes.mover');
     });
 
     // Periodo en el cargo

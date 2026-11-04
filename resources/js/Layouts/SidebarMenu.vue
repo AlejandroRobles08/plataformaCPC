@@ -12,6 +12,9 @@ const isIntegrante = computed(() =>
 const esInvitado = computed(() =>
   page.props.auth?.roles?.includes('invitado')
 )
+
+// Integrante sin "Darme de alta" completado: solo ve Archivo digital
+const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
 </script>
 
 <template>
@@ -30,7 +33,7 @@ const esInvitado = computed(() =>
       </NavLink>
     </li>
 
-    <li v-if="!esInvitado" class="relative px-6 py-3">
+    <li v-if="!esInvitado && !altaPendiente" class="relative px-6 py-3">
       <NavLink :href="route('consejos.asistencias')" :active="route().current('consejos.asistencias')">
         <template #icon>
           <svg class="w-5 h-5" fill="white" stroke="currentColor" viewBox="0 0 24 24"
@@ -43,7 +46,7 @@ const esInvitado = computed(() =>
       </NavLink>
     </li>
 
-    <li v-if="!esInvitado" class="relative px-6 py-3">
+    <li v-if="!esInvitado && !altaPendiente" class="relative px-6 py-3">
       <NavLink :href="route('consejos.legalidad')" :active="route().current('consejos.legalidad')">
         <template #icon>
           <svg class="w-5 h-5" aria-hidden="true" fill="white" stroke-linecap="round"

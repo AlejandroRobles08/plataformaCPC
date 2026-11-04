@@ -6,6 +6,8 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import PrivacyModal from '@/Components/PrivacyModal.vue';
+import { ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 defineProps({
@@ -23,10 +25,44 @@ const form = useForm({
 	remember: false
 });
 
+// Aviso de privacidad: el backend lo pide (error "privacy") la primera vez que el usuario
+// ingresa con credenciales válidas. Se muestra sobre el login y, al aceptarlo,
+// se reenvía el mismo formulario indicando la aceptación.
+const showPrivacy = ref(false);
+const privacyRechazado = ref(false);
+
+const enviar = (privacyAccepted = false) => {
+	form
+		.transform(data => (privacyAccepted ? { ...data, privacy_accepted: true } : data))
+		.post(route('login'), {
+			onError: errors => {
+				if (errors.privacy) {
+					// Credenciales correctas: se conservan para reenviarlas al aceptar
+					showPrivacy.value = true;
+					return;
+				}
+				showPrivacy.value = false;
+				form.reset('password');
+			},
+			onFinish: () => {
+				if (!showPrivacy.value) form.reset('password');
+			},
+		});
+};
+
 const submit = () => {
-	form.post(route('login'), {
-		onFinish: () => form.reset('password'),
-	});
+	privacyRechazado.value = false;
+	enviar();
+};
+
+// El modal sigue abierto (con "Procesando...") hasta que el login termina
+const aceptarPrivacidad = () => enviar(true);
+
+const rechazarPrivacidad = () => {
+	showPrivacy.value = false;
+	privacyRechazado.value = true;
+	form.reset('password');
+	form.clearErrors();
 };
 </script>
 
@@ -45,6 +81,10 @@ const submit = () => {
 						{{ status }}
 					</div>
 					
+					<div v-if="privacyRechazado" class="mb-4 text-sm font-medium text-red-600">
+						Para ingresar a la plataforma es necesario aceptar el aviso de privacidad.
+					</div>
+
 					<form @submit.prevent="submit">
 						<div class="mt-4">
 							<InputLabel for="email" value="Email" />
@@ -78,6 +118,8 @@ const submit = () => {
 				</div>
 			</div>
 		</div>
+		<PrivacyModal v-if="showPrivacy" :processing="form.processing"
+			@aceptar="aceptarPrivacidad" @rechazar="rechazarPrivacidad" />
 	</GuestLayout>
 </template>
 

@@ -124,7 +124,11 @@ onBeforeUnmount(() => { detenerArrastre(); detenerResize() })
       <!-- Barra superior arrastrable -->
       <div class="flex shrink-0 cursor-move select-none items-center justify-between border-b p-5"
        @pointerdown="iniciarArrastre">
-        <h2 class="text-xl font-bold text-gray-800">{{ title }}</h2>
+        <div class="flex items-center gap-3">
+          <h2 class="text-xl font-bold text-gray-800">{{ title }}</h2>
+          <!-- Acciones opcionales junto al título (no inician el arrastre) -->
+          <div v-if="$slots['header-actions']" @pointerdown.stop><slot name="header-actions" /></div>
+        </div>
         <button type="button" class="cursor-pointer text-2xl text-gray-400 hover:text-gray-700" 
         @pointerdown.stop @click="emit('close')">×</button>
       </div>

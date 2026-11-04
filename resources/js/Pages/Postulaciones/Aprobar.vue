@@ -70,8 +70,8 @@ const submit = () => {
         </label>
         <select v-model="form.consejo_id" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
           <option value="">Seleccione un consejo</option>
-          <option v-for="consejo in consejos" :key="consejo.id" :value="consejo.id">
-            {{ consejo.nombre }}
+          <option v-for="consejo in consejos" :key="consejo.id" :value="consejo.id" :disabled="consejo.lleno">
+            {{ consejo.nombre }}{{ consejo.lleno ? ' (máximo de fórmulas alcanzado)' : '' }}
           </option>
         </select>
         <p class="text-xs text-gray-500 mt-1">

@@ -73,13 +73,15 @@ class LegalidadController extends Controller
             'integrante_id' => ['required',
                 Rule::exists('integrantes', 'id')
                     ->where('consejo_id', $consejo->id),
-                // No puede tener otro periodo que siga vigente
+                // Solo se asigna un periodo por integrante: si ya tiene uno, vigente o vencido, no se crea otro
                 function ($attribute, $value, $fail) {
-                    $tienePeriodoActivo = Legalidad::where('integrante_id', $value)
-                        ->whereDate('fin_cargo', '>=', Carbon::today())
-                        ->exists();
-                    if ($tienePeriodoActivo) {
-                        $fail('Este integrante ya tiene un periodo activo.');
+                    $periodo = Legalidad::where('integrante_id', $value)
+                        ->orderByDesc('fin_cargo')
+                        ->first();
+                    if ($periodo) {
+                        $fail($periodo->fin_cargo->lt(Carbon::today())
+                            ? 'Este integrante ya tiene un periodo vencido; no se le puede asignar otro.'
+                            : 'Este integrante ya tiene un periodo activo.');
                     }
                 },
             ],

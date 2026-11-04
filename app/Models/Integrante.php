@@ -19,6 +19,8 @@ class Integrante extends Model
     use HasFactory;
 
     public const MAX_FORMULAS = 15;
+    // Fórmulas completas que necesita un consejo para considerarse instalado
+    public const MIN_FORMULAS = 10;
     public const INTEGRANTES_POR_FORMULA = 2;
     public const CARGOS = ['Persona Consejera Titular', 'Persona Consejera Suplente'];
     
@@ -34,8 +36,33 @@ class Integrante extends Model
         'cargo',
         'correo',
         'consejo_id',
-        'formula'
+        'formula',
+        'alta_completada_at',
     ];
+
+    protected $casts = [
+        'alta_completada_at' => 'datetime',
+    ];
+
+    // Cada alta, baja o cambio de fórmula recalcula si el consejo está instalado
+    protected static function booted(): void
+    {
+        $sincronizar = function (Integrante $integrante) {
+            $ids = array_unique(array_filter([
+                $integrante->consejo_id,
+                $integrante->getOriginal('consejo_id'),
+            ]));
+            Consejo::whereKey($ids)->get()->each->sincronizarInstalacion();
+        };
+
+        static::created($sincronizar);
+        static::deleted($sincronizar);
+        static::updated(function (Integrante $integrante) use ($sincronizar) {
+            if ($integrante->wasChanged(['consejo_id', 'formula'])) {
+                $sincronizar($integrante);
+            }
+        });
+    }
 
     // Apellidos completos (paterno + materno) para mostrar en vistas y reportes
     protected $appends = ['apellido'];
@@ -74,26 +101,85 @@ class Integrante extends Model
         return $this->hasOne(IntegranteBaja::class);
     }
 
-    // Fórmula que corresponde al siguiente integrante según el orden de alta:
-    // se llenan en grupos de 2 y los lugares liberados por bajas se respetan.
+    // Primera fórmula con lugar libre (de la 1 a la 15), o null si el consejo está lleno.
+    // Los lugares liberados por bajas se vuelven a ocupar antes de abrir una fórmula nueva.
+    public static function formulaDisponible(int $consejoId): ?int
+    {
+        $ocupados = static::where('consejo_id', $consejoId)
+            ->whereNotNull('formula')
+            ->groupBy('formula')
+            ->selectRaw('formula, COUNT(*) as total')
+            ->pluck('total', 'formula');
+
+        for ($formula = 1; $formula <= self::MAX_FORMULAS; $formula++) {
+            if (($ocupados[$formula] ?? 0) < self::INTEGRANTES_POR_FORMULA) {
+                return $formula;
+            }
+        }
+
+        return null;
+    }
+
+    // Cuántas fórmulas completas (con sus 2 integrantes) tiene cada consejo, indexado por consejo_id
+    public static function formulasCompletasPorConsejo(?int $consejoId = null): \Illuminate\Support\Collection
+    {
+        return static::query()
+            ->fromSub(
+                static::whereNotNull('formula')
+                    ->when($consejoId, fn ($query) => $query->where('consejo_id', $consejoId))
+                    ->groupBy('consejo_id', 'formula')
+                    ->havingRaw('COUNT(*) >= ?', [self::INTEGRANTES_POR_FORMULA])
+                    ->select('consejo_id'),
+                'completas'
+            )
+            ->groupBy('consejo_id')
+            ->selectRaw('consejo_id, COUNT(*) as total')
+            ->pluck('total', 'consejo_id');
+    }
+
+    // Lugares ocupados por fórmula de cada consejo: [consejo_id => [formula => total]]
+    public static function ocupacionPorConsejo(): array
+    {
+        $ocupacion = [];
+        static::whereNotNull('formula')
+            ->groupBy('consejo_id', 'formula')
+            ->selectRaw('consejo_id, formula, COUNT(*) as total')
+            ->get()
+            ->each(function ($fila) use (&$ocupacion) {
+                $ocupacion[$fila->consejo_id][$fila->formula] = (int) $fila->total;
+            });
+
+        return $ocupacion;
+    }
+
+    // Lanza un error de validación si la fórmula ya tiene sus 2 integrantes.
+    // Debe llamarse dentro de una transacción con el consejo bloqueado (lockForUpdate).
+    public static function asegurarEspacioEnFormula(int $consejoId, int $formula, ?int $exceptoId = null): void
+    {
+        $ocupados = static::where('consejo_id', $consejoId)
+            ->where('formula', $formula)
+            ->when($exceptoId, fn ($query) => $query->whereKeyNot($exceptoId))
+            ->count();
+
+        if ($ocupados >= self::INTEGRANTES_POR_FORMULA) {
+            throw ValidationException::withMessages([
+                'formula' => 'No hay espacio disponible en esta fórmula',
+            ]);
+        }
+    }
+
+    public static function consejoLleno(int $consejoId): bool
+    {
+        return static::formulaDisponible($consejoId) === null;
+    }
+
+    // Fórmula que corresponde al siguiente integrante.
     // Debe llamarse dentro de una transacción con el consejo bloqueado (lockForUpdate).
     public static function siguienteFormula(int $consejoId): int
     {
-        $ultima = static::where('consejo_id', $consejoId)->max('formula');
+        $siguiente = static::formulaDisponible($consejoId);
 
-        if ($ultima === null) {
-            return 1;
-        }
-
-        $ultima = (int) $ultima;
-
-        $ocupados = static::where('consejo_id', $consejoId)
-            ->where('formula', $ultima)
-            ->count();
-
-        $siguiente = $ocupados >= self::INTEGRANTES_POR_FORMULA ? $ultima + 1 : $ultima;
-
-        if ($siguiente > self::MAX_FORMULAS) {
+        if ($siguiente === null) {
             throw ValidationException::withMessages([
                 'formula' => 'El consejo ya tiene las ' . self::MAX_FORMULAS . ' fórmulas completas ('
                     . self::MAX_FORMULAS * self::INTEGRANTES_POR_FORMULA . ' integrantes).',
