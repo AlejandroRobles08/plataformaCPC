@@ -24,15 +24,6 @@ const props = defineProps({
   altaPendiente: {
     type: Boolean,
     default: false
-  },
-  // Solo para el admin: consejos y ocupación de fórmulas para crear usuarios integrantes
-  consejos: {
-    type: Array,
-    default: () => []
-  },
-  ocupacion: {
-    type: Object,
-    default: () => ({})
   }
 })
 
@@ -185,25 +176,30 @@ function submitForm() {
   }
 }
 
+// Lugares ocupados en cada fórmula de este consejo: { formula: total }
+// (el admin recibe todos los integrantes del consejo; se usa al crear y al mover de fórmula)
+const ocupacion = computed(() => {
+  const totales = {}
+  props.integrantes.forEach(i => {
+    if (i.formula) totales[i.formula] = (totales[i.formula] ?? 0) + 1
+  })
+  return totales
+})
+
 // MOVER DE FÓRMULA
 async function moverFormula() {
   const integrante = props.integrantes.find(i => i.id === editingId.value)
   if (!integrante) return
 
-  // Ocupación actual de cada fórmula para orientar la elección
-  const ocupacion = {}
-  props.integrantes.forEach(i => {
-    if (i.formula) ocupacion[i.formula] = (ocupacion[i.formula] ?? 0) + 1
-  })
   const opciones = {}
   for (let n = 1; n <= MAX_FORMULAS; n++) {
     if (n === integrante.formula) continue
-    opciones[n] = `Fórmula ${n} (${ocupacion[n] ?? 0}/${INTEGRANTES_POR_FORMULA})`
+    opciones[n] = `Fórmula ${n} (${ocupacion.value[n] ?? 0}/${INTEGRANTES_POR_FORMULA})`
   }
 
   const { value: formula } = await Swal.fire({
     title: 'Mover de fórmula',
-    text: `${integrante.nombre} ${integrante.apellido} está en la fórmula ${integrante.formula ?? '-'}.`,
+    text: `${integrante.nombre_completo} está en la fórmula ${integrante.formula ?? '-'}.`,
     input: 'select',
     inputOptions: opciones,
     inputPlaceholder: 'Selecciona la fórmula destino',
@@ -341,9 +337,36 @@ const getSemaforoClase = (integrante) => {
         </button>
         <!-- Desaparece en cuanto el integrante guarda sus datos -->
         <button v-else-if="esIntegrante && altaPendiente" @click="abrirAlta"
-          class="px-4 py-2 bg-black text-white rounded hover:bg-gray-500">
+          class="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800Guardar asistencia">
           Darme de alta
         </button>
+      </div>
+
+      <!-- Instrucciones para administrador -->
+      <div v-if="puedeEditarIntegrante" class="mb-6 space-y-1 text-lg text-gray-500">
+        <p>
+          Para dar de alta en el sistema a una persona que ya forma parte de este consejo, de clic en
+          <strong>+ Agregar Integrante</strong> y capture los datos solicitados.
+        </p>
+        <p>
+          <strong>IMPORTANTE:</strong> El integrante no tendrá acceso a los demás módulos 
+          hasta que complete su alta. Si usted capturó algún dato por error, puede corregirlo con el botón <strong>Editar</strong>.
+        </p>
+      </div>
+
+      <!-- Instrucciones para integrante con el alta pendiente -->
+      <div v-else-if="esIntegrante && altaPendiente" class="mb-6 space-y-1 text-lg text-gray-500">
+        <p>
+          ¡Bienvenida(o)! Para comenzar a usar la plataforma, dé clic en el botón <strong>Darme de alta</strong>
+          y complete sus datos. Revise que su nombre esté escrito <strong>correctamente</strong> antes de guardar.
+        </p>
+        <p>
+          Su cargo y su correo ya fueron registrados por la administración y no se pueden modificar desde aquí;
+          si alguno es incorrecto, comuníquese con la persona administradora.
+        </p>
+        <p>
+          <strong>IMPORTANTE:</strong> No tendrá acceso a los demás módulos de la plataforma hasta que complete su alta. Este paso se realiza una sola vez.
+        </p>
       </div>
 
       <div v-if="consejoLleno" class="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-yellow-800">
@@ -380,7 +403,7 @@ const getSemaforoClase = (integrante) => {
               <td class="px-4 py-2 border">
                 <div v-if="f[0]" class="flex items-center gap-2">
                   <span v-if="getSemaforoClase(f[0])"class="semaforo" :class="getSemaforoClase(f[0])"></span>
-                  <span>{{ f[0].nombre }} {{ f[0].apellido }}</span>
+                  <span>{{ f[0].nombre_completo }}</span>
                 </div>
                 <span v-else class="text-gray-400">En espera de asignación de Persona Consejera</span>
 
@@ -388,7 +411,7 @@ const getSemaforoClase = (integrante) => {
 
                 <div v-if="f[1]" class="flex items-center gap-2">
                   <span v-if="getSemaforoClase(f[1])" class="semaforo" :class="getSemaforoClase(f[1])"></span>
-                  <span>{{ f[1].nombre }} {{ f[1].apellido }}</span>
+                  <span>{{ f[1].nombre_completo }}</span>
                 </div>
                 <span v-else class="text-gray-400">En espera de asignación de Persona Consejera</span>
               </td>
@@ -465,7 +488,7 @@ const getSemaforoClase = (integrante) => {
 
     <!-- CREAR USUARIO INTEGRANTE (admin) -->
     <CrearUsuarioModal v-if="showCrearUsuario" rol="integrante" ruta="integrantes.store"
-      titulo="Nuevo usuario integrante" :consejos="consejos" :consejo-id="consejo.id" :ocupacion="ocupacion"
+      titulo="Nuevo usuario integrante" :consejo="consejo" :ocupacion="ocupacion"
       @close="showCrearUsuario = false" @created="usuarioCreado" />
 
     <!-- MODAL DE BAJA -->

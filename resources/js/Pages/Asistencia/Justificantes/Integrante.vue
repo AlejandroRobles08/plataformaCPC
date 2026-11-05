@@ -105,7 +105,8 @@ function cerrarModal() {
     @close="cerrarModal">
     <!-- Descripción -->
     <p class="mb-5 text-sm text-gray-500">
-      Adjunte el justificante de la sesión a la que no pudo asistir. El archivo debe ser adjuntado en formato PDF. Se le notificará si fue aprobado o rechazado.
+      Adjunte el justificante de la sesión a la que no pudo asistir. El archivo debe ser adjuntado en formato PDF. Se le notificará si fue aprobado o rechazado. <br>
+      Si tienes dos faltas en el mismo día, sube primero el justificante de la primera sesión y luego el de la segunda. <br>
     </p>
 
     <!-- Integrante -->

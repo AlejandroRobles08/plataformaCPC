@@ -6,18 +6,65 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Consejo;
 use App\Models\Convocatoria;
+use Illuminate\Support\Facades\Storage;
 
 class ConvocatoriaController extends Controller
 {
-    public function index(Consejo $consejo)
+    // Campos de la tabla que guardan la ruta de un documento PDF
+    private const CAMPOS_DOCUMENTO = [
+        'convocatoria_documento',
+        'documento',
+        'lista_asistencia',
+        'evidencia',
+    ];
+
+    public function index(Request $request, Consejo $consejo)
     {
+        $filtros = $request->validate([
+            'fecha_desde' => 'nullable|date',
+            'fecha_hasta' => 'nullable|date|after_or_equal:fecha_desde',
+        ]);
+
         $convocatorias = $consejo->convocatorias()
-            ->orderBy('fecha', 'asc')
-            ->get();
+            ->when($filtros['fecha_desde'] ?? null, fn ($q, $desde) => $q->whereDate('fecha', '>=', $desde))
+            ->when($filtros['fecha_hasta'] ?? null, fn ($q, $hasta) => $q->whereDate('fecha', '<=', $hasta))
+            ->orderBy('fecha', 'desc')
+            ->orderBy('id', 'desc')
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('Convocatoria/Index', [
             'consejo' => $consejo,
             'convocatorias' => $convocatorias,
+            'filtros' => [
+                'fecha_desde' => $filtros['fecha_desde'] ?? '',
+                'fecha_hasta' => $filtros['fecha_hasta'] ?? '',
+            ],
+        ]);
+    }
+
+    // Visualizar en el navegador un documento de la convocatoria (requiere convocatorias.ver)
+    public function documento(Request $request, Convocatoria $convocatoria, string $campo)
+    {
+        abort_unless(in_array($campo, self::CAMPOS_DOCUMENTO, true), 404);
+
+        // Administración ve todos los consejos; el resto solo el suyo
+        $user = $request->user();
+        abort_unless(
+            $user->hasAnyRole(['admin', 'super_admin'])
+                || $user->integrante?->consejo_id === $convocatoria->consejo_id,
+            403
+        );
+
+        $ruta = $convocatoria->{$campo};
+        $disco = Storage::disk('public');
+
+        abort_unless($ruta && $disco->exists($ruta), 404, 'El archivo no se encuentra disponible.');
+
+        return response()->file($disco->path($ruta), [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $campo . '_' . $convocatoria->fecha . '.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 

@@ -1,9 +1,10 @@
 <script setup>
 // Formulario para que el admin cree un usuario con contraseña temporal.
 // - rol "invitado": solo nombre y correo (Postulaciones).
-// - rol "integrante": además consejo, fórmula y cargo, para dar de alta en la plataforma
-//   a quien ya forma parte de un consejo (Archivo digital).
-import { computed, watch } from 'vue'
+// - rol "integrante": además fórmula y cargo, para dar de alta en la plataforma
+//   a quien ya forma parte de un consejo (Archivo digital). El consejo es fijo:
+//   el que se está consultando.
+import { computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import DraggableModal from '@/Components/DraggableModal.vue'
 
@@ -12,10 +13,9 @@ const props = defineProps({
   // Nombre de la ruta a la que se envía el formulario
   ruta: { type: String, required: true },
   titulo: { type: String, default: 'Nuevo usuario' },
-  // Solo para rol integrante
-  consejos: { type: Array, default: () => [] },
-  consejoId: { type: Number, default: null },
-  // Lugares ocupados por fórmula: { consejo_id: { formula: total } }
+  // Solo para rol integrante: consejo en el que se registra ({ id, nombre })
+  consejo: { type: Object, default: null },
+  // Lugares ocupados en cada fórmula de ese consejo: { formula: total }
   ocupacion: { type: Object, default: () => ({}) },
 })
 
@@ -28,24 +28,23 @@ const CARGOS = ['Persona Consejera Titular', 'Persona Consejera Suplente']
 
 const esIntegrante = computed(() => props.rol === 'integrante')
 
+// El integrante captura su nombre completo por partes (nombre(s), apellido paterno y materno)
+// para que al editarlo aparezca ya separado; el invitado solo da un nombre.
 const form = useForm({
-  name: '',
+  ...(esIntegrante.value
+    ? { nombre: '', apellido_paterno: '', apellido_materno: '', consejo_id: props.consejo?.id ?? '', formula: '', cargo: '' }
+    : { name: '' }),
   email: '',
-  ...(esIntegrante.value ? { consejo_id: props.consejoId ?? '', formula: '', cargo: '' } : {}),
 })
 
-// Fórmulas del consejo elegido con su ocupación; las llenas se muestran deshabilitadas
-const formulas = computed(() => {
-  const ocupadas = props.ocupacion?.[form.consejo_id] ?? {}
-  return Array.from({ length: MAX_FORMULAS }, (_, i) => {
+// Fórmulas del consejo con su ocupación; las llenas se muestran deshabilitadas
+const formulas = computed(() =>
+  Array.from({ length: MAX_FORMULAS }, (_, i) => {
     const numero = i + 1
-    const total = ocupadas[numero] ?? 0
+    const total = props.ocupacion?.[numero] ?? 0
     return { numero, total, llena: total >= INTEGRANTES_POR_FORMULA }
   })
-})
-
-// Al cambiar de consejo, la fórmula elegida deja de aplicar
-watch(() => form.consejo_id, () => { if (esIntegrante.value) form.formula = '' })
+)
 
 const cerrar = () => {
   form.reset()
@@ -67,7 +66,28 @@ const submit = () => {
 <template>
   <DraggableModal :title="titulo" max-width="max-w-md" @close="cerrar">
     <form @submit.prevent="submit" class="space-y-4">
-      <div>
+      <fieldset v-if="esIntegrante" class="space-y-2">
+        <legend class="block text-sm font-medium text-gray-700">Nombre completo</legend>
+        <div>
+          <input v-model="form.nombre" type="text" required placeholder="Nombre(s)" aria-label="Nombre(s)"
+            class="w-full border-gray-300 rounded-md shadow-sm" />
+          <p v-if="form.errors.nombre" class="text-red-600 text-sm mt-1">{{ form.errors.nombre }}</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <input v-model="form.apellido_paterno" type="text" required placeholder="Apellido paterno"
+              aria-label="Apellido paterno" class="w-full border-gray-300 rounded-md shadow-sm" />
+            <p v-if="form.errors.apellido_paterno" class="text-red-600 text-sm mt-1">{{ form.errors.apellido_paterno }}</p>
+          </div>
+          <div>
+            <input v-model="form.apellido_materno" type="text" placeholder="Apellido materno"
+              aria-label="Apellido materno" class="w-full border-gray-300 rounded-md shadow-sm" />
+            <p v-if="form.errors.apellido_materno" class="text-red-600 text-sm mt-1">{{ form.errors.apellido_materno }}</p>
+          </div>
+        </div>
+      </fieldset>
+
+      <div v-else>
         <label class="block text-sm font-medium text-gray-700">Nombre</label>
         <input v-model="form.name" type="text" required
           class="mt-1 w-full border-gray-300 rounded-md shadow-sm" />
@@ -84,19 +104,16 @@ const submit = () => {
       <template v-if="esIntegrante">
         <div>
           <label class="block text-sm font-medium text-gray-700">Consejo</label>
-          <select v-model="form.consejo_id" required class="mt-1 w-full border-gray-300 rounded-md shadow-sm">
-            <option value="" disabled>Selecciona un consejo</option>
-            <option v-for="consejo in consejos" :key="consejo.id" :value="consejo.id">
-              {{ consejo.nombre }}
-            </option>
-          </select>
+          <!-- Solo informativo: el integrante se registra en el consejo que se está consultando -->
+          <input :value="consejo?.nombre" type="text" readonly tabindex="-1"
+            class="mt-1 w-full border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700 cursor-not-allowed" />
           <p v-if="form.errors.consejo_id" class="text-red-600 text-sm mt-1">{{ form.errors.consejo_id }}</p>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-700">Fórmula</label>
-          <select v-model="form.formula" required :disabled="!form.consejo_id"
-            class="mt-1 w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100">
+          <select v-model="form.formula" required
+            class="mt-1 w-full border-gray-300 rounded-md shadow-sm">
             <option value="" disabled>Selecciona una fórmula</option>
             <option v-for="f in formulas" :key="f.numero" :value="f.numero" :disabled="f.llena">
               Fórmula {{ f.numero }} ({{ f.total }}/{{ INTEGRANTES_POR_FORMULA }}){{ f.llena ? ' - llena' : '' }}

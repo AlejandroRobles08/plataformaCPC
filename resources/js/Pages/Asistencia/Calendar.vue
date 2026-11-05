@@ -13,7 +13,8 @@ const props = defineProps({
   consejo: Object,
   integrantes: { type: Array, default: () => [] },
   integrante: { type: Object, default: null },
-  asistencias: { type: Array, default: () => [] }
+  asistencias: { type: Array, default: () => [] },
+  maxSesionesPorDia: { type: Number, default: 2 }
 })
 
 const page = usePage()
@@ -26,6 +27,29 @@ const sesionSeleccionada = ref(null)
 const sesionJustificante = ref(null)
 const selectedDate = ref(null)
 const asistenciasSesion = ref([])
+// true cuando se programa una sesión adicional desde el formulario de asistencia
+const programacionAdicional = ref(false)
+
+// Sesiones programadas en una fecha (ordenadas por creación: sesión 1, sesión 2)
+const sesionesDeFecha = fecha =>
+  props.sesiones
+    .filter(s => s.fecha === fecha)
+    .sort((a, b) => Number(a.id) - Number(b.id))
+
+const sesionesDiaSeleccionado = computed(() =>
+  fechaSeleccionada.value ? sesionesDeFecha(fechaSeleccionada.value) : []
+)
+
+// Se puede agregar otra sesión mientras no se alcance el máximo por día
+const puedeAgregarSesion = computed(() =>
+  sesionesDiaSeleccionado.value.length > 0 &&
+  sesionesDiaSeleccionado.value.length < props.maxSesionesPorDia
+)
+
+// Tipos ya usados ese día (no se puede repetir el tipo en la misma fecha)
+const tiposOcupadosDia = computed(() =>
+  sesionesDiaSeleccionado.value.map(s => s.tipo_sesion)
+)
 
 // Admin y super_admin pueden crear y registrar asistencias
 const puedeCrearAsistencia = computed(() => {
@@ -137,19 +161,38 @@ function abrirFormulario(day) {
   }
 
   if (!puedeCrearAsistencia.value) return
-  const sesion = props.sesiones.find(s => s.fecha === fecha)
   fechaSeleccionada.value = fecha
   selectedDate.value = fecha
+  programacionAdicional.value = false
 
-  // Registrar asistencia si la sesión ya existe
-  if (sesion) {
-    sesionSeleccionada.value = sesion
-    asistenciasSesion.value = props.asistencias.filter(a => Number(a.sesion_id) === Number(sesion.id)
-     )
-    showForm.value = true
+  // Registrar asistencia si ya hay sesión ese día (se abre la primera; el formulario permite cambiar)
+  const [primeraSesion] = sesionesDeFecha(fecha)
+  if (primeraSesion) {
+    abrirFormSesion(primeraSesion)
     return
   }
   // Programar una nueva sesión
+  showProgramarSesion.value = true
+}
+
+// Abre el pase de lista de una sesión específica
+function abrirFormSesion(sesion) {
+  sesionSeleccionada.value = sesion
+  asistenciasSesion.value = props.asistencias.filter(
+    a => Number(a.sesion_id) === Number(sesion.id)
+  )
+  showForm.value = true
+}
+
+// Cambiar entre las sesiones del mismo día desde el formulario
+function cambiarSesion(sesion) {
+  abrirFormSesion(sesion)
+}
+
+// Botón "Otra sesión este día": se cierra el pase de lista y se programa otra sesión en la misma fecha
+function programarSesionAdicional() {
+  showForm.value = false
+  programacionAdicional.value = true
   showProgramarSesion.value = true
 }
 
@@ -157,8 +200,9 @@ function abrirFormulario(day) {
 function abrirJustificante(fecha) {
   if (!props.integrante) return
 
-  // PENDIENTE: si el integrante faltó a dos sesiones el mismo día, por ahora se toma la primera falta de ese día
-  const falta = faltas.value.find(a => a.fecha === fecha)
+  // Si faltó a dos sesiones el mismo día, se prioriza la falta que aún no tiene justificante en revisión
+  const faltasDia = faltas.value.filter(a => a.fecha === fecha)
+  const falta = faltasDia.find(a => a.estado_justificante !== 'pendiente') ?? faltasDia[0]
   if (!falta) return
 
   sesionJustificante.value = {
@@ -172,7 +216,18 @@ function abrirJustificante(fecha) {
 
 // Cerrar modal de programación
 function cerrarProgramacion() {
+  // ProgramarSesion emite 'close' después de 'saved'; si ya se cerró no hay nada que hacer
+  if (!showProgramarSesion.value) return
   showProgramarSesion.value = false
+
+  // Si se canceló la sesión adicional se regresa al pase de lista de la sesión que estaba abierta
+  if (programacionAdicional.value && sesionSeleccionada.value) {
+    programacionAdicional.value = false
+    abrirFormSesion(sesionSeleccionada.value)
+    return
+  }
+
+  programacionAdicional.value = false
   fechaSeleccionada.value = null
 }
 
@@ -181,6 +236,7 @@ function cerrarForm() {
   showForm.value = false
   sesionSeleccionada.value = null
   asistenciasSesion.value = []
+  fechaSeleccionada.value = null
 }
 
 // Cerrar modal de justificante
@@ -199,8 +255,26 @@ function justificanteGuardado() {
 
 // Recargar sesiones después de programar
 function handleSesionProgramada() {
-  cerrarProgramacion()
-  router.reload({ only: ['sesiones'], preserveScroll: true })
+  const esAdicional = programacionAdicional.value
+  const fecha = fechaSeleccionada.value
+  const idsPrevios = new Set(sesionesDeFecha(fecha).map(s => Number(s.id)))
+
+  showProgramarSesion.value = false
+  programacionAdicional.value = false
+
+  router.reload({
+    only: ['sesiones'],
+    preserveScroll: true,
+    onSuccess: () => {
+      if (!esAdicional) {
+        fechaSeleccionada.value = null
+        return
+      }
+      // Se abre directamente el pase de lista de la sesión recién programada
+      const nueva = sesionesDeFecha(fecha).find(s => !idsPrevios.has(Number(s.id)))
+      if (nueva) abrirFormSesion(nueva)
+    }
+  })
 }
 
 // Recargar después de registrar asistencia
@@ -210,8 +284,15 @@ function handleAsistenciaGuardada() {
 }
 
 // Sesiones mostradas en el calendario (en rojo si el integrante tiene falta)
-const calendarAttributes = computed(() =>
-  props.sesiones.map(s => {
+// Si hay dos sesiones el mismo día, el día se resalta con la primera y cada sesión agrega su punto
+const calendarAttributes = computed(() => {
+  const fechasResaltadas = new Set()
+
+  return [...props.sesiones]
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || Number(a.id) - Number(b.id))
+    .map(s => {
+    const esPrimeraDelDia = !fechasResaltadas.has(s.fecha)
+    fechasResaltadas.add(s.fecha)
     const conFalta = sesionesConFalta.value.has(Number(s.id))
     const color = conFalta ? 'red' : (coloresSesion[s.tipo_sesion] || 'gray')
 
@@ -227,7 +308,8 @@ const calendarAttributes = computed(() =>
     return {
       key: s.id,
       dates: new Date(`${s.fecha}T00:00:00`),
-      highlight,
+      // Solo la primera sesión del día resalta el fondo para que no se encimen los colores
+      ...(esPrimeraDelDia ? { highlight } : {}),
       dot,
       // El popover se dibuja en el slot day-popover para usar el mismo color de la sesión
       popover: { visibility: 'hover' },
@@ -239,7 +321,7 @@ const calendarAttributes = computed(() =>
       }
     }
   })
-)
+})
 </script>
 
 <template>
@@ -289,7 +371,7 @@ const calendarAttributes = computed(() =>
       class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
       <ul class="space-y-1">
         <li v-for="falta in faltas" :key="falta.id">
-          Tienes una inasistencia a  la sesión {{ falta.tipo_sesion }} el día {{ formatearFechaLegible(falta.fecha) }}
+          Tienes una inasistencia a la <strong>sesión {{ falta.tipo_sesion }}</strong> el día {{ formatearFechaLegible(falta.fecha) }}
           <span v-if="textoJustificante[falta.estado_justificante]" class="font-semibold">
             — {{ textoJustificante[falta.estado_justificante] }}
           </span>
@@ -299,9 +381,9 @@ const calendarAttributes = computed(() =>
       <span v-if="!esIntegrante"></span>
       <p class="mt-2 text-sm">
         Si tienes un justificante, puedes subirlo <strong>dando clic en el calendario sobre la fecha de inasistencia
-          para adjuntarlo y enviarlo</strong>
+          para adjuntarlo y enviarlo.</strong>
       </p>
-      <p class="mt-2 text-sm"><strong>IMPORTANTE:</strong> El documento deberá ser aprobado por el administrador   </p>
+      <p class="mt-2 text-sm"><strong>IMPORTANTE:</strong> El documento deberá ser aprobado por el administrador.</p>
     </div>
 
     <!-- Calendario -->
@@ -339,15 +421,22 @@ const calendarAttributes = computed(() =>
     <!-- Programar sesión -->
     <ProgramarSesion v-if="showProgramarSesion" :consejo-id="consejo.id"
       :fecha="fechaSeleccionada"
+      :adicional="programacionAdicional"
+      :tipos-ocupados="programacionAdicional ? tiposOcupadosDia : []"
       @close="cerrarProgramacion"
       @saved="handleSesionProgramada"/>
 
-    <!-- Registrar asistencia -->
-    <Form v-if="showForm && sesionSeleccionada" :sesion="sesionSeleccionada" :integrantes="integrantes"
+    <!-- Registrar asistencia (key: se reinicia el formulario al cambiar de sesión) -->
+    <Form v-if="showForm && sesionSeleccionada" :key="sesionSeleccionada.id"
+      :sesion="sesionSeleccionada" :integrantes="integrantes"
       :asistencias="asistenciasSesion"
       :consejo-id="consejo.id"
+      :sesiones-dia="sesionesDiaSeleccionado"
+      :puede-agregar-sesion="puedeAgregarSesion"
       @close="cerrarForm"
-      @saved="handleAsistenciaGuardada"/>
+      @saved="handleAsistenciaGuardada"
+      @cambiar-sesion="cambiarSesion"
+      @nueva-sesion="programarSesionAdicional"/>
 
     <!-- Subir justificante -->
     <Justificante v-if="showJustificante && integrante && sesionJustificante" :consejo="consejo"

@@ -64,12 +64,24 @@ class Integrante extends Model
         });
     }
 
-    // Apellidos completos (paterno + materno) para mostrar en vistas y reportes
-    protected $appends = ['apellido'];
+    // Apellidos completos (paterno + materno) y nombre completo para mostrar en vistas y reportes
+    protected $appends = ['apellido', 'nombre_completo'];
 
     public function getApellidoAttribute(): string
     {
         return trim($this->apellido_paterno . ' ' . $this->apellido_materno);
+    }
+
+    // Une nombre(s) + apellido paterno + apellido materno sin dejar espacios de más si falta alguna parte
+    public static function formatearNombreCompleto(?string $nombre, ?string $paterno, ?string $materno): string
+    {
+        return trim(preg_replace('/\s+/', ' ', implode(' ', [$nombre, $paterno, $materno])));
+    }
+
+    // $integrante->nombre_completo (y en Vue: integrante.nombre_completo)
+    public function getNombreCompletoAttribute(): string
+    {
+        return static::formatearNombreCompleto($this->nombre, $this->apellido_paterno, $this->apellido_materno);
     }
 
     //relacion user - integrante: un integrante pertenece a un usuario
@@ -135,21 +147,6 @@ class Integrante extends Model
             ->groupBy('consejo_id')
             ->selectRaw('consejo_id, COUNT(*) as total')
             ->pluck('total', 'consejo_id');
-    }
-
-    // Lugares ocupados por fórmula de cada consejo: [consejo_id => [formula => total]]
-    public static function ocupacionPorConsejo(): array
-    {
-        $ocupacion = [];
-        static::whereNotNull('formula')
-            ->groupBy('consejo_id', 'formula')
-            ->selectRaw('consejo_id, formula, COUNT(*) as total')
-            ->get()
-            ->each(function ($fila) use (&$ocupacion) {
-                $ocupacion[$fila->consejo_id][$fila->formula] = (int) $fila->total;
-            });
-
-        return $ocupacion;
     }
 
     // Lanza un error de validación si la fórmula ya tiene sus 2 integrantes.

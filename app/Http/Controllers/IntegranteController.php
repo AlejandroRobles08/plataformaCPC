@@ -50,13 +50,6 @@ class IntegranteController extends Controller
             'integranteActualId' => $integranteActualId,
             'consejoLleno' => Integrante::consejoLleno($consejo->id),
             'altaPendiente' => $altaPendiente,
-            // Solo el admin crea usuarios: lista de consejos y ocupación de sus fórmulas
-            'consejos' => $user->hasRole('integrante')
-                ? []
-                : Consejo::orderBy('nombre')->get(['id', 'nombre']),
-            'ocupacion' => $user->hasRole('integrante')
-                ? (object) []
-                : (object) Integrante::ocupacionPorConsejo(),
         ]);
     }
 
@@ -68,7 +61,9 @@ class IntegranteController extends Controller
         Gate::authorize('create', Integrante::class);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'nombre' => 'required|string|max:255',
+            'apellido_paterno' => 'required|string|max:255',
+            'apellido_materno' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email|unique:integrantes,correo',
             'consejo_id' => 'required|exists:consejos,id',
             'formula' => ['required', 'integer', 'min:1', 'max:' . Integrante::MAX_FORMULAS],
@@ -81,7 +76,9 @@ class IntegranteController extends Controller
             Integrante::asegurarEspacioEnFormula($validated['consejo_id'], $validated['formula']);
 
             $user = User::create([
-                'name' => $validated['name'],
+                'name' => Integrante::formatearNombreCompleto(
+                    $validated['nombre'], $validated['apellido_paterno'], $validated['apellido_materno'] ?? null
+                ),
                 'email' => $validated['email'],
                 //contraseña temporal inicial
                 'password' => Hash::make('pass123'),
@@ -91,7 +88,9 @@ class IntegranteController extends Controller
 
             Integrante::create([
                 'user_id' => $user->id,
-                'nombre' => $validated['name'],
+                'nombre' => $validated['nombre'],
+                'apellido_paterno' => $validated['apellido_paterno'],
+                'apellido_materno' => $validated['apellido_materno'] ?? null,
                 'correo' => $validated['email'],
                 'consejo_id' => $validated['consejo_id'],
                 'formula' => $validated['formula'],
@@ -130,7 +129,9 @@ class IntegranteController extends Controller
         DB::transaction(function () use ($validated, $integrante) {
             $integrante->update($validated + ['alta_completada_at' => now()]);
             $integrante->user->update([
-                'name' => trim($validated['nombre'] . ' ' . $validated['apellido_paterno'] . ' ' . ($validated['apellido_materno'] ?? '')),
+                'name' => Integrante::formatearNombreCompleto(
+                $validated['nombre'], $validated['apellido_paterno'], $validated['apellido_materno'] ?? null
+            ),
             ]);
         });
 
@@ -162,7 +163,9 @@ class IntegranteController extends Controller
         $integrante->update($validated);
         //ACTUALIZAR USUARIO ASOCIADO
         $integrante->user->update([
-            'name' => trim($validated['nombre'] . ' ' . $validated['apellido_paterno'] . ' ' . ($validated['apellido_materno'] ?? '')),
+            'name' => Integrante::formatearNombreCompleto(
+                $validated['nombre'], $validated['apellido_paterno'], $validated['apellido_materno'] ?? null
+            ),
             'email' => $validated['correo'],
         ]);
     });

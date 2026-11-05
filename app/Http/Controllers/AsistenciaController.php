@@ -11,6 +11,9 @@ use Inertia\Inertia;
 
 class AsistenciaController extends Controller
 {
+    // Sesiones que se pueden programar en un mismo día (la principal + una adicional)
+    public const MAX_SESIONES_POR_DIA = 2;
+
     // Vista principal de asistencias
     public function index(Consejo $consejo)
     {
@@ -69,8 +72,10 @@ class AsistenciaController extends Controller
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
+        // Ordenadas por fecha y luego por creación (sesión 1, sesión 2 del mismo día)
         $sesiones = Sesion::where('consejo_id', $consejo->id)
             ->orderBy('fecha')
+            ->orderBy('id')
             ->get();
 
         $integrante = null;
@@ -107,6 +112,7 @@ class AsistenciaController extends Controller
             'integrantes' => $integrantes,
             'integrante' => $integrante,
             'asistencias' => $asistencias,
+            'maxSesionesPorDia' => self::MAX_SESIONES_POR_DIA,
         ]);
     }
 
@@ -126,6 +132,17 @@ class AsistenciaController extends Controller
         if ($existe) {
             return back()->withErrors([
                 'fecha' => 'Ya existe una sesión de este tipo programada para esta fecha.',
+            ]);
+        }
+
+        // Se permite como máximo una sesión adicional por día
+        $sesionesDelDia = Sesion::where('consejo_id', $consejo->id)
+            ->whereDate('fecha', $validated['fecha'])
+            ->count();
+
+        if ($sesionesDelDia >= self::MAX_SESIONES_POR_DIA) {
+            return back()->withErrors([
+                'fecha' => 'Solo se pueden programar ' . self::MAX_SESIONES_POR_DIA . ' sesiones en un mismo día.',
             ]);
         }
 

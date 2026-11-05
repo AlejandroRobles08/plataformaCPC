@@ -124,6 +124,12 @@ Route::middleware('auth', 'privacy', 'alta')->group(function () {
         ->name('justificantes.rechazar');
      });
 
+     // Convocatorias y sesiones - visualizar documentos
+     Route::get('/convocatorias/{convocatoria}/documento/{campo}', [ConvocatoriaController::class, 'documento'])
+        ->middleware('permission:convocatorias.ver')
+        ->whereIn('campo', ['convocatoria_documento', 'documento', 'lista_asistencia', 'evidencia'])
+        ->name('convocatorias.documento');
+
      // Convocatorias y sesiones
      Route::middleware('permission:convocatorias.crear')->group(function () {
 

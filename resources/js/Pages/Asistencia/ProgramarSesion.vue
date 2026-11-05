@@ -13,7 +13,23 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  // Tipos ya programados ese día (al agregar una sesión adicional no se pueden repetir)
+  tiposOcupados: {
+    type: Array,
+    default: () => [],
+  },
+  // true cuando se programa la segunda sesión del día
+  adicional: {
+    type: Boolean,
+    default: false,
+  },
 })
+
+const tiposSesion = [
+  { value: 'ordinaria', label: 'Ordinaria' },
+  { value: 'solemne', label: 'Solemne' },
+  { value: 'extraordinaria', label: 'Extraordinaria' },
+]
 
 const emit = defineEmits(['close', 'saved'])
 
@@ -90,8 +106,14 @@ function submitForm() {
 </script>
 
 <template>
-  <DraggableModal title="Programar sesion" max-width="max-w-md"
+  <DraggableModal :title="adicional ? 'Programar sesión adicional' : 'Programar sesión'" max-width="max-w-md"
     @close="cerrarModal">
+      <!-- Aviso de sesión adicional -->
+      <div v-if="adicional"
+        class="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        Ya existe una sesión programada para esta fecha. Esta será la segunda sesión del día.
+      </div>
+
       <!-- Fecha -->
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-gray-700">
@@ -120,16 +142,10 @@ function submitForm() {
             Seleccione el tipo de sesión
           </option>
 
-          <option value="ordinaria">
-            Ordinaria
-          </option>
-
-          <option value="solemne">
-            Solemne
-          </option>
-
-          <option value="extraordinaria">
-            Extraordinaria
+          <option v-for="tipo in tiposSesion" :key="tipo.value"
+            :value="tipo.value"
+            :disabled="tiposOcupados.includes(tipo.value)">
+            {{ tipo.label }}{{ tiposOcupados.includes(tipo.value) ? ' (ya programada este día)' : '' }}
           </option>
         </select>
 

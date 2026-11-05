@@ -8,10 +8,14 @@ const props = defineProps({
   consejoId: {type: [Number, String],required: true},
   integrantes: {type: Array, required: true},
   sesion: {type: Object, required: true},
-  asistencias: {type: Array, default: () => []}
+  asistencias: {type: Array, default: () => []},
+  // Todas las sesiones programadas en la fecha (para cambiar entre sesión 1 y sesión 2)
+  sesionesDia: {type: Array, default: () => []},
+  // Si todavía se puede programar otra sesión ese día
+  puedeAgregarSesion: {type: Boolean, default: false}
 })
 
-const emit = defineEmits(['close', 'saved'])
+const emit = defineEmits(['close', 'saved', 'nueva-sesion', 'cambiar-sesion'])
 
 const page = usePage()
 
@@ -131,6 +135,25 @@ function submitForm() {
 <template>
   <DraggableModal :title="`Registrar asistencia - ${sesion.fecha}`"
     max-width="max-w-2xl" @close="emit('close')">
+    <!-- Selector de sesión cuando hay más de una en el día -->
+    <div v-if="sesionesDia.length > 1" class="mb-4">
+      <p class="mb-2 text-sm font-medium">
+        Sesiones de este día
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <button v-for="(s, idx) in sesionesDia" :key="s.id"
+          type="button"
+          class="rounded px-3 py-1.5 text-sm capitalize transition disabled:opacity-50"
+          :class="Number(s.id) === Number(sesion.id)
+            ? 'bg-gray-700 text-white'
+            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'"
+          :disabled="procesando"
+          @click="Number(s.id) !== Number(sesion.id) && emit('cambiar-sesion', s)">
+          Sesión {{ idx + 1 }} · {{ s.tipo_sesion }}
+        </button>
+      </div>
+    </div>
+
     <!-- Pase de lista ya enviado -->
     <div v-if="listaGuardada"
       class="mb-4 rounded-lg border border-green-200 bg-green-100 px-4 py-3 text-green-800">
@@ -258,9 +281,18 @@ function submitForm() {
     </p>
 
     <!-- Botones -->
-    <div class="flex justify-end gap-2 border-t pt-4">
+    <div class="flex items-center gap-2 border-t pt-4">
+      <!-- Programar otra sesión el mismo día (extrema izquierda) -->
+      <button v-if="puedeAgregarSesion" type="button"
+        class="rounded border border-gray-400 px-4 py-2 text-sm transition hover:bg-gray-100 disabled:opacity-50"
+        :disabled="procesando"
+        title="Programar una sesión adicional en esta misma fecha"
+        @click="emit('nueva-sesion')">
+        + Otra sesión este día
+      </button>
+
       <button type="button"
-        class="rounded bg-gray-300 px-4 py-2 transition hover:bg-gray-400 disabled:opacity-50"
+        class="ml-auto rounded bg-gray-300 px-4 py-2 transition hover:bg-gray-400 disabled:opacity-50"
         :disabled="procesando"
         @click="emit('close')">
         Cancelar

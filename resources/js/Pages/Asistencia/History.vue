@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import DraggableModal from '@/Components/DraggableModal.vue'
 import * as XLSX from 'xlsx'
 
@@ -10,6 +11,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+// El integrante no puede exportar su historial; solo la administración
+const page = usePage()
+const esIntegrante = computed(() => page.props.auth?.roles?.includes('integrante') ?? false)
 
 function textoEstado(estado) {
   switch (estado) {
@@ -46,6 +51,23 @@ const filas = computed(() =>
   )
 )
 
+// Buscador (tipo de sesión, fecha, estado o comentario) y paginación de 10 en 10
+const POR_PAGINA = 10
+const busqueda = ref('')
+const pagina = ref(1)
+
+const filtradas = computed(() => {
+  const texto = busqueda.value.trim().toLowerCase()
+  return texto
+    ? filas.value.filter(h => `${h.tipo_sesion} ${h.fecha} ${textoEstado(h.estado)} ${comentarioRechazo(h) ?? ''}`.toLowerCase().includes(texto))
+    : filas.value
+})
+const totalPaginas = computed(() => Math.max(1, Math.ceil(filtradas.value.length / POR_PAGINA)))
+const filasPagina = computed(() => filtradas.value.slice((pagina.value - 1) * POR_PAGINA, pagina.value * POR_PAGINA))
+
+// Al buscar o cambiar de integrante se regresa a la primera página
+watch([busqueda, () => props.integrante?.id], () => { pagina.value = 1 })
+
 // export a excel
 function exportarExcel() {
 
@@ -74,8 +96,15 @@ function exportarExcel() {
     v-if="show"
     :title="`Historial de ${integrante.nombre} ${integrante.apellido}`"
     @close="emit('close')">
-    <div class="mb-3 text-right">
-      <button @click="exportarExcel" class="px-4 py-2 bg-green-600 
+    <div class="mb-3 text-left">
+      <p class="text-sm text-gray-600">
+        <strong>Importante:</strong> Las faltas justificadas se muestran como dos filas: la inasistencia y su justificación.
+      </p>
+    </div>
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+      <input v-model="busqueda" type="search" placeholder="Buscar por tipo de sesión, fecha o estado..."
+        class="flex-1 rounded border-gray-300 px-3 py-2 text-sm focus:border-gray-600 focus:ring-gray-600" />
+      <button v-if="!esIntegrante" @click="exportarExcel" class="px-4 py-2 bg-green-600 
       text-white rounded hover:bg-green-700 text-sm">
         Exportar Excel
       </button>
@@ -93,7 +122,7 @@ function exportarExcel() {
         </thead>
 
         <tbody>
-          <tr v-for="h in filas"
+          <tr v-for="h in filasPagina"
             :key="h.clave" class="hover:bg-gray-50">
             <td class="px-3 py-2 border capitalize">
               {{ h.tipo_sesion }}
@@ -117,8 +146,26 @@ function exportarExcel() {
               <span v-else class="text-gray-400">-</span>
             </td>
           </tr>
+          <tr v-if="!filasPagina.length">
+            <td colspan="4" class="px-3 py-6 text-center text-gray-500">
+              {{ busqueda ? 'No hay registros que coincidan con la búsqueda.' : 'Sin registros de asistencia.' }}
+            </td>
+          </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Paginación -->
+    <div v-if="totalPaginas > 1" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span class="text-gray-500">
+        {{ (pagina - 1) * POR_PAGINA + 1 }}–{{ Math.min(pagina * POR_PAGINA, filtradas.length) }} de {{ filtradas.length }}
+      </span>
+      <div class="flex gap-1">
+        <button :disabled="pagina === 1" class="rounded border px-3 py-1 hover:bg-gray-100 disabled:opacity-40" @click="pagina--">‹</button>
+        <button v-for="n in totalPaginas" :key="n" class="rounded border px-3 py-1"
+          :class="n === pagina ? 'bg-gray-700 text-white' : 'hover:bg-gray-100'" @click="pagina = n">{{ n }}</button>
+        <button :disabled="pagina === totalPaginas" class="rounded border px-3 py-1 hover:bg-gray-100 disabled:opacity-40" @click="pagina++">›</button>
+      </div>
     </div>
 
     <div class="text-right mt-4">
