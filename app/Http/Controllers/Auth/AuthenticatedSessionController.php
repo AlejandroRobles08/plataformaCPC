@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -59,7 +60,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Destroy an authenticated session.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request): SymfonyResponse
     {
         Auth::guard('web')->logout();
 
@@ -67,9 +68,12 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect()->route('login')
-            ->withHeaders([
-                'Clear-Site-Data' => '"cache", "cookies", "storage"',
-            ]);
+        // Navegación completa, no una visita de Inertia: en una misma carga de la app, Inertia
+        // restaura las páginas de "atrás/adelante" desde history.state sin consultar al servidor,
+        // así que se seguirían viendo páginas protegidas después de cerrar sesión.
+        $response = Inertia::location(route('login'));
+        $response->headers->set('Clear-Site-Data', '"cache", "cookies", "storage"');
+
+        return $response;
     }
 }

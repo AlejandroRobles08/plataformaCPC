@@ -3,6 +3,7 @@ import { Link, usePage, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import {ClipboardDocumentIcon,CalendarIcon,FlagIcon,DocumentCheckIcon} from '@heroicons/vue/24/solid'
 import { ref, computed } from 'vue'
+import Swal from 'sweetalert2'
 import Form from './Form.vue'
 import HistoryModal from './History.vue'
 import JustificantesAdmin from './Justificantes/Admin.vue'
@@ -30,6 +31,11 @@ const props = defineProps({
   justificantes: {
     type: Array,
     default: () => []
+  },
+  // Color del semáforo por integrante (la regla se calcula en el backend)
+  semaforos: {
+    type: [Object, Array],
+    default: () => ({})
   }
 })
 
@@ -125,34 +131,28 @@ const formulas = computed(() => {
 })
 
 function obtenerSemaforo(integranteId) {
-  const registros = props.asistencias
-    .filter(a => a.integrante_id === integranteId)
-    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+  return props.semaforos[integranteId]
+}
 
-  if (!registros.length) return 'verde'
+const leyendaSemaforo = [
+  { color: 'verde', texto: 'no se registran inasistencias.' },
+  { color: 'amarillo', texto: 'se registran inasistencias, sin acumular 3 faltas consecutivas.' },
+  { color: 'rojo', texto: 'se acumulan 3 faltas consecutivas, ya sea en el mismo mes o en meses diferentes, sean o no consecutivos. Esta condición es causa de baja directa del sistema.' }
+]
 
-  const faltas = registros.filter(a => a.estado === 'falto')
+// Al entrar al calendario, avisa al integrante en rojo; devolver false detiene la visita hasta cerrar la alerta
+function avisarFaltasConsecutivas() {
+  if (!esIntegrante.value || obtenerSemaforo(props.integranteActualId) !== 'rojo') return true
 
-  if (faltas.length === 0) return 'verde'
-  if (faltas.length === 2) return 'amarillo'
+  Swal.fire({
+    icon: 'warning',
+    title: 'Ha acumulado 3 faltas consecutivas',
+    text: 'Si no justifica sus inasistencias, causará baja del sistema. Puede adjuntar su justificante dando clic en el calendario sobre la fecha de la inasistencia. Si ya lo envió, espere a que sea validado.',
+    confirmButtonText: 'Entendido',
+    confirmButtonColor: '#374151'
+  }).then(() => router.visit(route('asistencia.calendar', props.consejo.id)))
 
-  if (faltas.length === 3) {
-    let consecutivas = true
-
-    for (let i = 1; i < faltas.length; i++) {
-      const diff =
-        (new Date(faltas[i].fecha) - new Date(faltas[i - 1].fecha)) /
-        (1000 * 60 * 60 * 24)
-
-      if (diff > 40) consecutivas = false
-    }
-
-    return consecutivas ? 'rojo' : 'amarillo'
-  }
-
-  if (faltas.length >= 4) return 'rojo'
-
-  return 'verde'
+  return false
 }
 
 function colorClase(color) {
@@ -176,22 +176,38 @@ function colorClase(color) {
       <h1 class="text-2xl font-bold mb-2">
         Registro de asistencias del consejo: {{ props.consejo.nombre }}
       </h1>
-      <!-- Instrucciones para administrador -->
-      <div v-if="esAdministrador" class="mb-6 space-y-1 text-lg text-gray-500">
-        <p>
-          En el botón <strong>Evidencia documental</strong>, estarán disponibles para visualización las listas de asistencia de cada sesión.
-        </p>
-        <p>
-          En el botón <strong>Ver calendario</strong>, usted podrá programar las sesiones que se llevarán a cabo, así como pasar lista de asistencia.
-        </p>
-      </div>
+      <div class="mb-6 grid grid-cols-1 gap-4 text-sm text-gray-600 md:grid-cols-2">
+        <!-- Informativo de la semaforización -->
+        <div class="rounded-lg border border-gray-200 p-4">
+          <p class="mb-2 font-semibold">Semaforización de asistencias</p>
+          <ul class="space-y-1">
+            <li v-for="s in leyendaSemaforo" :key="s.color" class="flex items-start gap-2">
+              <span class="mt-1 h-3 w-3 shrink-0 rounded-full" :class="colorClase(s.color)"></span>
+              <span><strong class="capitalize">{{ s.color }}:</strong> {{ s.texto }}</span>
+            </li>
+          </ul>
+          <p class="mt-2">
+            {{ esIntegrante
+              ? 'Si usted acumula 3 faltas consecutivas, dejará de estar disponible para el pase de lista hasta que su justificante sea enviado y validado.'
+              : 'Cuando un integrante acumule 3 faltas consecutivas, usted ya no lo verá disponible para el pase de lista hasta que su justificante sea enviado y validado.' }}
+          </p>
+        </div>
 
-      <!-- Instrucciones para integrante -->
-      <div v-if="esIntegrante" class="mb-6 text-lg text-gray-500">
-        <p>
-          En el botón <strong>Ver calendario</strong>, usted podrá visualizar sus asistencias e inasistencias, así como el total acumulado de las mismas.
-          En caso de que haya faltado a alguna sesión, podrá adjuntar un justificante en formato PDF para su revisión.
-        </p>
+        <!-- Instrucciones -->
+        <div class="space-y-2 rounded-lg border border-gray-200 p-4">
+          <template v-if="esAdministrador">
+            <p>
+              En el botón <strong>Evidencia documental</strong>, estarán disponibles para visualización las listas de asistencia de cada sesión.
+            </p>
+            <p>
+              En el botón <strong>Ver calendario</strong>, usted podrá programar las sesiones que se llevarán a cabo, así como pasar lista de asistencia.
+            </p>
+          </template>
+          <p v-if="esIntegrante">
+            En el botón <strong>Ver calendario</strong>, usted podrá visualizar sus asistencias e inasistencias, así como el total acumulado de las mismas.
+            En caso de que haya faltado a alguna sesión, podrá adjuntar un justificante en formato PDF para su revisión.
+          </p>
+        </div>
       </div>
 
       <div class="flex gap-4 mb-6">
@@ -201,8 +217,8 @@ function colorClase(color) {
           Evidencia documental
         </Link>
 
-        <Link :href="route('asistencia.calendar', props.consejo.id)" class="relative flex items-center gap-2 
-        px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-800">
+        <Link :href="route('asistencia.calendar', props.consejo.id)" class="relative flex items-center gap-2
+        px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-800" @before="avisarFaltasConsecutivas">
           <CalendarIcon class="w-5 h-5" />
           Ver calendario
           <span v-if="totalFaltas" class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-600 text-xs font-bold">

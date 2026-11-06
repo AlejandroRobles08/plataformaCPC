@@ -186,6 +186,15 @@ const ocupacion = computed(() => {
   return totales
 })
 
+// Cargos ya asignados en cada fórmula de este consejo: { formula: [cargo, ...] }
+const cargosPorFormula = computed(() => {
+  const cargos = {}
+  props.integrantes.forEach(i => {
+    if (i.formula && i.cargo) (cargos[i.formula] ??= []).push(i.cargo)
+  })
+  return cargos
+})
+
 // MOVER DE FÓRMULA
 async function moverFormula() {
   const integrante = props.integrantes.find(i => i.id === editingId.value)
@@ -227,7 +236,7 @@ async function moverFormula() {
       Swal.fire({
         icon: 'error',
         title: 'Error al mover de fórmula',
-        text: errors.formula ?? 'La fórmula seleccionada se encuentra llena.',
+        text: errors.formula ?? errors.cargo ?? 'La fórmula seleccionada se encuentra llena.',
         confirmButtonColor: '#dc2626'
       })
     }
@@ -332,8 +341,9 @@ const getSemaforoClase = (integrante) => {
           Integrantes del Consejo de Participación Ciudadana de {{ consejo.nombre }}
         </h1>
         <button v-if="puedeEditarIntegrante" @click="showCrearUsuario = true" :disabled="consejoLleno"
-          class="px-4 py-2 bg-black text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black">
-          + Agregar Integrante
+          class="px-4 py-2 bg-yellow-700 text-white rounded hover:bg-yellow-800 
+          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black">
+          + Dar de alta a un integrante
         </button>
         <!-- Desaparece en cuanto el integrante guarda sus datos -->
         <button v-else-if="esIntegrante && altaPendiente" @click="abrirAlta"
@@ -489,6 +499,7 @@ const getSemaforoClase = (integrante) => {
     <!-- CREAR USUARIO INTEGRANTE (admin) -->
     <CrearUsuarioModal v-if="showCrearUsuario" rol="integrante" ruta="integrantes.store"
       titulo="Nuevo usuario integrante" :consejo="consejo" :ocupacion="ocupacion"
+      :cargos-por-formula="cargosPorFormula"
       @close="showCrearUsuario = false" @created="usuarioCreado" />
 
     <!-- MODAL DE BAJA -->

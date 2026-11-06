@@ -15,13 +15,34 @@ const esInvitado = computed(() =>
 
 // Integrante sin "Darme de alta" completado: solo ve Archivo digital
 const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
+
+// Rutas que pertenecen a cada módulo, para mantenerlo marcado en todas sus secciones
+const rutasPorModulo = {
+  integrantes: ['consejos.index', 'consejos.integrantes', 'integrantes.*', 'docu.*'],
+  asistencias: ['consejos.asistencias', 'asistencias.*', 'asistencia.*', 'justificantes.*'],
+  legalidad: ['consejos.legalidad', 'legalidad.*'],
+  convocatorias: ['consejos.convocatorias', 'convocatorias.*'],
+  reportes: ['consejos.reportes', 'reportes.*'],
+  postulaciones: ['postulaciones.*'],
+  usuarios: ['users.*'],
+}
+
+// No es computed: la ruta actual de Ziggy no es reactiva y el resultado quedaría en caché
+const enModulo = (modulo) => {
+  // La instalación de un consejo se comparte entre módulos: pertenece al módulo de origen
+  if (route().current('consejos.create')) {
+    return (route().params.origen ?? 'integrantes') === modulo
+  }
+
+  return rutasPorModulo[modulo].some((ruta) => route().current(ruta))
+}
 </script>
 
 <template>
   <ul class="mt-6">
     <!-- Aqui empieza el SideBar -->
     <li v-if="!esInvitado" class="relative px-6 py-3">
-      <NavLink :href="route('consejos.index')" :active="route().current('consejos.index')">
+      <NavLink :href="route('consejos.index')" :active="enModulo('integrantes')">
         <template #icon>
           <svg class="w-5 h-5" aria-hidden="true" fill="white" stroke-linecap="round"
                stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor">
@@ -34,7 +55,7 @@ const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
     </li>
 
     <li v-if="!esInvitado && !altaPendiente" class="relative px-6 py-3">
-      <NavLink :href="route('consejos.asistencias')" :active="route().current('consejos.asistencias')">
+      <NavLink :href="route('consejos.asistencias')" :active="enModulo('asistencias')">
         <template #icon>
           <svg class="w-5 h-5" fill="white" stroke="currentColor" viewBox="0 0 24 24"
                xmlns="http://www.w3.org/2000/svg">
@@ -47,7 +68,7 @@ const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
     </li>
 
     <li v-if="!esInvitado && !altaPendiente" class="relative px-6 py-3">
-      <NavLink :href="route('consejos.legalidad')" :active="route().current('consejos.legalidad')">
+      <NavLink :href="route('consejos.legalidad')" :active="enModulo('legalidad')">
         <template #icon>
           <svg class="w-5 h-5" aria-hidden="true" fill="white" stroke-linecap="round"
                stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,7 +81,7 @@ const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
     </li>
 
     <li v-if="!esInvitado && !isIntegrante" class="relative px-6 py-3">
-      <NavLink :href="route('consejos.convocatorias')" :active="route().current('consejos.convocatorias')">
+      <NavLink :href="route('consejos.convocatorias')" :active="enModulo('convocatorias')">
         <template #icon>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
               <path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
@@ -71,7 +92,7 @@ const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
     </li>
 
     <li v-if="!esInvitado && !isIntegrante" class="relative px-6 py-3">
-      <NavLink :href="route('consejos.reportes')" :active="route().current('consejos.reportes')">
+      <NavLink :href="route('consejos.reportes')" :active="enModulo('reportes')">
         <template #icon>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
              <path fill-rule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clip-rule="evenodd" />
@@ -84,7 +105,7 @@ const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
 
     <!--Postulaciones-->
     <li v-if="!isIntegrante" class="relative px-6 py-3">
-      <NavLink :href="route('postulaciones.index')" :active="route().current('postulaciones.index')">
+      <NavLink :href="route('postulaciones.index')" :active="enModulo('postulaciones')">
         <template #icon>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.05 4.575a1.575 1.575 0 1 0-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 0 1 3.15 0v1.5m-3.15 0 .075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 0 1 3.15 0V15M6.9 7.575a1.575 1.575 0 1 0-3.15 0v8.175a6.75 6.75 0 0 0 6.75 6.75h2.018a5.25 5.25 0 0 0 3.712-1.538l1.732-1.732a5.25 5.25 0 0 0 1.538-3.712l.003-2.024a.668.668 0 0 1 .198-.471 1.575 1.575 0 1 0-2.228-2.228 3.818 3.818 0 0 0-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0 1 16.35 15m.002 0h-.002" />
@@ -96,7 +117,7 @@ const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
 
     <!--Usuarios-->
     <li v-if="!esInvitado && !isIntegrante" class="relative px-6 py-3">
-      <NavLink :href="route('users.index')" :active="route().current('users.index')">
+      <NavLink :href="route('users.index')" :active="enModulo('usuarios')">
         <template #icon>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
             <path fill-rule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clip-rule="evenodd" />

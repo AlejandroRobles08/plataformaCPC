@@ -4,7 +4,7 @@
 // - rol "integrante": además fórmula y cargo, para dar de alta en la plataforma
 //   a quien ya forma parte de un consejo (Archivo digital). El consejo es fijo:
 //   el que se está consultando.
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import DraggableModal from '@/Components/DraggableModal.vue'
 
@@ -17,6 +17,8 @@ const props = defineProps({
   consejo: { type: Object, default: null },
   // Lugares ocupados en cada fórmula de ese consejo: { formula: total }
   ocupacion: { type: Object, default: () => ({}) },
+  // Cargos ya asignados en cada fórmula de ese consejo: { formula: [cargo, ...] }
+  cargosPorFormula: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['close', 'created'])
@@ -37,14 +39,29 @@ const form = useForm({
   email: '',
 })
 
-// Fórmulas del consejo con su ocupación; las llenas se muestran deshabilitadas
+// Solo las fórmulas del consejo con lugar disponible, con su ocupación
 const formulas = computed(() =>
   Array.from({ length: MAX_FORMULAS }, (_, i) => {
     const numero = i + 1
-    const total = props.ocupacion?.[numero] ?? 0
-    return { numero, total, llena: total >= INTEGRANTES_POR_FORMULA }
-  })
+    return { numero, total: props.ocupacion?.[numero] ?? 0 }
+  }).filter(f => f.total < INTEGRANTES_POR_FORMULA)
 )
+
+// Cargos que siguen libres en la fórmula elegida
+const cargosDisponibles = computed(() => {
+  if (!form.formula) return []
+  const ocupados = props.cargosPorFormula?.[form.formula] ?? []
+  return CARGOS.filter(cargo => !ocupados.includes(cargo))
+})
+
+// Si solo queda un cargo libre se asigna solo; si el elegido dejó de estar libre, se limpia
+watch(cargosDisponibles, disponibles => {
+  if (disponibles.length === 1) {
+    form.cargo = disponibles[0]
+  } else if (!disponibles.includes(form.cargo)) {
+    form.cargo = ''
+  }
+})
 
 const cerrar = () => {
   form.reset()
@@ -115,8 +132,8 @@ const submit = () => {
           <select v-model="form.formula" required
             class="mt-1 w-full border-gray-300 rounded-md shadow-sm">
             <option value="" disabled>Selecciona una fórmula</option>
-            <option v-for="f in formulas" :key="f.numero" :value="f.numero" :disabled="f.llena">
-              Fórmula {{ f.numero }} ({{ f.total }}/{{ INTEGRANTES_POR_FORMULA }}){{ f.llena ? ' - llena' : '' }}
+            <option v-for="f in formulas" :key="f.numero" :value="f.numero">
+              Fórmula {{ f.numero }} ({{ f.total }}/{{ INTEGRANTES_POR_FORMULA }})
             </option>
           </select>
           <p v-if="form.errors.formula" class="text-red-600 text-sm mt-1">{{ form.errors.formula }}</p>
@@ -124,9 +141,12 @@ const submit = () => {
 
         <div>
           <label class="block text-sm font-medium text-gray-700">Cargo</label>
-          <select v-model="form.cargo" required class="mt-1 w-full border-gray-300 rounded-md shadow-sm">
-            <option value="" disabled>Selecciona un cargo</option>
-            <option v-for="cargo in CARGOS" :key="cargo" :value="cargo">{{ cargo }}</option>
+          <select v-model="form.cargo" required :disabled="!form.formula"
+            class="mt-1 w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
+            <option value="" disabled>
+              {{ form.formula ? 'Selecciona un cargo' : 'Primero selecciona una fórmula' }}
+            </option>
+            <option v-for="cargo in cargosDisponibles" :key="cargo" :value="cargo">{{ cargo }}</option>
           </select>
           <p v-if="form.errors.cargo" class="text-red-600 text-sm mt-1">{{ form.errors.cargo }}</p>
         </div>

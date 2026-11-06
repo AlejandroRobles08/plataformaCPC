@@ -74,6 +74,7 @@ class IntegranteController extends Controller
             // Bloquea el consejo para que dos altas simultáneas no llenen de más la fórmula
             Consejo::whereKey($validated['consejo_id'])->lockForUpdate()->first();
             Integrante::asegurarEspacioEnFormula($validated['consejo_id'], $validated['formula']);
+            Integrante::asegurarCargoDisponible($validated['consejo_id'], $validated['formula'], $validated['cargo']);
 
             $user = User::create([
                 'name' => Integrante::formatearNombreCompleto(
@@ -159,6 +160,12 @@ class IntegranteController extends Controller
     ]);
 
     DB::transaction(function () use ($validated, $integrante) {
+        // Solo se valida si cambia el cargo, para que corregir otros datos nunca se bloquee
+        if ($validated['cargo'] !== $integrante->cargo) {
+            Consejo::whereKey($integrante->consejo_id)->lockForUpdate()->first();
+            Integrante::asegurarCargoDisponible($integrante->consejo_id, $integrante->formula, $validated['cargo']);
+        }
+
         //ACTUALIZAR INTEGRANTE
         $integrante->update($validated);
         //ACTUALIZAR USUARIO ASOCIADO
@@ -194,6 +201,7 @@ class IntegranteController extends Controller
             Consejo::whereKey($integrante->consejo_id)->lockForUpdate()->first();
 
             Integrante::asegurarEspacioEnFormula($integrante->consejo_id, $formula, $integrante->id);
+            Integrante::asegurarCargoDisponible($integrante->consejo_id, $formula, $integrante->cargo);
 
             $integrante->update(['formula' => $formula]);
         });

@@ -2,7 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { useForm, Link, router } from '@inertiajs/vue3'
 import Pagination from '@/Components/Pagination.vue'
-import { CheckCircleIcon, XCircleIcon, BookmarkIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/solid'
+import InputError from '@/Components/InputError.vue'
+import { CheckCircleIcon, XCircleIcon, BookmarkIcon, ArrowUpTrayIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/solid'
 import { computed, ref, watch } from 'vue'
 import Swal from 'sweetalert2';
 
@@ -29,21 +30,52 @@ watch(() => form.estado_convocatoria, (val) => {
 
 function handleConvocatoria(e) {
   form.convocatoria_documento = e.target.files[0]
+  form.clearErrors('convocatoria_documento')
 }
 
 function handleDocumento(e) {
   form.documento = e.target.files[0]
+  form.clearErrors('documento')
 }
 
 function handleLista(e) {
   form.lista_asistencia = e.target.files[0]
+  form.clearErrors('lista_asistencia')
 }
 
 function handleEvidencia(e) {
   form.evidencia = e.target.files[0]
+  form.clearErrors('evidencia')
+}
+
+// Documentos obligatorios según lo que se marque como realizado (solo los visibles en el formulario)
+const MENSAJES_DOCUMENTO_CONVOCATORIA = {
+  convocatoria_documento: 'El acta de convocatoria es obligatoria; debes adjuntarla.',
+}
+
+const MENSAJES_DOCUMENTOS_SESION = {
+  documento: 'El acta de sesión es obligatoria; debes adjuntarla.',
+  lista_asistencia: 'La lista de asistencia es obligatoria; debes adjuntarla.',
+  evidencia: 'La evidencia fotográfica es obligatoria; debes adjuntarla.',
+}
+
+function validarDocumentos() {
+  const requeridos = {
+    ...(form.estado_convocatoria ? MENSAJES_DOCUMENTO_CONVOCATORIA : {}),
+    ...(form.estado_sesion ? MENSAJES_DOCUMENTOS_SESION : {}),
+  }
+
+  const faltantes = Object.keys(requeridos).filter((campo) => !form[campo])
+
+  form.clearErrors()
+  faltantes.forEach((campo) => form.setError(campo, requeridos[campo]))
+
+  return faltantes.length === 0
 }
 
 function submit() {
+  if (!validarDocumentos()) return
+
   form.post(route('convocatorias.store', { consejo: props.consejo.id }), {
     forceFormData: true,
     onSuccess: () => {
@@ -62,7 +94,7 @@ function submit() {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'No se pudo registrar la convocatoria.'
+        text: Object.values(errors)[0] || 'No se pudo registrar la convocatoria.'
       })
     }
   })
@@ -153,10 +185,16 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
         <div v-if="mostrarConvocatoria">
           <h2 class="text-lg font-semibold mb-2">Lista de documentos</h2>
 
+          <div class="flex items-start gap-2 mb-4 p-3 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-800">
+            <ExclamationTriangleIcon class="w-5 h-5 flex-shrink-0 text-amber-500" />
+            <span>Todos los documentos de esta lista son obligatorios. Debes adjuntarlos en formato PDF para poder guardar.</span>
+          </div>
+
           <!-- Convocatoria -->
-          <label class="block font-semibold mb-1 text-gray-700">Acta de convocatoria</label>
+          <label class="block font-semibold mb-1 text-gray-700">Acta de convocatoria <span class="text-red-600">*</span></label>
           <div
-            class="relative flex items-center border border-gray-300 rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4">
+            class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4"
+            :class="form.errors.convocatoria_documento ? 'border-red-500' : 'border-gray-300'">
             <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
             <label class="flex-1 cursor-pointer text-gray-700">
               <span v-if="!form.convocatoria_documento">Seleccionar archivo...</span>
@@ -164,14 +202,16 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
               <input type="file" @change="handleConvocatoria" class="hidden" accept=".pdf" />
             </label>
           </div>
+          <InputError :message="form.errors.convocatoria_documento" class="-mt-3 mb-4" />
 
           <!-- Documentos de sesión -->
           <div v-if="mostrarSesionDocs">
 
             <!-- Acta sesión -->
-            <label class="block font-semibold mb-1 text-gray-700">Acta de sesión</label>
+            <label class="block font-semibold mb-1 text-gray-700">Acta de sesión <span class="text-red-600">*</span></label>
             <div
-              class="relative flex items-center border border-gray-300 rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4">
+              class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4"
+              :class="form.errors.documento ? 'border-red-500' : 'border-gray-300'">
               <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
               <label class="flex-1 cursor-pointer text-gray-700">
                 <span v-if="!form.documento">Seleccionar archivo...</span>
@@ -179,11 +219,13 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
                 <input type="file" @change="handleDocumento" class="hidden" accept=".pdf" />
               </label>
             </div>
+            <InputError :message="form.errors.documento" class="-mt-3 mb-4" />
 
             <!-- Lista -->
-            <label class="block font-semibold mb-1 text-gray-700">Lista de asistencia</label>
+            <label class="block font-semibold mb-1 text-gray-700">Lista de asistencia <span class="text-red-600">*</span></label>
             <div
-              class="relative flex items-center border border-gray-300 rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4">
+              class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4"
+              :class="form.errors.lista_asistencia ? 'border-red-500' : 'border-gray-300'">
               <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
               <label class="flex-1 cursor-pointer text-gray-700">
                 <span v-if="!form.lista_asistencia">Seleccionar archivo...</span>
@@ -191,11 +233,13 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
                 <input type="file" @change="handleLista" class="hidden" accept=".pdf" />
               </label>
             </div>
+            <InputError :message="form.errors.lista_asistencia" class="-mt-3 mb-4" />
 
             <!-- Evidencia -->
-            <label class="block font-semibold mb-1 text-gray-700">Evidencia fotográfica</label>
+            <label class="block font-semibold mb-1 text-gray-700">Evidencia fotográfica <span class="text-red-600">*</span></label>
             <div
-              class="relative flex items-center border border-gray-300 rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition">
+              class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition"
+              :class="form.errors.evidencia ? 'border-red-500' : 'border-gray-300'">
               <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
               <label class="flex-1 cursor-pointer text-gray-700">
                 <span v-if="!form.evidencia">Seleccionar archivo...</span>
@@ -203,6 +247,7 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
                 <input type="file" @change="handleEvidencia" class="hidden" accept=".pdf" />
               </label>
             </div>
+            <InputError :message="form.errors.evidencia" class="mt-1" />
 
           </div>
         </div>

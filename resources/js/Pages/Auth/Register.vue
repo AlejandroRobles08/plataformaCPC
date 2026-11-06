@@ -16,6 +16,8 @@ const form = useForm({
 
 const submit = () => {
 	form.post(route('register'), {
+		// Igual que en Login.vue: el registro no debe quedar en el historial
+		replace: true,
 		onFinish: () => form.reset('password', 'password_confirmation'),
 	});
 };

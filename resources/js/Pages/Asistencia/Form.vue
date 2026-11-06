@@ -1,12 +1,18 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
 import DraggableModal from '@/Components/DraggableModal.vue'
+import Pagination from '@/Components/Pagination.vue'
+
+const FORMULAS_POR_PAGINA = 2
+const CARGO_TITULAR = 'Persona Consejera Titular'
 
 const props = defineProps({
   consejoId: {type: [Number, String],required: true},
   integrantes: {type: Array, required: true},
+  // Ids con 3 faltas consecutivas: no se les pasa lista hasta que se apruebe su justificante
+  integrantesSinPaseLista: {type: Array, default: () => []},
   sesion: {type: Object, required: true},
   asistencias: {type: Array, default: () => []},
   // Todas las sesiones programadas en la fecha (para cambiar entre sesión 1 y sesión 2)
@@ -35,9 +41,23 @@ const evidenciaActual = computed(() =>
 // Admin con la lista ya guardada: solo consulta
 const soloLectura = computed(() => listaGuardada.value && !esSuperAdmin.value)
 
+const estaSinPaseLista = integrante =>
+  props.integrantesSinPaseLista.some(id => Number(id) === Number(integrante.id))
+
+// Lista ya guardada: quienes tienen registro en la sesión. Lista nueva: quienes siguen disponibles.
+// Se fija al abrir el modal porque form.asistencias se construye una sola vez con esta lista.
+const integrantesLista = listaGuardada.value
+  ? props.integrantes.filter(i => props.asistencias.some(a => Number(a.integrante_id) === Number(i.id)))
+  : props.integrantes.filter(i => !estaSinPaseLista(i))
+
+// Quiénes no aparecen en una lista nueva por acumular 3 faltas consecutivas
+const integrantesExcluidos = listaGuardada.value
+  ? []
+  : props.integrantes.filter(estaSinPaseLista)
+
 // Datos de asistencia.
 const form = ref({
-  asistencias: props.integrantes.map( i => {
+  asistencias: integrantesLista.map( i => {
     const asistenciaExistente = props.asistencias.find(a=> Number(a.integrante_id) === Number(i.id))
     return {
       integrante_id: i.id,
@@ -45,6 +65,98 @@ const form = ref({
     }
   })
 })
+
+// Integrantes agrupados por fórmula (sin fórmula al final), con la persona titular primero.
+// `indice` es la posición del integrante en form.asistencias.
+const formulas = computed(() => {
+  const grupos = new Map()
+
+  integrantesLista.forEach((integrante, indice) => {
+    const numero = integrante.formula ?? null
+    if (!grupos.has(numero)) grupos.set(numero, [])
+    grupos.get(numero).push({ ...integrante, indice })
+  })
+
+  return [...grupos.entries()]
+    .map(([numero, integrantes]) => ({
+      numero,
+      integrantes: integrantes.sort(
+        (a, b) => (b.cargo === CARGO_TITULAR) - (a.cargo === CARGO_TITULAR)
+      )
+    }))
+    .sort((a, b) => (a.numero ?? Infinity) - (b.numero ?? Infinity))
+})
+
+// Paginación en el navegador: recargar la página cerraría el modal y perdería lo capturado
+const paginaActual = ref(1)
+
+const totalPaginas = computed(() =>
+  Math.ceil(formulas.value.length / FORMULAS_POR_PAGINA)
+)
+
+const formulasPagina = computed(() => {
+  const inicio = (paginaActual.value - 1) * FORMULAS_POR_PAGINA
+  return formulas.value.slice(inicio, inicio + FORMULAS_POR_PAGINA)
+})
+
+// Enlaces con el mismo formato que la paginación de Laravel
+const enlacesPaginacion = computed(() => {
+  const enlace = (label, pagina) => ({
+    label,
+    pagina,
+    active: false,
+    url: pagina >= 1 && pagina <= totalPaginas.value ? '#' : null
+  })
+
+  return [
+    enlace('&laquo; Anterior', paginaActual.value - 1),
+    ...Array.from({ length: totalPaginas.value }, (_, i) => ({
+      ...enlace(String(i + 1), i + 1),
+      active: i + 1 === paginaActual.value
+    })),
+    enlace('Siguiente &raquo;', paginaActual.value + 1)
+  ]
+})
+
+// Páginas que el usuario ya vio, para avisarle si guarda sin revisar las demás
+const paginasRevisadas = new Set([paginaActual.value])
+watch(paginaActual, pagina => paginasRevisadas.add(pagina))
+
+// Una vez aceptado el aviso no se repite si el guardado falla (ej. falta la evidencia)
+const avisoAceptado = ref(false)
+
+// Pide confirmación si hay páginas sin revisar; devuelve true si se puede guardar
+async function confirmarPaginasSinRevisar() {
+  if (avisoAceptado.value) return true
+
+  const sinRevisar = Array.from({ length: totalPaginas.value }, (_, i) => i + 1)
+    .filter(pagina => !paginasRevisadas.has(pagina))
+
+  if (!sinRevisar.length) return true
+
+  const consecuencia = listaGuardada.value
+    ? 'Los integrantes de esas páginas conservarán el estado que ya tienen.'
+    : 'Los integrantes de esas páginas se registrarán como "Asistió".'
+
+  const { isConfirmed } = await Swal.fire({
+    icon: 'warning',
+    title: 'Hay fórmulas sin revisar',
+    text: `No has revisado ${sinRevisar.length === 1 ? 'la página' : 'las páginas'} ${sinRevisar.join(', ')} del pase de lista. ${consecuencia}`,
+    showCancelButton: true,
+    confirmButtonText: 'Guardar de todos modos',
+    cancelButtonText: 'Revisar',
+    confirmButtonColor: '#374151'
+  })
+
+  if (isConfirmed) {
+    avisoAceptado.value = true
+    return true
+  }
+
+  // Lleva a la primera página pendiente
+  paginaActual.value = sinRevisar[0]
+  return false
+}
 
 const evidencia = ref(null)
 const errorArchivo = ref('')
@@ -73,8 +185,9 @@ function onFileChange(e) {
 }
 
 // Guarda las asistencias de la sesión.
-function submitForm() {
+async function submitForm() {
   if (procesando.value || soloLectura.value) return
+  if (!(await confirmarPaginasSinRevisar())) return
 
   errores.value = {}
   const formData = new FormData()
@@ -107,6 +220,8 @@ function submitForm() {
     {
       forceFormData: true,
       preserveScroll: true,
+      // Con errores de validación el modal sigue abierto para mostrarlos y conservar lo capturado
+      preserveState: 'errors',
 
       onSuccess: () => {
         Swal.fire({
@@ -183,51 +298,80 @@ function submitForm() {
       </div>
     </div>
 
+    <!-- Integrantes fuera del pase de lista -->
+    <div v-if="integrantesExcluidos.length"
+      class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+      <p class="font-semibold">
+        No disponibles por acumular 3 faltas consecutivas, hasta que su justificante sea enviado y validado:
+      </p>
+      <ul class="mt-1 list-inside list-disc">
+        <li v-for="i in integrantesExcluidos" :key="i.id">
+          {{ i.nombre }} {{ i.apellido }}
+        </li>
+      </ul>
+    </div>
+
     <!-- Integrantes -->
-    <div class="mb-4 max-h-64 overflow-y-auto rounded border p-3">
+    <div class="mb-4 rounded border p-3">
       <p class="mb-2 text-sm font-medium">
         Integrantes
       </p>
 
-      <div v-for="(i, index) in integrantes"
-        :key="i.id"
-        class="border-b py-2 last:border-b-0">
-        <p class="mb-1 text-sm font-semibold">
-          {{ i.nombre }} {{ i.apellido }}
-        </p>
+      <!-- Altura mínima para que la paginación no se mueva en una página con una sola fórmula -->
+      <div :class="{ 'sm:min-h-48': totalPaginas > 1 }">
+        <div v-for="formula in formulasPagina"
+          :key="formula.numero ?? 'sin-formula'"
+          class="mb-2 last:mb-0">
+          <p class="rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+            {{ formula.numero ? `Fórmula ${formula.numero}` : 'Sin fórmula' }}
+          </p>
 
-        <!-- Admin con la lista guardada: casillas bloqueadas (el estado solo cambia al aprobar un justificante) -->
-        <div class="flex flex-wrap gap-4 text-sm" :class="{ 'opacity-60': soloLectura }">
-          <label class="flex items-center gap-1">
-            <input
-              type="radio"
-              :name="`estado-${i.id}`"
-              value="asistio"
-              :disabled="soloLectura"
-              v-model="form.asistencias[index].estado"/>
-            Asistió
-          </label>
+          <div v-for="i in formula.integrantes"
+            :key="i.id"
+            class="flex flex-col gap-1 border-b py-1.5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <p class="text-sm font-semibold">
+              {{ i.nombre }} {{ i.apellido }}
+            </p>
 
-          <label class="flex items-center gap-1">
-            <input
-              type="radio"
-              :name="`estado-${i.id}`"
-              value="falto"
-              :disabled="soloLectura"
-              v-model="form.asistencias[index].estado"/>
-            No asistió
-          </label>
+            <!-- Admin con la lista guardada: casillas bloqueadas (el estado solo cambia al aprobar un justificante) -->
+            <div class="flex shrink-0 flex-wrap gap-3 text-sm" :class="{ 'opacity-60': soloLectura }">
+              <label class="flex items-center gap-1">
+                <input
+                  type="radio"
+                  :name="`estado-${i.id}`"
+                  value="asistio"
+                  :disabled="soloLectura"
+                  v-model="form.asistencias[i.indice].estado"/>
+                Asistió
+              </label>
 
-          <label class="flex items-center gap-1">
-            <input
-              type="radio"
-              :name="`estado-${i.id}`"
-              value="justificada"
-              :disabled="soloLectura"
-              v-model="form.asistencias[index].estado"/>
-            Justificada
-          </label>
+              <label class="flex items-center gap-1">
+                <input
+                  type="radio"
+                  :name="`estado-${i.id}`"
+                  value="falto"
+                  :disabled="soloLectura"
+                  v-model="form.asistencias[i.indice].estado"/>
+                No asistió
+              </label>
+
+              <label class="flex items-center gap-1">
+                <input
+                  type="radio"
+                  :name="`estado-${i.id}`"
+                  value="justificada"
+                  :disabled="soloLectura"
+                  v-model="form.asistencias[i.indice].estado"/>
+                Justificada
+              </label>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Paginación por fórmulas -->
+      <div v-if="totalPaginas > 1" class="mt-2 flex justify-end border-t pt-2">
+        <Pagination :links="enlacesPaginacion" @cambiar-pagina="paginaActual = $event" />
       </div>
     </div>
 
@@ -300,7 +444,7 @@ function submitForm() {
 
       <button type="button"
         class="rounded bg-gray-700 px-4 py-2 text-white transition hover:bg-gray-800 disabled:opacity-50"
-        :disabled="procesando || soloLectura"
+        :disabled="procesando || soloLectura || !integrantesLista.length"
         @click="submitForm">
         {{ procesando ? 'Guardando...' : 'Guardar asistencia' }}
       </button>

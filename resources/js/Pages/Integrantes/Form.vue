@@ -148,10 +148,7 @@ watch(
                     </option>
                 </select>
 
-                <p
-                    v-if="form.errors.genero"
-                    class="text-red-500 text-sm"
-                >
+                <p v-if="form.errors.genero" class="text-red-500 text-sm">
                     {{ form.errors.genero }}
                 </p>
             </div>
@@ -167,7 +164,7 @@ watch(
             <!-- Tipo de discapacidad -->
             <div v-if="showDiscapacidadTipo">
                 <label class="block text-sm font-medium">
-                    Por favor, especifique el tipo de discapacidad
+                    Por favor, especifique su discapacidad
                 </label>
                 <input v-model="form.discapacidad_tipo" type="text"
                     class="w-full border rounded px-3 py-2"/>

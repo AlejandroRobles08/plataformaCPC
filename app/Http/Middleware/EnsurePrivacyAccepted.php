@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsurePrivacyAccepted
@@ -54,10 +55,11 @@ class EnsurePrivacyAccepted
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('login')
-                ->withHeaders([
-                    'Clear-Site-Data' => '"cache", "cookies", "storage"',
-                ]);
+            // Navegación completa: ver AuthenticatedSessionController::destroy()
+            $response = Inertia::location(route('login'));
+            $response->headers->set('Clear-Site-Data', '"cache", "cookies", "storage"');
+
+            return $response;
         }
 
         /*

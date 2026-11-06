@@ -12,6 +12,7 @@ const props = defineProps({
   sesiones: { type: Array, default: () => [] },
   consejo: Object,
   integrantes: { type: Array, default: () => [] },
+  integrantesSinPaseLista: { type: Array, default: () => [] },
   integrante: { type: Object, default: null },
   asistencias: { type: Array, default: () => [] },
   maxSesionesPorDia: { type: Number, default: 2 }
@@ -86,8 +87,7 @@ const simbologia = computed(() => [
 
 // Texto según el estado del justificante de una falta
 const textoJustificante = {
-  pendiente: 'Justificante en revisión',
-  rechazado: 'Justificante rechazado, puedes subir otro'
+  rechazado:'Justificante rechazado, puedes subir otro'
 }
 
 // Faltas del integrante (al aprobar el justificante pasan a 'justificada' y dejan de contar)
@@ -98,9 +98,21 @@ const faltas = computed(() => {
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
 })
 
-//si es que hay justificantes pendientes para revisar
-const justificantesPendientes = computed(() => 
-  faltas.value.some(a => a.estado_justificante !== 'pendiente')) 
+// Faltas con justificante en validación: se avisan aparte en el recuadro amarillo
+const justificantesEnValidacion = computed(() =>
+  faltas.value.filter(a => a.estado_justificante === 'pendiente')
+)
+
+// Faltas que el integrante todavía puede justificar: se avisan en el recuadro rojo
+const faltasPorJustificar = computed(() =>
+  faltas.value.filter(a => a.estado_justificante !== 'pendiente')
+)
+
+// Dos sesiones el mismo día, con un justificante enviado y otro no: los avisos van lado a lado
+const avisosLadoALado = computed(() => {
+  const fechasEnValidacion = new Set(justificantesEnValidacion.value.map(a => a.fecha))
+  return faltasPorJustificar.value.some(a => fechasEnValidacion.has(a.fecha))
+})
 
 const sesionesConFalta = computed(() =>
   new Set(faltas.value.map(a => Number(a.sesion_id)))
@@ -366,24 +378,37 @@ const calendarAttributes = computed(() => {
       </ul>
     </div>
 
-    <!-- Aviso de faltas del integrante -->
-    <div v-if="esIntegrante && faltas.length"
-      class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
-      <ul class="space-y-1">
-        <li v-for="falta in faltas" :key="falta.id">
-          Tienes una inasistencia a la <strong>sesión {{ falta.tipo_sesion }}</strong> el día {{ formatearFechaLegible(falta.fecha) }}
-          <span v-if="textoJustificante[falta.estado_justificante]" class="font-semibold">
-            — {{ textoJustificante[falta.estado_justificante] }}
-          </span>
-        </li>
-      </ul>
-      <!--Mensaje se muestra solo si hay justificantes en revisión-->
-      <span v-if="!esIntegrante"></span>
-      <p class="mt-2 text-sm">
-        Si tienes un justificante, puedes subirlo <strong>dando clic en el calendario sobre la fecha de inasistencia
-          para adjuntarlo y enviarlo.</strong>
-      </p>
-      <p class="mt-2 text-sm"><strong>IMPORTANTE:</strong> El documento deberá ser aprobado por el administrador.</p>
+    <!-- Avisos del integrante: primero las faltas (rojo) y después los justificantes en validación (amarillo) -->
+    <div v-if="esIntegrante && faltas.length" class="mb-4 grid grid-cols-1 gap-4"
+      :class="{ 'md:grid-cols-2': avisosLadoALado }">
+      <!-- Aviso de faltas del integrante -->
+      <div v-if="faltasPorJustificar.length"
+        class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+        <ul class="space-y-1">
+          <li v-for="falta in faltasPorJustificar" :key="falta.id">
+            Tienes una inasistencia a la <strong>sesión {{ falta.tipo_sesion }}</strong> el día {{ formatearFechaLegible(falta.fecha) }}
+            <span v-if="textoJustificante[falta.estado_justificante]" class="font-semibold">
+              — {{ textoJustificante[falta.estado_justificante] }}
+            </span>
+          </li>
+        </ul>
+        <p class="mt-2 text-sm">
+          Si tienes un justificante, puedes subirlo <strong>dando clic en el calendario sobre la fecha de inasistencia
+            para adjuntarlo y enviarlo.</strong>
+        </p>
+        <p class="mt-2 text-sm"><strong>IMPORTANTE:</strong> El documento deberá ser aprobado por el administrador.</p>
+      </div>
+
+      <!-- Aviso de justificantes en validación -->
+      <div v-if="justificantesEnValidacion.length"
+        class="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-yellow-800">
+        <ul class="space-y-1">
+          <li v-for="falta in justificantesEnValidacion" :key="falta.id">
+            Tu justificante de la <strong>sesión {{ falta.tipo_sesion }}</strong> del día {{ formatearFechaLegible(falta.fecha) }} está en validación.
+          </li>
+        </ul>
+        <p class="mt-2 text-sm">Se te notificará cuando el administrador lo apruebe o lo rechace.</p>
+      </div>
     </div>
 
     <!-- Calendario -->
@@ -429,6 +454,7 @@ const calendarAttributes = computed(() => {
     <!-- Registrar asistencia (key: se reinicia el formulario al cambiar de sesión) -->
     <Form v-if="showForm && sesionSeleccionada" :key="sesionSeleccionada.id"
       :sesion="sesionSeleccionada" :integrantes="integrantes"
+      :integrantes-sin-pase-lista="integrantesSinPaseLista"
       :asistencias="asistenciasSesion"
       :consejo-id="consejo.id"
       :sesiones-dia="sesionesDiaSeleccionado"

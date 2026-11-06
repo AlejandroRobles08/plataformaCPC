@@ -5,11 +5,7 @@ import { router } from '@inertiajs/vue3';
 import { BellAlertIcon, Cog6ToothIcon, ArrowLeftStartOnRectangleIcon } from '@heroicons/vue/24/solid';
 
 const logout = () => {
-  router.post(route('logout'), {}, {
-    replace: true,
-    preserveScroll: false,
-    preserveState: false,
-  })
+  router.post(route('logout'))
 }
 </script>
 

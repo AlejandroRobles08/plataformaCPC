@@ -51,6 +51,7 @@ class AsistenciaController extends Controller
             'integrantes' => $integrantes,
             'asistencias' => $asistencias,
             'justificantes' => $justificantes,
+            'semaforos' => Integrante::semaforosAsistencia($isDatos),
             'integranteActualId' => $integranteActual?->id,
         ]);
     }
@@ -110,6 +111,7 @@ class AsistenciaController extends Controller
             'consejo' => $consejo,
             'sesiones' => $sesiones,
             'integrantes' => $integrantes,
+            'integrantesSinPaseLista' => Integrante::idsSinPaseDeLista($integrantes->pluck('id')),
             'integrante' => $integrante,
             'asistencias' => $asistencias,
             'maxSesionesPorDia' => self::MAX_SESIONES_POR_DIA,
@@ -235,12 +237,27 @@ class AsistenciaController extends Controller
                 ->store('evidencias', 'public');
         }
 
+        // Se calcula antes de guardar: el pase actual no debe sacar a nadie de su propia lista
+        $sinPaseDeLista = Integrante::idsSinPaseDeLista(
+            Integrante::where('consejo_id', $consejo->id)->pluck('id')
+        );
+
         foreach ($validated['asistencias'] as $item) {
             $perteneceAlConsejo = Integrante::where('id', $item['integrante_id'])
                 ->where('consejo_id', $consejo->id)
                 ->exists();
 
             if (!$perteneceAlConsejo) continue;
+
+            // Con 3 faltas seguidas no se le pasa lista; sí se puede corregir un registro que ya existe
+            if (
+                $sinPaseDeLista->contains($item['integrante_id']) &&
+                !Asistencia::where('integrante_id', $item['integrante_id'])
+                    ->where('sesion_id', $sesion->id)
+                    ->exists()
+            ) {
+                continue;
+            }
 
             $datos = [
                 'fecha' => $validated['fecha'],

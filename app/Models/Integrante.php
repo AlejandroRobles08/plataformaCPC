@@ -23,6 +23,8 @@ class Integrante extends Model
     public const MIN_FORMULAS = 10;
     public const INTEGRANTES_POR_FORMULA = 2;
     public const CARGOS = ['Persona Consejera Titular', 'Persona Consejera Suplente'];
+    // Faltas seguidas (sin importar el mes) que causan baja y sacan al integrante del pase de lista
+    public const FALTAS_CONSECUTIVAS_BAJA = 3;
     
     protected $fillable = [
         'user_id',
@@ -113,6 +115,54 @@ class Integrante extends Model
         return $this->hasOne(IntegranteBaja::class);
     }
 
+    // Semáforo de asistencia a partir de los estados del integrante, ordenados por sesión:
+    // verde sin faltas, amarillo con faltas y rojo con una racha de 3 faltas seguidas.
+    // Una asistencia o una falta justificada interrumpe la racha; las sesiones sin registro no cuentan.
+    public static function colorSemaforo(iterable $estados): string
+    {
+        $color = 'verde';
+        $racha = 0;
+
+        foreach ($estados as $estado) {
+            $racha = $estado === 'falto' ? $racha + 1 : 0;
+
+            if ($racha >= self::FALTAS_CONSECUTIVAS_BAJA) {
+                return 'rojo';
+            }
+
+            if ($racha > 0) {
+                $color = 'amarillo';
+            }
+        }
+
+        return $color;
+    }
+
+    // Color del semáforo de cada integrante, indexado por id
+    public static function semaforosAsistencia(iterable $ids): \Illuminate\Support\Collection
+    {
+        $ids = collect($ids);
+
+        $estados = Asistencia::whereIn('integrante_id', $ids)
+            ->orderBy('fecha')
+            ->orderBy('sesion_id')
+            ->orderBy('id')
+            ->get(['integrante_id', 'estado'])
+            ->groupBy('integrante_id');
+
+        return $ids->mapWithKeys(fn ($id) => [
+            $id => static::colorSemaforo($estados->get($id, collect())->pluck('estado')),
+        ]);
+    }
+
+    // Integrantes en rojo: no se les pasa lista hasta que se apruebe alguno de sus justificantes
+    public static function idsSinPaseDeLista(iterable $ids): \Illuminate\Support\Collection
+    {
+        return static::semaforosAsistencia($ids)
+            ->filter(fn ($color) => $color === 'rojo')
+            ->keys();
+    }
+
     // Primera fórmula con lugar libre (de la 1 a la 15), o null si el consejo está lleno.
     // Los lugares liberados por bajas se vuelven a ocupar antes de abrir una fórmula nueva.
     public static function formulaDisponible(int $consejoId): ?int
@@ -161,6 +211,28 @@ class Integrante extends Model
         if ($ocupados >= self::INTEGRANTES_POR_FORMULA) {
             throw ValidationException::withMessages([
                 'formula' => 'No hay espacio disponible en esta fórmula',
+            ]);
+        }
+    }
+
+    // Lanza un error de validación si otro integrante de la fórmula ya tiene ese cargo:
+    // cada fórmula se compone de una persona titular y una suplente.
+    // Debe llamarse dentro de una transacción con el consejo bloqueado (lockForUpdate).
+    public static function asegurarCargoDisponible(int $consejoId, ?int $formula, ?string $cargo): void
+    {
+        // Los integrantes aprobados desde una postulación aún no tienen cargo asignado
+        if ($formula === null || $cargo === null) {
+            return;
+        }
+
+        $ocupado = static::where('consejo_id', $consejoId)
+            ->where('formula', $formula)
+            ->where('cargo', $cargo)
+            ->exists();
+
+        if ($ocupado) {
+            throw ValidationException::withMessages([
+                'cargo' => "La fórmula {$formula} ya tiene una {$cargo}.",
             ]);
         }
     }

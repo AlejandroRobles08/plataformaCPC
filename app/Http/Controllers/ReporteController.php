@@ -90,13 +90,16 @@ class ReporteController extends Controller
     {
         Gate::authorize('viewAny', [Integrante::class, $consejo]);
 
-        $integrantes = $consejo->integrantes()
+        $columnas = ['id', 'nombre', 'apellido_paterno', 'apellido_materno'];
+        $integrantes = fn () => $consejo->integrantes()
             ->with('documentos:id,integrante_id,tipo,archivo')
-            ->get(['id', 'nombre', 'apellido_paterno', 'apellido_materno']);
+            ->orderBy('id');
 
         return Inertia::render('Reportes/Documentos', [
             'consejo' => $consejo,
-            'integrantes' => $integrantes,
+            'integrantes' => $integrantes()->paginate(10, $columnas),
+            //Lista completa para el Excel: solo se envía cuando la vista la pide al exportar
+            'integrantesExportacion' => Inertia::optional(fn () => $integrantes()->get($columnas)),
         ]);
     }
 

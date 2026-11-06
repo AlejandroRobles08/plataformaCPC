@@ -35,6 +35,9 @@ const enviar = (privacyAccepted = false) => {
 	form
 		.transform(data => (privacyAccepted ? { ...data, privacy_accepted: true } : data))
 		.post(route('login'), {
+			// El dashboard reemplaza al login en el historial: si no, "atrás" lo restauraría
+			// desde history.state, sin pasar por el servidor, con la sesión ya iniciada.
+			replace: true,
 			onError: errors => {
 				if (errors.privacy) {
 					// Credenciales correctas: se conservan para reenviarlas al aceptar

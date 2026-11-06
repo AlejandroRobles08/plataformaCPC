@@ -75,15 +75,20 @@ class ConvocatoriaController extends Controller
             'tipo_sesion' => 'required|in:ordinaria,solemne,extraordinaria',
             'fecha' => 'required|date',
 
-            // Archivos
-            'convocatoria_documento' => 'nullable|file|mimes:pdf|max:4096',
-            'documento' => 'nullable|file|mimes:pdf|max:4096',
-            'lista_asistencia' => 'nullable|file|mimes:pdf|max:4096',
-            'evidencia' => 'nullable|file|mimes:pdf|max:4096',
+            // Archivos: obligatorios según lo que se marque como realizado
+            'convocatoria_documento' => 'required_if_accepted:estado_convocatoria|nullable|file|mimes:pdf|max:4096',
+            'documento' => 'required_if_accepted:estado_sesion|nullable|file|mimes:pdf|max:4096',
+            'lista_asistencia' => 'required_if_accepted:estado_sesion|nullable|file|mimes:pdf|max:4096',
+            'evidencia' => 'required_if_accepted:estado_sesion|nullable|file|mimes:pdf|max:4096',
 
             // Estados
             'estado_convocatoria' => 'nullable|boolean',
             'estado_sesion' => 'nullable|boolean',
+        ], [
+            'convocatoria_documento.required_if_accepted' => 'El acta de convocatoria es obligatoria; debes adjuntarla.',
+            'documento.required_if_accepted' => 'El acta de sesión es obligatoria; debes adjuntarla.',
+            'lista_asistencia.required_if_accepted' => 'La lista de asistencia es obligatoria; debes adjuntarla.',
+            'evidencia.required_if_accepted' => 'La evidencia fotográfica es obligatoria; debes adjuntarla.',
         ]);
 
         //Normalizar booleanos
