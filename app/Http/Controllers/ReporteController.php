@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Inertia\Inertia;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use App\Models\Consejo;
 use App\Models\Convocatoria;
@@ -86,18 +87,33 @@ class ReporteController extends Controller
     }
 
     //Checklist de documentos por integrante
-    public function documentos(Consejo $consejo)
+    public function documentos(Request $request, Consejo $consejo)
     {
         Gate::authorize('viewAny', [Integrante::class, $consejo]);
+
+        $filtros = $request->validate([
+            'busqueda' => 'nullable|string|max:100',
+        ]);
+        $busqueda = $filtros['busqueda'] ?? '';
 
         $columnas = ['id', 'nombre', 'apellido_paterno', 'apellido_materno'];
         $integrantes = fn () => $consejo->integrantes()
             ->with('documentos:id,integrante_id,tipo,archivo')
             ->orderBy('id');
 
+        //Cada palabra debe aparecer en el nombre o en algún apellido, sin importar el orden
+        $pagina = $integrantes();
+        foreach (preg_split('/\s+/', $busqueda, -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
+            $pagina->where(fn ($query) => $query
+                ->where('nombre', 'like', "%{$palabra}%")
+                ->orWhere('apellido_paterno', 'like', "%{$palabra}%")
+                ->orWhere('apellido_materno', 'like', "%{$palabra}%"));
+        }
+
         return Inertia::render('Reportes/Documentos', [
             'consejo' => $consejo,
-            'integrantes' => $integrantes()->paginate(10, $columnas),
+            'integrantes' => $pagina->paginate(10, $columnas)->withQueryString(),
+            'filtros' => ['busqueda' => $busqueda],
             //Lista completa para el Excel: solo se envía cuando la vista la pide al exportar
             'integrantesExportacion' => Inertia::optional(fn () => $integrantes()->get($columnas)),
         ]);

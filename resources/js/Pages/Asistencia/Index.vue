@@ -135,9 +135,9 @@ function obtenerSemaforo(integranteId) {
 }
 
 const leyendaSemaforo = [
-  { color: 'verde', texto: 'no se registran inasistencias.' },
-  { color: 'amarillo', texto: 'se registran inasistencias, sin acumular 3 faltas consecutivas.' },
-  { color: 'rojo', texto: 'se acumulan 3 faltas consecutivas, ya sea en el mismo mes o en meses diferentes, sean o no consecutivos. Esta condición es causa de baja directa del sistema.' }
+  { color: 'verde', texto: 'No se registran inasistencias.' },
+  { color: 'amarillo', texto: 'Se registran inasistencias, sin acumular 3 faltas consecutivas.' },
+  { color: 'rojo', texto: 'Se acumulan 3 faltas consecutivas, ya sea en el mismo mes o en meses diferentes, sean o no consecutivos. Esta condición es causa de baja directa del sistema.' }
 ]
 
 // Al entrar al calendario, avisa al integrante en rojo; devolver false detiene la visita hasta cerrar la alerta

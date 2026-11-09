@@ -57,6 +57,20 @@ class User extends Authenticatable
         return $this->hasOne(Integrante::class); 
     }  
     
+    // Baja que mantiene desactivada la cuenta: la más reciente, siempre que el usuario
+    // no vuelva a ser integrante (por ejemplo, si quedó en una nueva convocatoria).
+    public function bajaVigente(): ?IntegranteBaja
+    {
+        if ($this->integrante) {
+            return null;
+        }
+
+        return IntegranteBaja::where('user_id', $this->id)
+            ->latest('fecha_baja')
+            ->latest('id')
+            ->first();
+    }
+
     //relacion user - postulacion: un usuario tiene una postulacion
     public function postulacion(): HasOne{
         return $this->hasOne(Postulacion::class);

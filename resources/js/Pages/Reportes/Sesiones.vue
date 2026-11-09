@@ -114,7 +114,7 @@ function exportarConvocatoriasExcel() {
           <div class="flex flex-wrap gap-2">
             <button v-for="mes in meses" :key="mes" type="button" @click="mesSeleccionado = mes"
               :class="['px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              mesSeleccionado === mes ? 'bg-blue-500 text-white' :
+              mesSeleccionado === mes ? 'bg-orange-700 text-white' :
               'bg-gray-100 text-gray-700 hover:bg-gray-200']">
               {{ mes.slice(0, 3) }}
             </button>

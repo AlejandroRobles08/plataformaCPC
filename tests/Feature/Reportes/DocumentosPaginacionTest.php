@@ -56,4 +56,52 @@ class DocumentosPaginacionTest extends TestCase
                 ->reloadOnly('integrantesExportacion', fn (Assert $reload) => $reload
                     ->has('integrantesExportacion', 12)));
     }
+
+    public function test_la_busqueda_encuentra_integrantes_de_cualquier_pagina(): void
+    {
+        $buscado = Integrante::factory()->create([
+            'consejo_id' => $this->consejo->id,
+            'nombre' => 'Zacarías',
+            'apellido_paterno' => 'Quiroga',
+            'apellido_materno' => 'Xolalpa',
+        ]);
+
+        foreach (['Zacarías', 'Xolalpa', 'Xolalpa Zacarías'] as $busqueda) {
+            $this->actingAs($this->admin)
+                ->get(route('reportes.documentos', [$this->consejo, 'busqueda' => $busqueda]))
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('integrantes.total', 1)
+                    ->where('integrantes.data.0.id', $buscado->id)
+                    ->where('filtros.busqueda', $busqueda));
+        }
+    }
+
+    public function test_la_busqueda_no_incluye_integrantes_de_otro_consejo(): void
+    {
+        Integrante::factory()->create([
+            'consejo_id' => Consejo::factory()->create()->id,
+            'nombre' => 'Zacarías',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('reportes.documentos', [$this->consejo, 'busqueda' => 'Zacarías']))
+            ->assertInertia(fn (Assert $page) => $page->where('integrantes.total', 0));
+    }
+
+    public function test_la_paginacion_conserva_la_busqueda_y_la_exportacion_sigue_completa(): void
+    {
+        Integrante::factory()->count(11)->create([
+            'consejo_id' => $this->consejo->id,
+            'nombre' => 'Zacarías',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('reportes.documentos', [$this->consejo, 'busqueda' => 'Zacarías']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('integrantes.data', 10)
+                ->where('integrantes.total', 11)
+                ->where('integrantes.next_page_url', fn ($url) => str_contains($url, 'busqueda='))
+                ->reloadOnly('integrantesExportacion', fn (Assert $reload) => $reload
+                    ->has('integrantesExportacion', 23)));
+    }
 }

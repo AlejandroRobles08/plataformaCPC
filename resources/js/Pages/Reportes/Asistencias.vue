@@ -14,80 +14,56 @@ const anioSeleccionado = ref(anioPorDefecto())
 const mesSeleccionado = ref('Enero')
 
 //al cambiar el año, se regresará al primer mes
-watch(anioSeleccionado, () => {
-  mesSeleccionado.value = 'Enero'
-})
+watch(anioSeleccionado, () => { mesSeleccionado.value = 'Enero' })
 
-// asistencias filtradas por año
-const asistenciasFiltradas = computed(() =>
-  (props.asistencias ?? []).filter(a =>
-    a.fecha && obtenerAnio(a.fecha) === anioSeleccionado.value))
+//simbología: se usa en la leyenda y en ambas tablas
+const simbolos = [
+  { clave: 'A', nombre: 'Asistencia', columna: 'Asistencias', clase: 'bg-green-100 text-green-800' },
+  { clave: 'I', nombre: 'Inasistencia', columna: 'Inasistencias', clase: 'bg-yellow-100 text-yellow-800' },
+  { clave: 'IJ', nombre: 'Inasistencia Justificada', columna: 'Justificadas', clase: 'bg-orange-100 text-orange-800' },
+]
+const claseSimbolo = Object.fromEntries(simbolos.map(s => [s.clave, s.clase]))
+const sumar = (filas, fn) => filas.reduce((total, fila) => total + fn(fila), 0)
+const porSimbolo = fn => Object.fromEntries(simbolos.map(({ clave }) => [clave, fn(clave)]))
 
-//agrupación por integrante, conservando cada registro mensual
+//agrupación por integrante del año seleccionado, conservando cada registro mensual
 const asistenciasExcel = computed(() => {
   const mapa = {}
-  asistenciasFiltradas.value.forEach(a => {
-    if (!a.integrante || !a.fecha) return
-    const id = a.integrante.id
+  ;(props.asistencias ?? []).forEach(a => {
+    if (!a.integrante || !a.fecha || obtenerAnio(a.fecha) !== anioSeleccionado.value) return
     const mes = obtenerMes(a.fecha)
-
     if (!meses.includes(mes)) return
 
-    if (!mapa[id]) {
-      mapa[id] = {
-        id,
-        integrante: [a.integrante.nombre, a.integrante.apellido_paterno, a.integrante.apellido_materno]
-          .filter(Boolean).join(' '),
-        cargo: a.integrante.cargo ?? '',
-        meses: Object.fromEntries(meses.map(m=> [m, []])),
-        totalA: 0,
-        totalI: 0,
-        totalIJ: 0,
-      }
+    const fila = mapa[a.integrante.id] ??= {
+      id: a.integrante.id,
+      integrante: [a.integrante.nombre, a.integrante.apellido_paterno, a.integrante.apellido_materno]
+        .filter(Boolean).join(' '),
+      cargo: a.integrante.cargo ?? '',
+      meses: Object.fromEntries(meses.map(m => [m, []])),
+      totales: porSimbolo(() => 0),
     }
     const simbolo = String(a.simbolo ?? '').toLocaleUpperCase()
-    mapa[id].meses[mes].push(simbolo)
-    if (simbolo === 'A') mapa[id].totalA++
-    if (simbolo === 'I') mapa[id].totalI++
-    if (simbolo === 'IJ') mapa[id].totalIJ++
+    fila.meses[mes].push(simbolo)
+    if (simbolo in fila.totales) fila.totales[simbolo]++
   })
   return Object.values(mapa)
 })
 
-//Registros del mes seleccionado
-const asistenciasDelMes = computed(() => asistenciasExcel.value.map(fila => ({
-  ...fila, registroMes: fila.meses[mesSeleccionado.value] ?? [],
-  totalMes: (fila.meses[mesSeleccionado.value] ?? []).length,
-  asistenciasMes: (fila.meses[mesSeleccionado.value] ?? [])
-    .filter(s => s === 'A').length,
-  inasistenciaMes: (fila.meses[mesSeleccionado.value] ?? [])
-    .filter(s => s === 'I').length,
-  justificadasMes: (fila.meses[mesSeleccionado.value] ?? [])
-    .filter(s => s === 'IJ').length,
-  }))
-)
+//registros del mes seleccionado, separados por símbolo
+const asistenciasDelMes = computed(() => asistenciasExcel.value.map(fila => {
+  const registro = fila.meses[mesSeleccionado.value]
+  return { ...fila, registro, simbolos: porSimbolo(clave => registro.filter(s => s === clave)) }
+}))
 
-//Totales de la tabla mensual
-const totalMes = computed(() => {
-  return asistenciasDelMes.value.reduce((totales, fila) => {
-    totales.sesiones += fila.totalMes
-    totales.A += fila.asistenciasMes
-    totales.I += fila.inasistenciaMes
-    totales.IJ += fila.justificadasMes
-    return totales
-  }, {sesiones: 0, A:0, I:0, IJ:0})
-})
-
-//totales de sesiones al mes
-const totalesMensualesAnuales = computed(() => {
-  const totales = Object.fromEntries(meses.map(m => [m, 0]))
-  asistenciasExcel.value.forEach(fila => {
-    meses.forEach(mes => {
-      totales[mes] += fila.meses[mes].length
-    })
-  })
-  return totales
-})
+//totales de ambas tablas
+const totalMes = computed(() => ({
+  sesiones: sumar(asistenciasDelMes.value, f => f.registro.length),
+  ...porSimbolo(clave => sumar(asistenciasDelMes.value, f => f.simbolos[clave].length)),
+}))
+const totalAnual = computed(() => ({
+  ...Object.fromEntries(meses.map(m => [m, sumar(asistenciasExcel.value, f => f.meses[m].length)])),
+  ...porSimbolo(clave => sumar(asistenciasExcel.value, f => f.totales[clave])),
+}))
 
 //exportación a excel
 function exportarAsistenciasExcel() {
@@ -127,60 +103,31 @@ function exportarAsistenciasExcel() {
          </div>
 
         <!-- SIMBOLOGÍA de abreviaturas -->
-         <div class="mb-5 rounded-lg border border-gray-200 p-4">
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <span class="font-semibold">Simbología:</span>
-
-            <div class="flex items-center gap-2">
-              <span class="inline-flex items-center justify-center rounded px-3 py-1 bg-green-100 text-green-800 font-bold">
-                A
-              </span>
-              <span>Asistencia</span>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <span class="inline-flex items-center justify-center rounded px-3 py-1 bg-yellow-100 text-yellow-800 font-bold">
-                I
-              </span>
-              <span>Inasistencia</span>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <span class="inline-flex items-center justify-center rounded px-3 py-1 bg-orange-100 text-orange-800 font-bold">
-                IJ
-              </span>
-              <span>Inasistencia Justificada</span>
-            </div>
+        <div class="mb-5 rounded-lg border border-gray-200 p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <span class="font-semibold">Simbología:</span>
+          <div v-for="s in simbolos" :key="s.clave" class="flex items-center gap-2">
+            <span :class="['rounded px-3 py-1 font-bold', s.clase]">{{ s.clave }}</span>
+            <span>{{ s.nombre }}</span>
           </div>
-         </div>
+        </div>
 
-         <!-- vista menusal -->
-          <section class="mb-6 rounded-lg border border-gray-200 p-4">
-            <h2 class="text-xl font-bold mb-1">
-              Asistencia por mes
-            </h2>
+        <!-- vista mensual -->
+        <section class="mb-6 rounded-lg border border-gray-200 p-4">
+          <h2 class="text-xl font-bold mb-1">Asistencia por mes</h2>
+          <p class="text-sm text-gray-500 mb-4">Consejo: {{ consejo.nombre }} | Año {{ anioSeleccionado }}</p>
+          <p class="text-sm text-gray-500 mb-3">Seleccione algún mes para consultar asistencias de los integrantes.</p>
 
-            <p class="text-sm text-gray-500 mb-4">
-              Consejo: {{ consejo.nombre }} | Año {{ anioSeleccionado }}
-            </p>
+          <!-- selector de meses -->
+          <div class="flex flex-wrap gap-2 mb-5">
+            <button v-for="mes in meses" :key="mes" type="button" @click="mesSeleccionado = mes"
+              :class="['px-3 py-2 rounded-lg text-sm font-medium transition-colors', mesSeleccionado === mes
+                ? 'bg-orange-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
+              {{ mes }}
+            </button>
+          </div>
 
-            <p class="text-sm text-gray-500 mb-3">
-              Seleccione algun mes para conusltar asistencias de los integrantes. 
-            </p>
-            <!--selector de meses completop -->
-            <div class="flex flex-wrap gap-2 mb-5">
-              <button v-for="mes in meses" :key="mes" type="button" @click="mesSeleccionado = mes" 
-              :class="['px-3 py-2 rounded-lg text-sm font-medium transition-colors', mesSeleccionado === mes 
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
-                {{ mes }}
-              </button>
-            </div>
-
-            <div class="border-t border-gray-200 pt-5">
-              <h3 class="text-lg font-semibold mb-4">
-                {{ mesSeleccionado }} {{ anioSeleccionado }}
-              </h3>
+          <div class="border-t border-gray-200 pt-5">
+            <h3 class="text-lg font-semibold mb-4">{{ mesSeleccionado }} {{ anioSeleccionado }}</h3>
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="w-full text-sm border-collapse">
                 <thead class="bg-gray-50 text-gray-600">
@@ -188,131 +135,77 @@ function exportarAsistenciasExcel() {
                     <th class="border border-gray-200 p-3 text-left">Integrante</th>
                     <th class="border border-gray-200 p-3 text-left">Cargo</th>
                     <th class="border border-gray-200 p-3 text-center">Sesion del mes</th>
-                    <th class="border border-gray-200 p-3 text-center">Asistencias</th>
-                    <th class="border border-gray-200 p-3 text-center">Inasistencias</th>
-                    <th class="border border-gray-200 p-3 text-center">Justificadas</th>
+                    <th v-for="s in simbolos" :key="s.clave" class="border border-gray-200 p-3 text-center">{{ s.columna }}</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   <tr v-if="asistenciasDelMes.length === 0">
-                    <td colspan="6" class="p-4 text-center text-gray-500">
-                      No hay asistencias registradas en {{ mesSeleccionado }}.
-                    </td>
+                    <td colspan="6" class="p-4 text-center text-gray-500">No hay asistencias registradas en {{ mesSeleccionado }}.</td>
                   </tr>
-
                   <tr v-for="fila in asistenciasDelMes" :key="fila.id" class="border-t border-gray-200">
                     <td class="p-3 font-medium">{{ fila.integrante }}</td>
                     <td class="p-3">{{ fila.cargo }}</td>
-                    <td class="p-3 text-center">{{ fila.totalMes }}</td>
-                    <td class="p-3 text-center">
+                    <td class="p-3 text-center">{{ fila.registro.length }}</td>
+                    <td v-for="s in simbolos" :key="s.clave" class="p-3 text-center">
                       <span class="inline-flex flex-wrap justify-center gap-1">
-                        <span v-for="(simbolo, i) in fila.registroMes.filter(s => s === 'A')" :key="`a-${i}`"
-                          class="rounded px-2 py-1 bg-green-100 text-green-800">
-                          {{ simbolo }}
-                        </span>
-                        <span v-if="fila.asistenciasMes === 0">0</span>
-                      </span>
-                    </td>
-
-                    <td class="p-3 text-center">
-                      <span class="inline-flex flex-wrap justify-center gap-1">
-                        <span v-for="(simbolo, i) in fila.registroMes.filter(s => s === 'I')"
-                          :key="`i-${i}`" class="rounded px-2 py-1 bg-yellow-100 text-yellow-800">
-                          {{ simbolo }}
-                        </span>
-                        <span v-if="fila.inasistenciaMes === 0">0</span>
-                      </span>
-                    </td>
-
-                    <td class="p-3 text-center">
-                      <span class="inline-flex flex-wrap justify-center gap-1">
-                        <span v-for="(simbolo, i) in fila.registroMes.filter(s => s === 'IJ')"
-                          :key="`ij-${i}`" class="rounded px-2 py-1 bg-orange-100 text-orange-800">
-                          {{ simbolo }}
-                        </span>
-                        <span v-if="fila.justificadasMes === 0">0</span>
+                        <span v-for="(simbolo, i) in fila.simbolos[s.clave]" :key="i" :class="['rounded px-2 py-1', s.clase]">{{ simbolo }}</span>
+                        <span v-if="!fila.simbolos[s.clave].length">0</span>
                       </span>
                     </td>
                   </tr>
                 </tbody>
-
                 <tfoot class="bg-gray-50 font-semibold">
                   <tr>
-                    <td colspan="2" class="border border-gray-200 p-3">Total de meses</td>
+                    <td colspan="2" class="border border-gray-200 p-3">Total del mes</td>
                     <td class="border border-gray-200 p-3 text-center">{{ totalMes.sesiones }}</td>
-                    <td class="border border-gray-200 p-3 text-center">{{ totalMes.A }}</td>
-                    <td class="border border-gray-200 p-3 text-center">{{ totalMes.I }}</td>
-                    <td class="border border-gray-200 p-3 text-center">{{ totalMes.IJ }}</td>
+                    <td v-for="s in simbolos" :key="s.clave" class="border border-gray-200 p-3 text-center">{{ totalMes[s.clave] }}</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
-            </div>
-          </section>
+          </div>
+        </section>
 
-          <!-- Vista anual -->
-           <section class="rounded-lg border border-gray-200 p-4">
-            <h2 class="text-xl font-bold mb-1">
-              Resumen anual de asistencias del año ({{ anioSeleccionado }})
-            </h2>
-            <p class="text-sm text-gray-500 mb-4">
-              Registros de cada integrante durante el año
-            </p>
+        <!-- vista anual -->
+        <section class="rounded-lg border border-gray-200 p-4">
+          <h2 class="text-xl font-bold mb-1">Resumen anual de asistencias del año ({{ anioSeleccionado }})</h2>
+          <p class="text-sm text-gray-500 mb-4">Registros de cada integrante durante el año</p>
 
-            <div class="overflow-x-auto rounded-lg border border-gray-200">
-              <table id="tabla-asistencia-anual" class="w-full text-sm border-collapse">
-                <thead class="bg-gray-50 text-gray-600">
-                  <tr>
-                    <th class="border border-gray-200 p-2 text-left">Integrante</th>
-                    <th class="border border-gray-200 p-2 text-left">Cargo</th>
-                    <th v-for="mes in meses" :key="mes" class="border border-gray-200 p-2 text-center">
-                      {{ mes.slice(0, 3) }}
-                    </th>
-                    <th class="border border-gray-200 p-2 text-center">A totales</th>
-                    <th class="border border-gray-200 p-2 text-center">I totales</th>
-                    <th class="border border-gray-200 p-2 text-center">IJ totales</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  <tr v-if="asistenciasExcel.length === 0">
-                    <td :colspan="meses.length + 5" class="p-4 text-center text-gray-500">
-                      No hay asistencias registradas en {{ anioSeleccionado }}
-                    </td>
-                  </tr>
-
-                  <tr v-for="fila in asistenciasExcel" :key="fila.id" class="border-t border-gray-200">
-                    <td class="border border-gray-200 p-2 font-medium">{{ fila.integrante }}</td>
-                    <td class="border border-gray-200 p-2">{{ fila.cargo }}</td>
-                    <td v-for="mes in meses" :key="mes" class="border border-gray-200 p-2 text-center whitespace-nowrap">
-                      {{ fila.meses[mes].length ? fila.meses[mes].join(', ') : '-' }}
-                    </td>
-                    <td class="border border-gray-200 p-2 text-center">{{ fila.totalA }}</td>
-                    <td class="border border-gray-200 p-2 text-center">{{ fila.totalI }}</td>
-                    <td class="border border-gray-200 p-2 text-center">{{ fila.totalIJ }}</td>
-                  </tr>
-                </tbody>
-
-                <tfoot class="bg-gray-50 font-semibold">
-                  <tr>
-                    <td colspan="2" class="border border-gray-200 p-2">Total anual</td>
-                    <td v-for="mes in meses" :key="mes" class="border border-gray-200 p-2 text-center">
-                      {{ totalesMensualesAnuales[mes] }}
-                    </td>
-                    <td class="border border-gray-200 p-2 text-center">
-                      {{ asistenciasExcel.reduce((total, fila)=> total + fila.totalA, 0) }}
-                    </td>
-                    <td class="border border-gray-200 p-2 text-center">
-                      {{ asistenciasExcel.reduce((total, fila)=> total + fila.totalI, 0) }}
-                    </td>
-                    <td class="border border-gray-200 p-2 text-center">
-                      {{ asistenciasExcel.reduce((total, fila)=> total + fila.totalIJ, 0) }}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+          <div class="overflow-x-auto rounded-lg border border-gray-200">
+            <table id="tabla-asistencia-anual" class="w-full text-sm border-collapse">
+              <thead class="bg-gray-50 text-gray-600">
+                <tr>
+                  <th class="border border-gray-200 p-2 text-left">Integrante</th>
+                  <th class="border border-gray-200 p-2 text-left">Cargo</th>
+                  <th v-for="mes in meses" :key="mes" class="border border-gray-200 p-2 text-center">{{ mes.slice(0, 3) }}</th>
+                  <th v-for="s in simbolos" :key="s.clave" class="border border-gray-200 p-2 text-center">{{ s.clave }} totales</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="asistenciasExcel.length === 0">
+                  <td :colspan="meses.length + 5" class="p-4 text-center text-gray-500">No hay asistencias registradas en {{ anioSeleccionado }}</td>
+                </tr>
+                <tr v-for="fila in asistenciasExcel" :key="fila.id" class="border-t border-gray-200">
+                  <td class="border border-gray-200 p-2 font-medium">{{ fila.integrante }}</td>
+                  <td class="border border-gray-200 p-2">{{ fila.cargo }}</td>
+                  <td v-for="mes in meses" :key="mes" class="relative border border-gray-200 p-2 text-center whitespace-nowrap">
+                    <!-- relative' en la celda evita que, al ser absolute, desborde la página -->
+                    <span v-for="(simbolo, i) in fila.meses[mes]" :key="i"><span v-if="i" class="sr-only">, </span><span
+                      :class="['inline-block rounded px-1.5 py-0.5 mx-0.5 font-semibold', claseSimbolo[simbolo]]">{{ simbolo }}</span></span>
+                    <span v-if="!fila.meses[mes].length">-</span>
+                  </td>
+                  <td v-for="s in simbolos" :key="s.clave" class="border border-gray-200 p-2 text-center">{{ fila.totales[s.clave] }}</td>
+                </tr>
+              </tbody>
+              <tfoot class="bg-gray-50 font-semibold">
+                <tr>
+                  <td colspan="2" class="border border-gray-200 p-2">Total anual</td>
+                  <td v-for="mes in meses" :key="mes" class="border border-gray-200 p-2 text-center">{{ totalAnual[mes] }}</td>
+                  <td v-for="s in simbolos" :key="s.clave" class="border border-gray-200 p-2 text-center">{{ totalAnual[s.clave] }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
 
             <div class="flex justify-end mt-4">
               <button @click="exportarAsistenciasExcel" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center">
@@ -320,7 +213,7 @@ function exportarAsistenciasExcel() {
                 Exportar a Excel
               </button>
             </div>
-           </section>
+        </section>
       </div>
     </div>
   </AuthenticatedLayout>

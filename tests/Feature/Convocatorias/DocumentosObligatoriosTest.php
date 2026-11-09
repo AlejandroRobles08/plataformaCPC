@@ -113,10 +113,24 @@ class DocumentosObligatoriosTest extends TestCase
         }
     }
 
-    public function test_sin_marcar_realizada_no_se_exigen_documentos(): void
+    public function test_sin_marcar_convocatoria_realizada_no_se_guarda(): void
     {
-        $this->guardar([])->assertSessionHasNoErrors();
+        $this->guardar([])->assertSessionHasErrors([
+            'estado_convocatoria' => 'Debes marcar "Convocatoria realizada" para poder crear el registro.',
+        ]);
 
-        $this->assertSame(1, Convocatoria::count());
+        $this->assertSame(0, Convocatoria::count());
+    }
+
+    public function test_sesion_realizada_sin_convocatoria_no_se_guarda(): void
+    {
+        $this->guardar([
+            'estado_sesion' => '1',
+            'documento' => $this->pdf(),
+            'lista_asistencia' => $this->pdf(),
+            'evidencia' => $this->pdf(),
+        ])->assertSessionHasErrors(['estado_convocatoria']);
+
+        $this->assertSame(0, Convocatoria::count());
     }
 }

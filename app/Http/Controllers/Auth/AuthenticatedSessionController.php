@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Support\CuentaDesactivada;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -32,6 +33,14 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
+
+        // Cuenta dada de baja: la contraseña es correcta, pero no se permite el ingreso.
+        // Se revisa después de autenticar para que el motivo solo lo vea la persona dueña de la cuenta.
+        if ($baja = $request->user()->bajaVigente()) {
+            CuentaDesactivada::cerrarSesion($request, $baja);
+
+            return redirect()->route('cuenta.desactivada');
+        }
 
         // Aviso de privacidad: se acepta una sola vez, sobre el mismo login.
         // Si aún no lo acepta, no se completa el inicio de sesión y el login muestra el modal;

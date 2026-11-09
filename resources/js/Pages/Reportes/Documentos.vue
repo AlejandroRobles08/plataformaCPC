@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { nextTick, ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { ArrowDownTrayIcon } from '@heroicons/vue/24/solid'
 import Pagination from '@/Components/Pagination.vue'
@@ -11,9 +11,28 @@ const props = defineProps({
   consejo: Object,
   integrantes: Object,
   integrantesExportacion: Array,
+  filtros: Object,
 })
 
 const exportando = ref(false)
+
+// Buscador: filtra en el servidor porque la tabla solo recibe la página actual
+const busqueda = ref(props.filtros?.busqueda ?? '')
+let temporizadorBusqueda = null
+
+watch(busqueda, (valor) => {
+  clearTimeout(temporizadorBusqueda)
+  temporizadorBusqueda = setTimeout(() => {
+    router.get(
+      route('reportes.documentos', props.consejo.id),
+      { busqueda: valor.trim() || undefined },
+      { preserveState: true, preserveScroll: true, replace: true }
+    )
+  }, 300)
+})
+
+// Evita que una búsqueda pendiente regrese a esta página después de salir de ella
+onBeforeUnmount(() => clearTimeout(temporizadorBusqueda))
 
 // documentos
 const tiposDocumentos = [
@@ -58,8 +77,16 @@ function exportarDocumentosExcel() {
         Checklist de Documentos del Consejo de Participación Ciudadana de {{ consejo.nombre }}
       </h1>
 
+      <!-- Buscador -->
+      <div v-if="integrantes.total || filtros?.busqueda" class="mb-4">
+        <input v-model="busqueda" type="search" maxlength="100" placeholder="Buscar por nombre o apellidos"
+          class="w-full rounded border-gray-300 px-3 py-2 text-sm focus:border-gray-600 focus:ring-gray-600" />
+      </div>
+
       <div v-if="!integrantes.total" class="text-center text-gray-500 p-10 border rounded-lg bg-gray-50">
-        No hay integrantes registrados en este consejo.
+        {{ filtros?.busqueda
+          ? 'No hay integrantes que coincidan con la búsqueda.'
+          : 'No hay integrantes registrados en este consejo.' }}
       </div>
 
       <div v-else>

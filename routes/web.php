@@ -282,8 +282,13 @@ Route::middleware('auth', 'privacy', 'alta')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])
         ->name('profile.update');
 
-    Route::delete('/profile', [ProfileController::class, 'destroy'])
-        ->name('profile.destroy');
+    Route::delete('/profile/sessions', [ProfileController::class, 'destroyOtherSessions'])
+        ->middleware('throttle:6,1')
+        ->name('profile.sessions.destroy');
+
+    // Eliminar cuenta: deshabilitado mientras se decide si la opción se conserva o se quita
+    // Route::delete('/profile', [ProfileController::class, 'destroy'])
+    //     ->name('profile.destroy');
 });
 
 // Verificación de sesión

@@ -24,111 +24,61 @@ const form = useForm({
   estado_sesion: false,
 })
 
+// Documentos obligatorios: los de sesión solo se piden si se marca "Sesión realizada"
+const DOCUMENTOS = [
+  { campo: 'convocatoria_documento', nombre: 'Acta de convocatoria', enlace: 'Convocatoria', color: 'text-gray-600', mensaje: 'El acta de convocatoria es obligatoria; debes adjuntarla.' },
+  { campo: 'documento', nombre: 'Acta de sesión', enlace: 'Acta', color: 'text-green-600', mensaje: 'El acta de sesión es obligatoria; debes adjuntarla.', sesion: true },
+  { campo: 'lista_asistencia', nombre: 'Lista de asistencia', enlace: 'Lista', color: 'text-gray-800', mensaje: 'La lista de asistencia es obligatoria; debes adjuntarla.', sesion: true },
+  { campo: 'evidencia', nombre: 'Evidencia fotográfica', enlace: 'Evidencia', color: 'text-red-600', mensaje: 'La evidencia fotográfica es obligatoria; debes adjuntarla.', sesion: true },
+]
+
+const documentosVisibles = computed(() => DOCUMENTOS.filter((doc) => !doc.sesion || form.estado_sesion))
+
 watch(() => form.estado_convocatoria, (val) => {
   if (!val) form.estado_sesion = false
+  else form.clearErrors('estado_convocatoria')
 })
 
-function handleConvocatoria(e) {
-  form.convocatoria_documento = e.target.files[0]
-  form.clearErrors('convocatoria_documento')
+function seleccionarArchivo(campo, e) {
+  form[campo] = e.target.files[0]
+  form.clearErrors(campo)
 }
 
-function handleDocumento(e) {
-  form.documento = e.target.files[0]
-  form.clearErrors('documento')
-}
-
-function handleLista(e) {
-  form.lista_asistencia = e.target.files[0]
-  form.clearErrors('lista_asistencia')
-}
-
-function handleEvidencia(e) {
-  form.evidencia = e.target.files[0]
-  form.clearErrors('evidencia')
-}
-
-// Documentos obligatorios según lo que se marque como realizado (solo los visibles en el formulario)
-const MENSAJES_DOCUMENTO_CONVOCATORIA = {
-  convocatoria_documento: 'El acta de convocatoria es obligatoria; debes adjuntarla.',
-}
-
-const MENSAJES_DOCUMENTOS_SESION = {
-  documento: 'El acta de sesión es obligatoria; debes adjuntarla.',
-  lista_asistencia: 'La lista de asistencia es obligatoria; debes adjuntarla.',
-  evidencia: 'La evidencia fotográfica es obligatoria; debes adjuntarla.',
-}
-
-function validarDocumentos() {
-  const requeridos = {
-    ...(form.estado_convocatoria ? MENSAJES_DOCUMENTO_CONVOCATORIA : {}),
-    ...(form.estado_sesion ? MENSAJES_DOCUMENTOS_SESION : {}),
-  }
-
-  const faltantes = Object.keys(requeridos).filter((campo) => !form[campo])
-
+function validarFormulario() {
   form.clearErrors()
-  faltantes.forEach((campo) => form.setError(campo, requeridos[campo]))
-
-  return faltantes.length === 0
+  if (!form.estado_convocatoria) form.setError('estado_convocatoria', 'Por favor selecciona la casilla "Convocatoria realizada" para poder guardar.')
+  else documentosVisibles.value.filter((doc) => !form[doc.campo]).forEach((doc) => form.setError(doc.campo, doc.mensaje))
+  return !form.hasErrors
 }
 
 function submit() {
-  if (!validarDocumentos()) return
+  if (!validarFormulario()) return
 
   form.post(route('convocatorias.store', { consejo: props.consejo.id }), {
     forceFormData: true,
     onSuccess: () => {
-      Swal.fire({
-        icon: 'success',
-        title: 'Convocatoria registrada',
-        text: 'La convocatoria se guardó correctamente.',
-        confirmButtonColor: '#16a34a'
-      })
-
+      Swal.fire({ icon: 'success', title: 'Convocatoria registrada', text: 'La convocatoria se guardó correctamente.', confirmButtonColor: '#16a34a' })
       form.reset()
     },
-    onError: (errors) => {
-      console.log(errors)
-
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: Object.values(errors)[0] || 'No se pudo registrar la convocatoria.'
-      })
-    }
+    onError: (errors) => Swal.fire({ icon: 'error', title: 'Error', text: Object.values(errors)[0] || 'No se pudo registrar la convocatoria.' }),
   })
 }
 
 // Buscador por fecha (filtra en el servidor y conserva la paginación)
 const fechaDesde = ref(props.filtros?.fecha_desde ?? '')
 const fechaHasta = ref(props.filtros?.fecha_hasta ?? '')
+const hayFiltros = computed(() => !!(props.filtros?.fecha_desde || props.filtros?.fecha_hasta))
 
 function buscar() {
-  router.get(
-    route('convocatorias.index', { consejo: props.consejo.id }),
-    {
-      fecha_desde: fechaDesde.value || undefined,
-      fecha_hasta: fechaHasta.value || undefined,
-    },
-    { preserveState: true, preserveScroll: true, replace: true }
-  )
+  router.get(route('convocatorias.index', { consejo: props.consejo.id }),
+    { fecha_desde: fechaDesde.value || undefined, fecha_hasta: fechaHasta.value || undefined },
+    { preserveState: true, preserveScroll: true, replace: true })
 }
 
 function limpiarBusqueda() {
-  fechaDesde.value = ''
-  fechaHasta.value = ''
+  fechaDesde.value = fechaHasta.value = ''
   buscar()
 }
-
-const hayFiltros = computed(() => !!(props.filtros?.fecha_desde || props.filtros?.fecha_hasta))
-
-function urlDocumento(item, campo) {
-  return route('convocatorias.documento', { convocatoria: item.id, campo })
-}
-
-const mostrarConvocatoria = computed(() => form.estado_convocatoria)
-const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado_sesion)
 </script>
 
 <template>
@@ -145,7 +95,7 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
         Consejo de Participación Ciudadana de {{ props.consejo.nombre }}
       </h1>
 
-      <form @submit.prevent="submit" class="space-y-4 mb-8">
+      <form @submit.prevent="submit" class="space-y-4">
 
         <!-- ESTADOS -->
         <div class="flex items-center gap-6">
@@ -161,6 +111,7 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
             <span class="text-gray-700">Sesión realizada</span>
           </label>
         </div>
+        <InputError :message="form.errors.estado_convocatoria" class="!mt-1" />
 
         <!-- Tipo de sesión -->
         <div>
@@ -182,7 +133,7 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
         </div>
 
         <!-- DOCUMENTOS -->
-        <div v-if="mostrarConvocatoria">
+        <div v-if="form.estado_convocatoria">
           <h2 class="text-lg font-semibold mb-2">Lista de documentos</h2>
 
           <div class="flex items-start gap-2 mb-4 p-3 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-800">
@@ -190,65 +141,17 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
             <span>Todos los documentos de esta lista son obligatorios. Debes adjuntarlos en formato PDF para poder guardar.</span>
           </div>
 
-          <!-- Convocatoria -->
-          <label class="block font-semibold mb-1 text-gray-700">Acta de convocatoria <span class="text-red-600">*</span></label>
-          <div
-            class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4"
-            :class="form.errors.convocatoria_documento ? 'border-red-500' : 'border-gray-300'">
-            <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
-            <label class="flex-1 cursor-pointer text-gray-700">
-              <span v-if="!form.convocatoria_documento">Seleccionar archivo...</span>
-              <span v-else>{{ form.convocatoria_documento.name }}</span>
-              <input type="file" @change="handleConvocatoria" class="hidden" accept=".pdf" />
-            </label>
-          </div>
-          <InputError :message="form.errors.convocatoria_documento" class="-mt-3 mb-4" />
-
-          <!-- Documentos de sesión -->
-          <div v-if="mostrarSesionDocs">
-
-            <!-- Acta sesión -->
-            <label class="block font-semibold mb-1 text-gray-700">Acta de sesión <span class="text-red-600">*</span></label>
-            <div
-              class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4"
-              :class="form.errors.documento ? 'border-red-500' : 'border-gray-300'">
-              <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
-              <label class="flex-1 cursor-pointer text-gray-700">
-                <span v-if="!form.documento">Seleccionar archivo...</span>
-                <span v-else>{{ form.documento.name }}</span>
-                <input type="file" @change="handleDocumento" class="hidden" accept=".pdf" />
+          <div class="space-y-4">
+            <div v-for="doc in documentosVisibles" :key="doc.campo">
+              <label class="block font-semibold mb-1 text-gray-700">{{ doc.nombre }} <span class="text-red-600">*</span></label>
+              <label class="flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition text-gray-700"
+                :class="form.errors[doc.campo] ? 'border-red-500' : 'border-gray-300'">
+                <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
+                <span>{{ form[doc.campo]?.name ?? 'Seleccionar archivo...' }}</span>
+                <input type="file" @change="seleccionarArchivo(doc.campo, $event)" class="hidden" accept=".pdf" />
               </label>
+              <InputError :message="form.errors[doc.campo]" class="mt-1" />
             </div>
-            <InputError :message="form.errors.documento" class="-mt-3 mb-4" />
-
-            <!-- Lista -->
-            <label class="block font-semibold mb-1 text-gray-700">Lista de asistencia <span class="text-red-600">*</span></label>
-            <div
-              class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition mb-4"
-              :class="form.errors.lista_asistencia ? 'border-red-500' : 'border-gray-300'">
-              <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
-              <label class="flex-1 cursor-pointer text-gray-700">
-                <span v-if="!form.lista_asistencia">Seleccionar archivo...</span>
-                <span v-else>{{ form.lista_asistencia.name }}</span>
-                <input type="file" @change="handleLista" class="hidden" accept=".pdf" />
-              </label>
-            </div>
-            <InputError :message="form.errors.lista_asistencia" class="-mt-3 mb-4" />
-
-            <!-- Evidencia -->
-            <label class="block font-semibold mb-1 text-gray-700">Evidencia fotográfica <span class="text-red-600">*</span></label>
-            <div
-              class="relative flex items-center border rounded-lg p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition"
-              :class="form.errors.evidencia ? 'border-red-500' : 'border-gray-300'">
-              <ArrowUpTrayIcon class="w-5 h-5 text-green-600 mr-2" />
-              <label class="flex-1 cursor-pointer text-gray-700">
-                <span v-if="!form.evidencia">Seleccionar archivo...</span>
-                <span v-else>{{ form.evidencia.name }}</span>
-                <input type="file" @change="handleEvidencia" class="hidden" accept=".pdf" />
-              </label>
-            </div>
-            <InputError :message="form.errors.evidencia" class="mt-1" />
-
           </div>
         </div>
 
@@ -309,44 +212,17 @@ const mostrarSesionDocs = computed(() => form.estado_convocatoria && form.estado
             <td class="p-2">{{ item.fecha }}</td>
 
             <td class="p-2 space-y-1">
-              <!-- Convocatoria -->
-              <div v-if="item.convocatoria_documento">
-                <a :href="urlDocumento(item, 'convocatoria_documento')" target="_blank"
-                  class="text-gray-600 hover:underline">
-                  Convocatoria
-                </a>
-              </div>
-              <!-- Acta de sesión -->
-              <div v-if="item.documento">
-                <a :href="urlDocumento(item, 'documento')" target="_blank" class="text-green-600 hover:underline">
-                  Acta
-                </a>
-              </div>
-              <!-- Lista -->
-              <div v-if="item.lista_asistencia">
-                <a :href="urlDocumento(item, 'lista_asistencia')" target="_blank" class="text-gray-800 hover:underline">
-                  Lista
-                </a>
-              </div>
-              <!-- Evidencia -->
-              <div v-if="item.evidencia">
-                <a :href="urlDocumento(item, 'evidencia')" target="_blank" class="text-red-600 hover:underline">
-                  Evidencia
-                </a>
-              </div>
-
+              <a v-for="doc in DOCUMENTOS.filter((d) => item[d.campo])" :key="doc.campo"
+                :href="route('convocatorias.documento', { convocatoria: item.id, campo: doc.campo })" target="_blank"
+                class="block w-fit hover:underline" :class="doc.color">
+                {{ doc.enlace }}
+              </a>
             </td>
 
-            <td class="p-2 text-center">
-              <CheckCircleIcon v-if="item.estado_convocatoria" class="text-green-500 w-6 h-6 mx-auto" />
+            <td v-for="estado in ['estado_convocatoria', 'estado_sesion']" :key="estado" class="p-2 text-center">
+              <CheckCircleIcon v-if="item[estado]" class="text-green-500 w-6 h-6 mx-auto" />
               <XCircleIcon v-else class="text-red-500 w-6 h-6 mx-auto" />
             </td>
-
-            <td class="p-2 text-center">
-              <CheckCircleIcon v-if="item.estado_sesion" class="text-green-500 w-6 h-6 mx-auto" />
-              <XCircleIcon v-else class="text-red-500 w-6 h-6 mx-auto" />
-            </td>
-
           </tr>
 
           <tr v-if="!convocatorias.data.length">

@@ -226,6 +226,7 @@ class IntegranteController extends Controller
             // Registrar baja histórica
             IntegranteBaja::create([
                 'integrante_id' => $integrante->id,
+                'user_id'       => $integrante->user_id,
                 'consejo_id'    => $integrante->consejo_id,
                 'nombre'        => $integrante->nombre,
                 'apellido'      => $integrante->apellido,

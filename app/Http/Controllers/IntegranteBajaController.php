@@ -17,9 +17,22 @@ class IntegranteBajaController extends Controller
             'motivo' => 'required|in:inasistencia,sancion,fin_periodo,renuncia,error_registro',
         ]);
 
-        //Si es error de registro, solo eliminar
+        //Si es error de registro: no requiere fecha ni evidencia, pero se deja constancia en el reporte de bajas
         if ($request->motivo === 'error_registro') {
-            $integrante->delete();
+            DB::transaction(function () use ($integrante) {
+                IntegranteBaja::create([
+                    'integrante_id' => $integrante->id,
+                    'user_id'       => $integrante->user_id,
+                    'consejo_id'    => $integrante->consejo_id,
+                    'nombre'        => $integrante->nombre,
+                    'apellido'      => $integrante->apellido,
+                    'motivo'        => 'error_registro',
+                    'fecha_baja'    => now()->toDateString(),
+                    'evidencia_pdf' => null,
+                ]);
+
+                $integrante->delete();
+            });
 
             return redirect()
                 ->back()
@@ -38,6 +51,7 @@ class IntegranteBajaController extends Controller
 
             IntegranteBaja::create([
                 'integrante_id' => $integrante->id,
+                'user_id'       => $integrante->user_id,
                 'consejo_id'    => $integrante->consejo_id,
                 'nombre'        => $integrante->nombre,
                 'apellido'      => $integrante->apellido,

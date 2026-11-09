@@ -82,25 +82,19 @@ class ConvocatoriaController extends Controller
             'evidencia' => 'required_if_accepted:estado_sesion|nullable|file|mimes:pdf|max:4096',
 
             // Estados
-            'estado_convocatoria' => 'nullable|boolean',
+            'estado_convocatoria' => 'accepted',
             'estado_sesion' => 'nullable|boolean',
         ], [
+            'estado_convocatoria.accepted' => 'Debes marcar "Convocatoria realizada" para poder crear el registro.',
             'convocatoria_documento.required_if_accepted' => 'El acta de convocatoria es obligatoria; debes adjuntarla.',
             'documento.required_if_accepted' => 'El acta de sesión es obligatoria; debes adjuntarla.',
             'lista_asistencia.required_if_accepted' => 'La lista de asistencia es obligatoria; debes adjuntarla.',
             'evidencia.required_if_accepted' => 'La evidencia fotográfica es obligatoria; debes adjuntarla.',
         ]);
 
-        //Normalizar booleanos
-        $data['estado_convocatoria'] = $data['estado_convocatoria'] ?? false;
+        //Normalizar booleanos (la convocatoria siempre llega marcada por la regla 'accepted')
+        $data['estado_convocatoria'] = true;
         $data['estado_sesion'] = $data['estado_sesion'] ?? false;
-
-        //Regla de negocio: no sesión sin convocatoria
-        if ($data['estado_sesion'] && !$data['estado_convocatoria']) {
-            return back()->withErrors([
-                'estado_sesion' => 'No se puede registrar una sesión sin convocatoria.',
-            ]);
-        }
 
         //Guardar archivos si existen
         if ($request->hasFile('convocatoria_documento')) {
