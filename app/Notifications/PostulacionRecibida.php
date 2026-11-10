@@ -30,7 +30,7 @@ class PostulacionRecibida extends Notification
             ->greeting('Estimado(a) ' . $this->postulacion->nombre . ':')
             ->line('Le confirmamos que recibimos su postulación'
                 . ($consejo ? ' para el ' . $consejo : '') . '.')
-            ->line('El equipo de los Consejos de Participación Ciudadana la revisará y le escribirá a este correo con el resultado.')
+            ->line('El Consejo de Participación Ciudadana la revisará y le escribirá a este correo con el resultado.')
             ->line('Si su postulación avanza, recibirá un acceso a la plataforma para subir sus documentos.')
             ->salutation('Gracias por su interés en participar.');
     }

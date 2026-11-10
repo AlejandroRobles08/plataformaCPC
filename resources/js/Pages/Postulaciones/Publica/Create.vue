@@ -184,9 +184,9 @@ const inputClass = campo => [
 
     <!-- Bienvenida -->
     <section class="bg-white rounded-lg shadow-sm overflow-hidden">
-      <div class="px-6 py-8 sm:px-10 text-white" style="background-color:#1E520B;">
-        <p class="text-sm font-semibold tracking-wide uppercase opacity-80">Convocatoria abierta</p>
-        <h1 class="mt-2 text-2xl sm:text-3xl font-bold">Le damos la bienvenida</h1>
+      <div class="px-6 py-8 sm:px-10 text-white" style="background-color:#782347;">
+        <p class="text-sm font-semibold tracking-wide uppercase opacity-80">Convocatoriapara formar parte de los Consejos de Participación Ciudadana</p>
+        <h1 class="mt-2 text-2xl sm:text-3xl font-bold">Reciba una cordial bienvenida</h1>
         <p class="mt-3 max-w-2xl text-base opacity-90">
           Gracias por su interés en formar parte de los Consejos de Participación Ciudadana.
           Su voz y su experiencia pueden ayudar a construir mejores decisiones para nuestra comunidad.
@@ -195,10 +195,10 @@ const inputClass = campo => [
 
       <div class="px-6 py-8 sm:px-10 grid gap-8 md:grid-cols-2">
         <div>
-          <h2 class="text-lg font-semibold text-gray-800">¿Cómo funciona?</h2>
+          <h2 class="text-lg font-semibold text-gray-800">¿Qué pasos debo seguir para postularme?</h2>
           <ol class="mt-4 space-y-4">
             <li class="flex gap-3">
-              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">1</span>
+              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-red-100 text-red-800 text-sm font-bold">1</span>
               <p class="text-sm text-gray-600">
                 <span class="font-semibold text-gray-800">Llene su postulación.</span>
                 Le pediremos algunos datos personales, de contacto, el consejo en el que le gustaría participar y su perfil.
@@ -206,21 +206,21 @@ const inputClass = campo => [
               </p>
             </li>
             <li class="flex gap-3">
-              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">2</span>
+              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-red-100 text-red-800 text-sm font-bold">2</span>
               <p class="text-sm text-gray-600">
                 <span class="font-semibold text-gray-800">Reciba un correo de confirmación.</span>
                 Al enviar su postulación le enviaremos un correo confirmando que la recibimos.
               </p>
             </li>
             <li class="flex gap-3">
-              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">3</span>
+              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-red-100 text-red-800 text-sm font-bold">3</span>
               <p class="text-sm text-gray-600">
                 <span class="font-semibold text-gray-800">Revisión.</span>
-                El equipo de los consejos revisará su postulación y le escribirá al correo que registre.
+                El Consejo de Participación Ciudadana revisará su postulación y le escribirá al correo que registre.
               </p>
             </li>
             <li class="flex gap-3">
-              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">4</span>
+              <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-red-100 text-red-800 text-sm font-bold">4</span>
               <p class="text-sm text-gray-600">
                 <span class="font-semibold text-gray-800">Entrega de documentos.</span>
                 Si su postulación avanza, recibirá un acceso a la plataforma para subir sus documentos.
@@ -246,7 +246,7 @@ const inputClass = campo => [
       <div v-if="!mostrarFormulario" class="px-6 pb-8 sm:px-10">
         <button type="button" @click="irAFormulario"
           class="inline-flex items-center gap-2 px-5 py-3 rounded-md text-white font-semibold hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-700"
-          style="background-color:#1E520B;">
+          style="background-color:#43504D;">
           Comenzar mi postulación
           <ArrowRightIcon class="w-5 h-5" aria-hidden="true" />
         </button>
