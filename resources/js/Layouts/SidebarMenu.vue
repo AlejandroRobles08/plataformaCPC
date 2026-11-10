@@ -14,7 +14,10 @@ const esInvitado = computed(() =>
 )
 
 // Integrante sin "Darme de alta" completado: solo ve Archivo digital
-const altaPendiente = computed(() => page.props.auth?.altaPendiente ?? false)
+// También mientras sus documentos del Archivo digital no estén todos aprobados
+const altaPendiente = computed(() =>
+  (page.props.auth?.altaPendiente || page.props.auth?.expedientePendiente) ?? false
+)
 
 // Rutas que pertenecen a cada módulo, para mantenerlo marcado en todas sus secciones
 const rutasPorModulo = {

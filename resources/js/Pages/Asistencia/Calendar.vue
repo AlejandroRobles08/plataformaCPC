@@ -13,6 +13,8 @@ const props = defineProps({
   consejo: Object,
   integrantes: { type: Array, default: () => [] },
   integrantesSinPaseLista: { type: Array, default: () => [] },
+  // Ids sin todos sus documentos del Archivo digital aprobados
+  integrantesSinExpediente: { type: Array, default: () => [] },
   integrante: { type: Object, default: null },
   asistencias: { type: Array, default: () => [] },
   maxSesionesPorDia: { type: Number, default: 2 }
@@ -295,6 +297,10 @@ function handleAsistenciaGuardada() {
   router.reload({ only: ['sesiones'], preserveScroll: true })
 }
 
+// Horario 'HH:MM – HH:MM' de una sesión (las anteriores al cambio no lo tienen)
+const horarioSesion = s => s.hora_inicio && s.hora_fin
+  ? ` · ${s.hora_inicio.slice(0, 5)} – ${s.hora_fin.slice(0, 5)}` : ''
+
 // Sesiones mostradas en el calendario (en rojo si el integrante tiene falta)
 // Si hay dos sesiones el mismo día, el día se resalta con la primera y cada sesión agrega su punto
 const calendarAttributes = computed(() => {
@@ -328,8 +334,8 @@ const calendarAttributes = computed(() => {
       customData: {
         color: esHex ? color : (hexPaleta[color] || hexPaleta.gray),
         label: conFalta
-          ? `Falta: sesión ${s.tipo_sesion} (${s.fecha})`
-          : `Sesión ${s.tipo_sesion} (${s.fecha})`
+          ? `Falta: sesión ${s.tipo_sesion} (${s.fecha})${horarioSesion(s)}`
+          : `Sesión ${s.tipo_sesion} (${s.fecha})${horarioSesion(s)}`
       }
     }
   })
@@ -455,6 +461,7 @@ const calendarAttributes = computed(() => {
     <Form v-if="showForm && sesionSeleccionada" :key="sesionSeleccionada.id"
       :sesion="sesionSeleccionada" :integrantes="integrantes"
       :integrantes-sin-pase-lista="integrantesSinPaseLista"
+      :integrantes-sin-expediente="integrantesSinExpediente"
       :asistencias="asistenciasSesion"
       :consejo-id="consejo.id"
       :sesiones-dia="sesionesDiaSeleccionado"

@@ -112,6 +112,7 @@ class AsistenciaController extends Controller
             'sesiones' => $sesiones,
             'integrantes' => $integrantes,
             'integrantesSinPaseLista' => Integrante::idsSinPaseDeLista($integrantes->pluck('id')),
+            'integrantesSinExpediente' => Integrante::idsSinExpedienteAprobado($integrantes->pluck('id')),
             'integrante' => $integrante,
             'asistencias' => $asistencias,
             'maxSesionesPorDia' => self::MAX_SESIONES_POR_DIA,
@@ -123,7 +124,13 @@ class AsistenciaController extends Controller
     {
         $validated = $request->validate([
             'fecha' => 'required|date',
+            'hora_inicio' => 'required|date_format:H:i',
+            'hora_fin' => 'required|date_format:H:i|after:hora_inicio',
             'tipo_sesion' => 'required|in:ordinaria,solemne,extraordinaria',
+        ], [
+            'hora_inicio.required' => 'Indique la hora de inicio.',
+            'hora_fin.required' => 'Indique la hora de término.',
+            'hora_fin.after' => 'La hora de término debe ser posterior a la hora de inicio.',
         ]);
 
         $existe = Sesion::where('consejo_id', $consejo->id)
@@ -148,9 +155,24 @@ class AsistenciaController extends Controller
             ]);
         }
 
+        // Dos sesiones del mismo día no pueden encimarse en horario
+        $seEncima = Sesion::where('consejo_id', $consejo->id)
+            ->whereDate('fecha', $validated['fecha'])
+            ->where('hora_inicio', '<', $validated['hora_fin'])
+            ->where('hora_fin', '>', $validated['hora_inicio'])
+            ->exists();
+
+        if ($seEncima) {
+            return back()->withErrors([
+                'hora_inicio' => 'El horario se empalma con otra sesión programada este día.',
+            ]);
+        }
+
         Sesion::create([
             'consejo_id' => $consejo->id,
             'fecha' => $validated['fecha'],
+            'hora_inicio' => $validated['hora_inicio'],
+            'hora_fin' => $validated['hora_fin'],
             'tipo_sesion' => $validated['tipo_sesion'],
             'estado' => 'programada',
         ]);
@@ -238,9 +260,11 @@ class AsistenciaController extends Controller
         }
 
         // Se calcula antes de guardar: el pase actual no debe sacar a nadie de su propia lista
-        $sinPaseDeLista = Integrante::idsSinPaseDeLista(
-            Integrante::where('consejo_id', $consejo->id)->pluck('id')
-        );
+        $idsConsejo = Integrante::where('consejo_id', $consejo->id)->pluck('id');
+        $sinPaseDeLista = Integrante::idsSinPaseDeLista($idsConsejo);
+
+        // Sin el expediente del Archivo digital aprobado tampoco se le pasa lista
+        $sinExpediente = Integrante::idsSinExpedienteAprobado($idsConsejo);
 
         foreach ($validated['asistencias'] as $item) {
             $perteneceAlConsejo = Integrante::where('id', $item['integrante_id'])
@@ -251,7 +275,8 @@ class AsistenciaController extends Controller
 
             // Con 3 faltas seguidas no se le pasa lista; sí se puede corregir un registro que ya existe
             if (
-                $sinPaseDeLista->contains($item['integrante_id']) &&
+                ($sinPaseDeLista->contains($item['integrante_id'])
+                    || $sinExpediente->contains((int) $item['integrante_id'])) &&
                 !Asistencia::where('integrante_id', $item['integrante_id'])
                     ->where('sesion_id', $sesion->id)
                     ->exists()

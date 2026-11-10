@@ -21,6 +21,11 @@ export default {
       type: Object,
       default: null,
     },
+    //ids sin todos sus documentos del Archivo digital aprobados
+    integrantesSinExpediente: {
+      type: Array,
+      default: () => [],
+    },
   },
 
   //campos del formulario de periodo
@@ -61,6 +66,11 @@ export default {
   },
 
   methods: {
+    //el integrante aún no tiene su expediente del Archivo digital aprobado
+    sinExpediente(integrante) {
+      return this.integrantesSinExpediente.some(id => Number(id) === Number(integrante.id));
+    },
+
     //carga los datos del registro en el formulario
     cargarDatos(registro) {
       this.form.integrante_id = registro.integrante_id ?? "";
@@ -218,10 +228,15 @@ export default {
 
         <option v-for="i in integrantes"
           :key="i.id"
-          :value="i.id">
-          {{ i.nombre }} {{ i.apellido }}
+          :value="i.id"
+          :disabled="!esReeleccion && sinExpediente(i)">
+          {{ i.nombre }} {{ i.apellido }}{{ !esReeleccion && sinExpediente(i) ? " (documentos sin aprobar)" : "" }}
         </option>
       </select>
+
+      <p v-if="!esReeleccion && integrantes.some(sinExpediente)" class="-mt-2 mb-3 text-xs text-gray-500">
+        Solo se puede registrar el periodo de quienes tienen todos sus documentos del Archivo digital aprobados.
+      </p>
 
       <!-- Fechas del periodo -->
       <label class="block mb-2 font-semibold">

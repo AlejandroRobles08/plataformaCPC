@@ -47,6 +47,21 @@ watch(
   },
   { immediate: true })
 
+// Aviso al ser redirigido desde otro módulo con el expediente sin aprobar
+watch(
+  () => page.props.flash?.warning,
+  (warning) => {
+    if (warning) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Documentos pendientes',
+        text: warning,
+        confirmButtonText: 'Entendido',
+      })
+    }
+  },
+  { immediate: true })
+
 watch(
   () => page.props.flash?.error,
   (error) => {

@@ -45,6 +45,14 @@ class HandleInertiaRequests extends Middleware
                         && $user->integrante
                         && $user->integrante->alta_completada_at === null);
                 },
+                // Integrante con documentos del Archivo digital sin aprobar: solo ve Archivo digital
+                'expedientePendiente' => function () use ($request) {
+                    $user = $request->user();
+
+                    return (bool) ($user?->hasRole('integrante')
+                        && $user->integrante
+                        && ! $user->integrante->expedienteAprobado());
+                },
                 'permissions' => function () use ($request) {
                     $user = $request->user();
 

@@ -101,6 +101,33 @@ class Integrante extends Model
     {
         return $this->hasMany(Docu::class,);
     }
+    // Expediente completo: todos los tipos de Docu::TIPOS subidos y aprobados.
+    // Sin él, el integrante no puede usar los demás módulos ni se le registran periodos o asistencias.
+    public function expedienteAprobado(): bool
+    {
+        return static::idsSinExpedienteAprobado([$this->id])->isEmpty();
+    }
+
+    // Ids (de los recibidos) a los que les falta al menos un documento aprobado
+    public static function idsSinExpedienteAprobado(iterable $ids): \Illuminate\Support\Collection
+    {
+        $ids = collect($ids)->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        $completos = Docu::whereIn('integrante_id', $ids)
+            ->whereIn('tipo', Docu::TIPOS)
+            ->where('estatus', Docu::APROBADO)
+            ->groupBy('integrante_id')
+            ->havingRaw('COUNT(DISTINCT tipo) >= ?', [count(Docu::TIPOS)])
+            ->pluck('integrante_id')
+            ->map(fn ($id) => (int) $id);
+
+        return $ids->diff($completos)->values();
+    }
+
     //relacion con asistencias: un integrante tiene muchas asistencias
     public function asistencias(){
         return $this->hasMany(Asistencia::class);

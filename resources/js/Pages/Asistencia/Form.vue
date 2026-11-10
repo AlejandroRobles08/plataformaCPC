@@ -13,6 +13,8 @@ const props = defineProps({
   integrantes: {type: Array, required: true},
   // Ids con 3 faltas consecutivas: no se les pasa lista hasta que se apruebe su justificante
   integrantesSinPaseLista: {type: Array, default: () => []},
+  // Ids sin todos sus documentos del Archivo digital aprobados: tampoco se les pasa lista
+  integrantesSinExpediente: {type: Array, default: () => []},
   sesion: {type: Object, required: true},
   asistencias: {type: Array, default: () => []},
   // Todas las sesiones programadas en la fecha (para cambiar entre sesión 1 y sesión 2)
@@ -44,16 +46,24 @@ const soloLectura = computed(() => listaGuardada.value && !esSuperAdmin.value)
 const estaSinPaseLista = integrante =>
   props.integrantesSinPaseLista.some(id => Number(id) === Number(integrante.id))
 
+const estaSinExpediente = integrante =>
+  props.integrantesSinExpediente.some(id => Number(id) === Number(integrante.id))
+
 // Lista ya guardada: quienes tienen registro en la sesión. Lista nueva: quienes siguen disponibles.
 // Se fija al abrir el modal porque form.asistencias se construye una sola vez con esta lista.
 const integrantesLista = listaGuardada.value
   ? props.integrantes.filter(i => props.asistencias.some(a => Number(a.integrante_id) === Number(i.id)))
-  : props.integrantes.filter(i => !estaSinPaseLista(i))
+  : props.integrantes.filter(i => !estaSinPaseLista(i) && !estaSinExpediente(i))
 
 // Quiénes no aparecen en una lista nueva por acumular 3 faltas consecutivas
 const integrantesExcluidos = listaGuardada.value
   ? []
   : props.integrantes.filter(estaSinPaseLista)
+
+// Quiénes no aparecen en una lista nueva por no tener su expediente aprobado
+const integrantesSinDocumentos = listaGuardada.value
+  ? []
+  : props.integrantes.filter(i => estaSinExpediente(i) && !estaSinPaseLista(i))
 
 // Datos de asistencia.
 const form = ref({
@@ -264,7 +274,7 @@ async function submitForm() {
             : 'bg-gray-200 text-gray-800 hover:bg-gray-300'"
           :disabled="procesando"
           @click="Number(s.id) !== Number(sesion.id) && emit('cambiar-sesion', s)">
-          Sesión {{ idx + 1 }} · {{ s.tipo_sesion }}
+          Sesión {{ idx + 1 }} · {{ s.tipo_sesion }}<template v-if="s.hora_inicio"> · {{ s.hora_inicio.slice(0, 5) }}</template>
         </button>
       </div>
     </div>
@@ -296,6 +306,16 @@ async function submitForm() {
         <input type="text" :value="sesion.tipo_sesion"
           readonly class="w-full rounded border bg-gray-100 px-3 py-2 capitalize"/>
       </div>
+
+      <!-- Horario (solo en sesiones programadas con horario) -->
+      <div v-if="sesion.hora_inicio && sesion.hora_fin" class="sm:col-span-2">
+        <label class="mb-1 block text-sm font-medium">
+          Horario
+        </label>
+
+        <input type="text" readonly class="w-full rounded border bg-gray-100 px-3 py-2"
+          :value="`${sesion.hora_inicio.slice(0, 5)} a ${sesion.hora_fin.slice(0, 5)} hrs`"/>
+      </div>
     </div>
 
     <!-- Integrantes fuera del pase de lista -->
@@ -306,6 +326,18 @@ async function submitForm() {
       </p>
       <ul class="mt-1 list-inside list-disc">
         <li v-for="i in integrantesExcluidos" :key="i.id">
+          {{ i.nombre }} {{ i.apellido }}
+        </li>
+      </ul>
+    </div>
+
+    <div v-if="integrantesSinDocumentos.length"
+      class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <p class="font-semibold">
+        No disponibles porque sus documentos del Archivo digital aún no están todos aprobados:
+      </p>
+      <ul class="mt-1 list-inside list-disc">
+        <li v-for="i in integrantesSinDocumentos" :key="i.id">
           {{ i.nombre }} {{ i.apellido }}
         </li>
       </ul>

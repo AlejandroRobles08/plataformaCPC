@@ -13,6 +13,8 @@ class Sesion extends Model
     protected $fillable = [
         'consejo_id',
         'fecha',
+        'hora_inicio',
+        'hora_fin',
         'tipo_sesion',
         'estado',
     ];

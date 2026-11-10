@@ -13,6 +13,8 @@ export default {
     consejo: Object,
     integrantes: Array,
     registros: Array,
+    //ids sin todos sus documentos del Archivo digital aprobados: no se les puede crear periodo
+    integrantesSinExpediente: { type: Array, default: () => [] },
   },
 
   //estado del modal y texto de búsqueda
@@ -258,7 +260,8 @@ export default {
       </div>
 
       <!-- Formulario de periodo -->
-      <Form :show="showForm" :consejo="consejo" :integrantes="integrantesDisponibles" :editData="selectedLegalidad"
+      <Form :show="showForm" :consejo="consejo" :integrantes="integrantesDisponibles"
+        :integrantes-sin-expediente="integrantesSinExpediente" :editData="selectedLegalidad"
         @close="closeForm" />
     </div>
   </AuthenticatedLayout>

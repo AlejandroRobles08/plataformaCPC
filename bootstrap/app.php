@@ -38,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'privacy' => \App\Http\Middleware\EnsurePrivacyAccepted::class,
             'alta' => \App\Http\Middleware\EnsureAltaCompletada::class,
+            'expediente' => \App\Http\Middleware\EnsureExpedienteAprobado::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

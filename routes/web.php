@@ -35,7 +35,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 // Rutas autenticadas
-Route::middleware('auth', 'privacy', 'alta')->group(function () {
+Route::middleware('auth', 'privacy', 'alta', 'expediente')->group(function () {
 
     // Consejos
     Route::get('/consejos', [ConsejoController::class, 'index'])

@@ -46,6 +46,7 @@ class LegalidadController extends Controller
             'consejo' => $consejo,
             'integrantes' => $integrantes,
             'registros' => $registros,
+            'integrantesSinExpediente' => Integrante::idsSinExpedienteAprobado($integrantes->pluck('id')),
         ]);
     }
 
@@ -82,6 +83,12 @@ class LegalidadController extends Controller
                         $fail($periodo->fin_cargo->lt(Carbon::today())
                             ? 'Este integrante ya tiene un periodo vencido; no se le puede asignar otro.'
                             : 'Este integrante ya tiene un periodo activo.');
+                    }
+                },
+                // Sin el expediente del Archivo digital aprobado no se le registra periodo
+                function ($attribute, $value, $fail) {
+                    if (Integrante::idsSinExpedienteAprobado([$value])->isNotEmpty()) {
+                        $fail('Este integrante aún no tiene todos sus documentos del Archivo digital aprobados.');
                     }
                 },
             ],
