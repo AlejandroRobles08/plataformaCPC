@@ -63,7 +63,10 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // La persona invitada solo usa el módulo de postulaciones (segundo filtro: documentos)
+        $inicio = $user->hasRole('invitado') ? 'postulaciones.index' : 'dashboard';
+
+        return redirect()->intended(route($inicio, absolute: false));
     }
 
     /**

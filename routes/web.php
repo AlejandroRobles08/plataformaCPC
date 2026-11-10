@@ -17,17 +17,33 @@ use App\Http\Controllers\IntegranteBajaController;
 use App\Http\Controllers\LegalidadController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PostulacionController;
+use App\Http\Controllers\PostulacionPublicaController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\UserController;
 
 // Rutas públicas
 Route::get('/', function () {
-    return Auth::check()
-        ? redirect()->route('dashboard')
-        : redirect()->route('login');
+    if (! Auth::check()) {
+        return redirect()->route('login');
+    }
+
+    return Auth::user()->hasRole('invitado')
+        ? redirect()->route('postulaciones.index')
+        : redirect()->route('dashboard');
 });
 
 Route::get('/about', fn () => Inertia::render('About'))->name('about');
+
+// Postulaciones - primer filtro: abierto a la ciudadanía, sin inicio de sesión ni documentos
+Route::get('/postulate', [PostulacionPublicaController::class, 'create'])
+    ->name('postulate.create');
+
+Route::post('/postulate', [PostulacionPublicaController::class, 'store'])
+    ->middleware('throttle:10,10')
+    ->name('postulate.store');
+
+Route::get('/postulate/enviada', [PostulacionPublicaController::class, 'enviada'])
+    ->name('postulate.enviada');
 
 // Dashboard
 Route::get('/dashboard', [DashboardController::class, 'index'])
