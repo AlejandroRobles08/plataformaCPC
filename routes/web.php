@@ -34,17 +34,6 @@ Route::get('/', function () {
 
 Route::get('/about', fn () => Inertia::render('About'))->name('about');
 
-// Postulaciones - primer filtro: abierto a la ciudadanía, sin inicio de sesión ni documentos
-Route::get('/postulate', [PostulacionPublicaController::class, 'create'])
-    ->name('postulate.create');
-
-Route::post('/postulate', [PostulacionPublicaController::class, 'store'])
-    ->middleware('throttle:10,10')
-    ->name('postulate.store');
-
-Route::get('/postulate/enviada', [PostulacionPublicaController::class, 'enviada'])
-    ->name('postulate.enviada');
-
 // Dashboard
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified', 'privacy'])
@@ -258,6 +247,22 @@ Route::middleware('auth', 'privacy', 'alta', 'expediente')->group(function () {
     });
 
     // Postulaciones
+
+    // Postulación abierta - primer filtro: abierto a la ciudadanía, sin inicio de sesión ni documentos.
+    // Vive dentro del grupo autenticado sólo por orden, así que se le quitan sus middlewares.
+    Route::withoutMiddleware(['auth', 'privacy', 'alta', 'expediente'])->group(function () {
+
+        Route::get('/postulacion-abierta', [PostulacionPublicaController::class, 'create'])
+            ->name('postulacion-abierta.create');
+
+        Route::post('/postulacion-abierta', [PostulacionPublicaController::class, 'store'])
+            ->middleware('throttle:10,10')
+            ->name('postulacion-abierta.store');
+
+        Route::get('/postulacion-abierta/enviada', [PostulacionPublicaController::class, 'enviada'])
+            ->name('postulacion-abierta.enviada');
+    });
+
     Route::get('/postulaciones', [PostulacionController::class, 'index'])
         ->name('postulaciones.index');
 
@@ -273,6 +278,17 @@ Route::middleware('auth', 'privacy', 'alta', 'expediente')->group(function () {
 
         Route::get('/postulaciones/validacion', [PostulacionController::class, 'validacion'])
             ->name('postulaciones.validacion');
+
+        // Detalle y revisión del primer filtro (después de /validacion para no capturarla)
+        Route::get('/postulaciones/{postulacion}', [PostulacionController::class, 'show'])
+            ->whereNumber('postulacion')
+            ->name('postulaciones.show');
+
+        Route::post('/postulaciones/{postulacion}/pre-aprobar', [PostulacionController::class, 'preAprobar'])
+            ->name('postulaciones.pre-aprobar');
+
+        Route::post('/postulaciones/{postulacion}/no-aprobar', [PostulacionController::class, 'noAprobar'])
+            ->name('postulaciones.no-aprobar');
 
         Route::post('/postulaciones/{postulacion}/aprobar', [PostulacionController::class, 'aprobar'])
             ->name('postulaciones.aprobar');

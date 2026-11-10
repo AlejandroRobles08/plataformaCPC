@@ -20,10 +20,6 @@ const props = defineProps({
   generos: { type: Array, default: () => [] },
 })
 
-// El valor se guarda tal cual en BD; aquí solo cambia cómo se muestra
-const ETIQUETAS_GENERO = { 'No binario': 'Persona no binaria' }
-const etiquetaGenero = g => ETIQUETAS_GENERO[g] ?? g
-
 // Documentos que se pedirán en el segundo filtro, para que la persona los vaya preparando
 const DOCUMENTOS_SEGUNDO_FILTRO = [
   'Identificación oficial (INE)',
@@ -53,10 +49,10 @@ const form = useForm({
 })
 
 const pasos = [
-  { titulo: 'Sobre ti', icono: UserIcon, campos: ['nombre', 'apellido_paterno', 'apellido_materno', 'genero'] },
+  { titulo: 'Sobre usted', icono: UserIcon, campos: ['nombre', 'apellido_paterno', 'apellido_materno', 'genero'] },
   { titulo: 'Contacto', icono: EnvelopeIcon, campos: ['correo', 'direccion'] },
-  { titulo: 'Tu participación', icono: UserGroupIcon, campos: ['consejo_solicitado_id', 'perfil', 'perfil_descripcion'] },
-  { titulo: 'Revisa y envía', icono: CheckCircleIcon, campos: ['aviso_privacidad'] },
+  { titulo: 'Su participación', icono: UserGroupIcon, campos: ['consejo_solicitado_id', 'perfil', 'perfil_descripcion'] },
+  { titulo: 'Revisar y enviar', icono: CheckCircleIcon, campos: ['aviso_privacidad'] },
 ]
 
 const paso = ref(0)
@@ -72,22 +68,22 @@ const validarPaso = indice => {
   const f = form
 
   if (indice === 0) {
-    if (!f.nombre.trim()) errores.nombre = 'Escribe tu nombre o nombres.'
-    if (!f.apellido_paterno.trim()) errores.apellido_paterno = 'Escribe tu primer apellido.'
-    if (!f.genero) errores.genero = 'Elige una opción. Puedes seleccionar "Prefiero no responder".'
+    if (!f.nombre.trim()) errores.nombre = 'Escriba su nombre o nombres.'
+    if (!f.apellido_paterno.trim()) errores.apellido_paterno = 'Escriba su primer apellido.'
+    if (!f.genero) errores.genero = 'Elija una opción. Puede seleccionar "Prefiero no responder".'
   }
   if (indice === 1) {
-    if (!correoValido(f.correo)) errores.correo = 'Escribe un correo válido, por ejemplo: nombre@correo.com'
-    if (!f.direccion.trim()) errores.direccion = 'Escribe tu domicilio.'
+    if (!correoValido(f.correo)) errores.correo = 'Escriba un correo válido, por ejemplo: nombre@correo.com'
+    if (!f.direccion.trim()) errores.direccion = 'Escriba su domicilio.'
   }
   if (indice === 2) {
-    if (!f.consejo_solicitado_id) errores.consejo_solicitado_id = 'Elige el consejo en el que te gustaría participar.'
-    if (!f.perfil) errores.perfil = 'Elige el perfil que mejor te describa.'
+    if (!f.consejo_solicitado_id) errores.consejo_solicitado_id = 'Elija el consejo en el que le gustaría participar.'
+    if (!f.perfil) errores.perfil = 'Elija el perfil que mejor le describa.'
     if (f.perfil_descripcion.trim().length < DESCRIPCION_MIN)
-      errores.perfil_descripcion = `Cuéntanos un poco más sobre ti (al menos ${DESCRIPCION_MIN} caracteres).`
+      errores.perfil_descripcion = `Por favor, cuéntenos un poco más sobre usted (al menos ${DESCRIPCION_MIN} caracteres).`
   }
   if (indice === 3) {
-    if (!f.aviso_privacidad) errores.aviso_privacidad = 'Para enviar tu postulación es necesario aceptar el aviso de privacidad.'
+    if (!f.aviso_privacidad) errores.aviso_privacidad = 'Para enviar su postulación es necesario aceptar el aviso de privacidad.'
   }
 
   pasos[indice].campos.forEach(c => form.clearErrors(c))
@@ -136,7 +132,7 @@ const irAPaso = indice => {
 const enviar = () => {
   if (!validarPaso(3)) return
 
-  form.post(route('postulate.store'), {
+  form.post(route('postulacion-abierta.store'), {
     preserveScroll: true,
     onError: errores => {
       // Regresa al primer paso que tenga un error del servidor
@@ -168,12 +164,12 @@ const nombreCompleto = computed(() =>
 
 const resumen = computed(() => [
   { etiqueta: 'Nombre', valor: nombreCompleto.value, paso: 0 },
-  { etiqueta: 'Género', valor: etiquetaGenero(form.genero), paso: 0 },
+  { etiqueta: 'Género', valor: form.genero, paso: 0 },
   { etiqueta: 'Correo electrónico', valor: form.correo, paso: 1 },
   { etiqueta: 'Domicilio', valor: form.direccion, paso: 1 },
-  { etiqueta: 'Consejo de tu interés', valor: consejoElegido.value?.nombre, paso: 2 },
+  { etiqueta: 'Consejo de su interés', valor: consejoElegido.value?.nombre, paso: 2 },
   { etiqueta: 'Perfil', valor: form.perfil, paso: 2 },
-  { etiqueta: 'Sobre ti', valor: form.perfil_descripcion, paso: 2 },
+  { etiqueta: 'Sobre usted', valor: form.perfil_descripcion, paso: 2 },
 ])
 
 const inputClass = campo => [
@@ -184,16 +180,16 @@ const inputClass = campo => [
 
 <template>
   <PublicLayout>
-    <Head title="Postúlate" />
+    <Head title="Postulación abierta" />
 
     <!-- Bienvenida -->
     <section class="bg-white rounded-lg shadow-sm overflow-hidden">
       <div class="px-6 py-8 sm:px-10 text-white" style="background-color:#1E520B;">
         <p class="text-sm font-semibold tracking-wide uppercase opacity-80">Convocatoria abierta</p>
-        <h1 class="mt-2 text-2xl sm:text-3xl font-bold">Te damos la bienvenida</h1>
+        <h1 class="mt-2 text-2xl sm:text-3xl font-bold">Le damos la bienvenida</h1>
         <p class="mt-3 max-w-2xl text-base opacity-90">
-          Gracias por tu interés en formar parte de los Consejos de Participación Ciudadana.
-          Tu voz y tu experiencia pueden ayudar a construir mejores decisiones para nuestra comunidad.
+          Gracias por su interés en formar parte de los Consejos de Participación Ciudadana.
+          Su voz y su experiencia pueden ayudar a construir mejores decisiones para nuestra comunidad.
         </p>
       </div>
 
@@ -204,30 +200,30 @@ const inputClass = campo => [
             <li class="flex gap-3">
               <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">1</span>
               <p class="text-sm text-gray-600">
-                <span class="font-semibold text-gray-800">Llena tu postulación.</span>
-                Te pediremos algunos datos personales, de contacto, el consejo en el que te gustaría participar y tu perfil.
-                Toma alrededor de 5 minutos y <span class="font-medium">no necesitas adjuntar documentos</span>.
+                <span class="font-semibold text-gray-800">Llene su postulación.</span>
+                Le pediremos algunos datos personales, de contacto, el consejo en el que le gustaría participar y su perfil.
+                Toma alrededor de 5 minutos y <span class="font-medium">no necesita adjuntar documentos</span>.
               </p>
             </li>
             <li class="flex gap-3">
               <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">2</span>
               <p class="text-sm text-gray-600">
-                <span class="font-semibold text-gray-800">Recibe tu folio.</span>
-                Al enviar tu postulación te daremos un folio. Guárdalo para cualquier aclaración.
+                <span class="font-semibold text-gray-800">Reciba un correo de confirmación.</span>
+                Al enviar su postulación le enviaremos un correo confirmando que la recibimos.
               </p>
             </li>
             <li class="flex gap-3">
               <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">3</span>
               <p class="text-sm text-gray-600">
                 <span class="font-semibold text-gray-800">Revisión.</span>
-                El equipo de los consejos revisará tu postulación y te escribirá al correo que registres.
+                El equipo de los consejos revisará su postulación y le escribirá al correo que registre.
               </p>
             </li>
             <li class="flex gap-3">
               <span class="flex items-center justify-center w-7 h-7 shrink-0 rounded-full bg-green-100 text-green-800 text-sm font-bold">4</span>
               <p class="text-sm text-gray-600">
                 <span class="font-semibold text-gray-800">Entrega de documentos.</span>
-                Si tu postulación avanza, recibirás un acceso a la plataforma para subir tus documentos.
+                Si su postulación avanza, recibirá un acceso a la plataforma para subir sus documentos.
               </p>
             </li>
           </ol>
@@ -236,10 +232,10 @@ const inputClass = campo => [
         <div class="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <div class="flex items-center gap-2 text-amber-800">
             <DocumentTextIcon class="w-5 h-5" aria-hidden="true" />
-            <h2 class="font-semibold">Ve preparando tus documentos</h2>
+            <h2 class="font-semibold">Vaya preparando sus documentos</h2>
           </div>
           <p class="mt-2 text-sm text-amber-900">
-            Por ahora no los necesitas, pero si tu postulación avanza te los pediremos en PDF:
+            Por ahora no los necesita, pero si su postulación avanza se los pediremos en PDF:
           </p>
           <ul class="mt-3 space-y-1 text-sm text-amber-900 list-disc list-inside">
             <li v-for="doc in DOCUMENTOS_SEGUNDO_FILTRO" :key="doc">{{ doc }}</li>
@@ -290,11 +286,11 @@ const inputClass = campo => [
           <input id="sitio_web" v-model="form.sitio_web" type="text" tabindex="-1" autocomplete="off" />
         </div>
 
-        <!-- Paso 1: Sobre ti -->
+        <!-- Paso 1: Sobre usted -->
         <div v-show="paso === 0" class="space-y-5">
           <div>
-            <h2 class="text-lg font-semibold text-gray-800">Sobre ti</h2>
-            <p class="text-sm text-gray-500">Escribe tu nombre tal como aparece en tu identificación oficial.</p>
+            <h2 class="text-lg font-semibold text-gray-800">Sobre usted</h2>
+            <p class="text-sm text-gray-500">Escriba su nombre tal como aparece en su identificación oficial.</p>
           </div>
 
           <div class="grid gap-5 md:grid-cols-3">
@@ -316,8 +312,8 @@ const inputClass = campo => [
           </div>
 
           <fieldset>
-            <legend class="block text-sm font-medium text-gray-700">¿Con qué género te identificas? <span class="text-red-600">*</span></legend>
-            <p class="text-xs text-gray-500">Este dato nos ayuda a promover la paridad en los consejos.</p>
+            <legend class="block text-sm font-medium text-gray-700">¿Con qué género usted se identifica? <span class="text-red-600">*</span></legend>
+            <p class="text-xs text-gray-500">Siéntase en libertad de seleccionar la opción "Prefiero no responder", si es el caso.</p>
             <div class="mt-2 flex flex-wrap gap-2">
               <label v-for="g in generos" :key="g"
                 :class="[
@@ -325,7 +321,7 @@ const inputClass = campo => [
                   form.genero === g ? 'border-green-700 bg-green-50 text-green-900 font-medium' : 'border-gray-300 text-gray-700 hover:bg-gray-50',
                 ]">
                 <input v-model="form.genero" type="radio" name="genero" :value="g" class="sr-only" />
-                {{ etiquetaGenero(g) }}
+                {{ g }}
               </label>
             </div>
             <p v-if="form.errors.genero" class="mt-1 text-sm text-red-600">{{ form.errors.genero }}</p>
@@ -335,8 +331,8 @@ const inputClass = campo => [
         <!-- Paso 2: Contacto -->
         <div v-show="paso === 1" class="space-y-5">
           <div>
-            <h2 class="text-lg font-semibold text-gray-800">¿Cómo te contactamos?</h2>
-            <p class="text-sm text-gray-500">Te enviaremos el resultado de tu postulación a este correo. Revisa que esté bien escrito.</p>
+            <h2 class="text-lg font-semibold text-gray-800">¿Cómo le contactamos?</h2>
+            <p class="text-sm text-gray-500">Le enviaremos la confirmación y el resultado de su postulación a este correo. Revise que esté bien escrito.</p>
           </div>
 
           <div>
@@ -353,28 +349,26 @@ const inputClass = campo => [
           </div>
         </div>
 
-        <!-- Paso 3: Tu participación -->
+        <!-- Paso 3: Su participación -->
         <div v-show="paso === 2" class="space-y-6">
           <div>
-            <h2 class="text-lg font-semibold text-gray-800">Tu participación</h2>
-            <p class="text-sm text-gray-500">Cuéntanos en qué consejo te gustaría participar y desde qué perfil.</p>
+            <h2 class="text-lg font-semibold text-gray-800">Su participación</h2>
+            <p class="text-sm text-gray-500">Indíquenos en qué consejo le gustaría participar y desde qué perfil.</p>
           </div>
 
           <fieldset>
-            <legend class="block text-sm font-medium text-gray-700">¿En qué consejo te gustaría participar? <span class="text-red-600">*</span></legend>
+            <legend class="block text-sm font-medium text-gray-700">¿En qué consejo le gustaría participar? <span class="text-red-600">*</span></legend>
             <div class="mt-2 grid gap-3 sm:grid-cols-2">
               <label v-for="c in consejos" :key="c.id"
                 :class="[
                   'relative flex flex-col rounded-lg border p-4 transition',
-                  c.lleno ? 'cursor-not-allowed bg-gray-50 border-gray-200 opacity-70'
-                    : form.consejo_solicitado_id === c.id ? 'cursor-pointer border-green-700 ring-1 ring-green-700 bg-green-50'
+                  form.consejo_solicitado_id === c.id ? 'cursor-pointer border-green-700 ring-1 ring-green-700 bg-green-50'
                     : 'cursor-pointer border-gray-300 hover:border-gray-400',
                 ]">
-                <input v-model="form.consejo_solicitado_id" type="radio" name="consejo" :value="c.id" :disabled="c.lleno" class="sr-only" />
+                <input v-model="form.consejo_solicitado_id" type="radio" name="consejo" :value="c.id" class="sr-only" />
                 <span class="flex items-start justify-between gap-2">
                   <span class="font-medium text-gray-800">{{ c.nombre }}</span>
                   <CheckCircleIcon v-if="form.consejo_solicitado_id === c.id" class="w-5 h-5 text-green-700 shrink-0" aria-hidden="true" />
-                  <span v-else-if="c.lleno" class="text-xs font-medium text-gray-500 shrink-0">Sin lugares</span>
                 </span>
                 <span v-if="c.descripcion" class="mt-1 text-sm text-gray-500 line-clamp-3">{{ c.descripcion }}</span>
               </label>
@@ -384,9 +378,9 @@ const inputClass = campo => [
           </fieldset>
 
           <div>
-            <label for="perfil" class="block text-sm font-medium text-gray-700">¿Qué perfil te describe mejor? <span class="text-red-600">*</span></label>
+            <label for="perfil" class="block text-sm font-medium text-gray-700">¿Qué perfil le describe mejor? <span class="text-red-600">*</span></label>
             <select id="perfil" v-model="form.perfil" :class="inputClass('perfil')">
-              <option value="" disabled>Elige una opción</option>
+              <option value="" disabled>Elija una opción</option>
               <option v-for="p in perfiles" :key="p" :value="p">{{ p }}</option>
             </select>
             <p v-if="form.errors.perfil" class="mt-1 text-sm text-red-600">{{ form.errors.perfil }}</p>
@@ -394,10 +388,10 @@ const inputClass = campo => [
 
           <div>
             <label for="perfil_descripcion" class="block text-sm font-medium text-gray-700">
-              Cuéntanos sobre ti <span class="text-red-600">*</span>
+              Cuéntenos sobre usted <span class="text-red-600">*</span>
             </label>
             <p class="text-xs text-gray-500">
-              Tu experiencia, a qué te dedicas y por qué te interesa participar en este consejo.
+              Su experiencia, a qué se dedica y por qué le interesa participar en este consejo.
             </p>
             <textarea id="perfil_descripcion" v-model="form.perfil_descripcion" rows="5" :maxlength="DESCRIPCION_MAX"
               :class="inputClass('perfil_descripcion')"></textarea>
@@ -408,11 +402,11 @@ const inputClass = campo => [
           </div>
         </div>
 
-        <!-- Paso 4: Revisa y envía -->
+        <!-- Paso 4: Revisar y enviar -->
         <div v-show="paso === 3" class="space-y-6">
           <div>
-            <h2 class="text-lg font-semibold text-gray-800">Revisa tu información</h2>
-            <p class="text-sm text-gray-500">Si algo no está bien, puedes regresar a corregirlo.</p>
+            <h2 class="text-lg font-semibold text-gray-800">Revise su información</h2>
+            <p class="text-sm text-gray-500">Si algo no está bien, puede regresar a corregirlo.</p>
           </div>
 
           <dl class="divide-y divide-gray-100 rounded-lg border border-gray-200">
@@ -429,7 +423,7 @@ const inputClass = campo => [
 
           <div class="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-900">
             <InformationCircleIcon class="w-5 h-5 shrink-0" aria-hidden="true" />
-            <p>Al enviar tu postulación recibirás un folio. La resolución te llegará al correo <span class="font-semibold break-all">{{ form.correo }}</span>.</p>
+            <p>Al enviar su postulación recibirá un correo de confirmación. La resolución le llegará al correo <span class="font-semibold break-all">{{ form.correo }}</span>.</p>
           </div>
 
           <div>

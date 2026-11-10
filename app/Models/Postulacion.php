@@ -21,8 +21,7 @@ class Postulacion extends Model
         'cumplimiento_normatividad',
     ];
 
-    // Valores que se guardan en BD; la vista puede mostrar una etiqueta distinta
-    public const GENEROS = ['Mujer', 'Hombre', 'No binario', 'Otro', 'Prefiero no responder'];
+    public const GENEROS = ['Mujer', 'Hombre', 'Otro', 'Prefiero no responder'];
 
     // Perfil con el que la persona se postula (primer filtro, ruta pública)
     public const PERFILES = [
@@ -36,7 +35,6 @@ class Postulacion extends Model
     ];
 
     protected $fillable = [
-        'folio',
         'nombre',
         'user_id',
         'apellido_paterno',
@@ -51,6 +49,7 @@ class Postulacion extends Model
         'formula',
         'acta_resolucion',
         'estatus',
+        'comentarios_revision',
         'validado_por',
         'fecha_validacion',
         'fecha_postulacion',
@@ -78,12 +77,6 @@ class Postulacion extends Model
 
     public function consejoSolicitado(){
         return $this->belongsTo(Consejo::class, 'consejo_solicitado_id');
-    }
-
-    // Folio legible para que la persona dé seguimiento: CPC-2026-00042
-    public static function generarFolio(int $id): string
-    {
-        return sprintf('CPC-%s-%05d', now()->format('Y'), $id);
     }
 
     public function documentos(){

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class PostulacionController extends Controller
@@ -56,7 +57,7 @@ class PostulacionController extends Controller
             'nombre' => 'required|string|max:255',
             'apellido_paterno' => 'required|string|max:255',
             'apellido_materno' => 'nullable|string|max:255',
-            'genero' => 'required|in:Mujer,Hombre,No binario,Otro,Prefiero no responder',
+            'genero' => ['required', Rule::in(Postulacion::GENEROS)],
             'direccion' => 'required|string|max:500',
             'correo' => 'required|email|max:255',
         ];
@@ -140,6 +141,73 @@ class PostulacionController extends Controller
             'consejos' => Consejo::orderBy('nombre')->get(['id', 'nombre'])
                 ->each(fn ($consejo) => $consejo->lleno = Integrante::consejoLleno($consejo->id)),
         ]);
+    }
+
+    // Detalle de la postulación para revisarla en el primer filtro
+    public function show(Postulacion $postulacion)
+    {
+        if (! Auth::user()->hasAnyRole(['admin', 'super_admin'])) {
+            abort(403, 'No tienes permiso para ver esta postulación.');
+        }
+
+        $postulacion->load(['consejoSolicitado:id,nombre', 'validador:id,name']);
+
+        return Inertia::render('Postulaciones/Show', [
+            'postulacion' => $postulacion,
+        ]);
+    }
+
+    // Primer filtro: la postulación pasa a la siguiente etapa
+    public function preAprobar(Postulacion $postulacion)
+    {
+        if (! Auth::user()->hasAnyRole(['admin', 'super_admin'])) {
+            abort(403, 'No tienes permiso para pre-aprobar postulaciones.');
+        }
+
+        if ($postulacion->estatus !== 'pendiente') {
+            return back()->with('error', 'Esta postulación ya fue revisada.');
+        }
+
+        $postulacion->update([
+            'estatus' => 'pre_aprobada',
+            'comentarios_revision' => null,
+            'validado_por' => Auth::id(),
+            'fecha_validacion' => now(),
+        ]);
+
+        return redirect()
+            ->route('postulaciones.show', $postulacion)
+            ->with('success', 'Postulación pre-aprobada correctamente.');
+    }
+
+    // Primer filtro: la postulación no avanza; los comentarios explican el motivo
+    public function noAprobar(Request $request, Postulacion $postulacion)
+    {
+        if (! Auth::user()->hasAnyRole(['admin', 'super_admin'])) {
+            abort(403, 'No tienes permiso para revisar postulaciones.');
+        }
+
+        $validated = $request->validate([
+            'comentarios_revision' => 'required|string|min:10|max:2000',
+        ], [
+            'comentarios_revision.required' => 'Escribe los comentarios con el motivo por el que no se aprueba.',
+            'comentarios_revision.min' => 'Los comentarios deben tener al menos :min caracteres.',
+        ]);
+
+        if ($postulacion->estatus !== 'pendiente') {
+            return back()->with('error', 'Esta postulación ya fue revisada.');
+        }
+
+        $postulacion->update([
+            'estatus' => 'no_aprobada',
+            'comentarios_revision' => trim($validated['comentarios_revision']),
+            'validado_por' => Auth::id(),
+            'fecha_validacion' => now(),
+        ]);
+
+        return redirect()
+            ->route('postulaciones.show', $postulacion)
+            ->with('success', 'La postulación se marcó como no aprobada.');
     }
 
     public function aprobar(Request $request, Postulacion $postulacion)

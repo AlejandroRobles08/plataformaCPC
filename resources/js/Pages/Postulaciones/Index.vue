@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ref, watchEffect, computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
-import { HandRaisedIcon } from '@heroicons/vue/24/solid'
+import { HandRaisedIcon, EyeIcon } from '@heroicons/vue/24/solid'
 import Swal from 'sweetalert2'
 import Form from './Form.vue'
 import CrearUsuarioModal from '@/Components/CrearUsuarioModal.vue'
@@ -25,18 +25,6 @@ const props = defineProps({
 })
 
 const showModal = ref(false)
-const showExpediente = ref(false)
-const selected = ref(null)
-
-const abrirExpediente = (p) => {
-  selected.value = p
-  showExpediente.value = true
-}
-
-const cerrarExpediente = () => {
-  selected.value = null
-  showExpediente.value = false
-}
 
 // Crear usuario invitado
 const showInvitado = ref(false)
@@ -61,6 +49,7 @@ watchEffect(() => {
 //funciones para mostrar estatus con colores y formatear fechas
 const estatusClass = (estatus) => {
   if (estatus === 'pendiente') return 'bg-yellow-100 text-yellow-800'
+  if (estatus === 'pre_aprobada') return 'bg-blue-100 text-blue-800'
   if (estatus === 'aprobada') return 'bg-green-100 text-green-800'
   if (estatus === 'no_aprobada') return 'bg-red-100 text-red-800'
   return 'bg-gray-100 text-gray-800'
@@ -68,6 +57,7 @@ const estatusClass = (estatus) => {
 
 const estatusLabel = (estatus) => {
   if (estatus === 'pendiente') return 'Pendiente'
+  if (estatus === 'pre_aprobada') return 'Pre-aprobada'
   if (estatus === 'aprobada') return 'Aprobada'
   if (estatus === 'no_aprobada') return 'No Aprobada'
   return 'Desconocido'
@@ -142,10 +132,10 @@ function exportarPostulacionesExcel() {
                 <tr>
                   <th class="px-6 py-3">Nombre</th>
                   <th class="px-6 py-3">Expediente</th>
-                  <th class="px-6 py-3">Acta</th>
                   <th class="px-6 py-3">Estatus</th>
                   <th class="px-6 py-3">Fecha Postulación</th>
                   <th class="px-6 py-3">Fecha Resolución</th>
+                  <th v-if="!esInvitado" class="px-6 py-3 text-center">Detalle</th>
                 </tr>
               </thead>
 
@@ -154,20 +144,7 @@ function exportarPostulacionesExcel() {
                   <td class="px-6 py-4 font-medium text-gray-900">
                     {{ p.nombre }} {{ p.apellido_paterno }} {{ p.apellido_materno }}
                   </td>
-                  <td class="px-6 py-4">
-                    <button @click="abrirExpediente(p)" class="text-yellow-600 hover:underline font-medium">
-                      Ver expediente
-                    </button>
-                  </td>
-                  <td class="px-6 py-4">
-                    <a v-if="p.acta_resolucion" :href="`/storage/${p.acta_resolucion}`" target="_blank"
-                      class="text-blue-600 hover:underline">
-                      Ver acta
-                    </a>
-                    <span v-else class="text-gray-400">
-                      —
-                    </span>
-                  </td>
+                  <td class="px-6 py-4 text-gray-400">s/d</td>
                   <td class="px-6 py-4">
                     <span :class="[
                       'px-3 py-1 text-xs rounded-full font-semibold',
@@ -181,6 +158,13 @@ function exportarPostulacionesExcel() {
                   </td>
                   <td class="px-6 py-4">
                     {{ formatearFecha(p.fecha_validacion) }}
+                  </td>
+                  <td v-if="!esInvitado" class="px-6 py-4 text-center">
+                    <Link :href="route('postulaciones.show', p.id)"
+                      class="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs font-medium">
+                      <EyeIcon class="w-4 h-4" aria-hidden="true" />
+                      Ver detalle
+                    </Link>
                   </td>
                 </tr>
               </tbody>
@@ -216,31 +200,6 @@ function exportarPostulacionesExcel() {
       </tbody>
     </table>
 
-    <!-- MODAL EXPEDIENTE -->
-    <div v-if="showExpediente" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white w-full max-w-lg rounded-lg shadow-lg p-6 relative">
-        <button @click="cerrarExpediente" class="absolute top-3 right-3 text-gray-500">✕</button>
-        <h3 class="text-lg font-semibold mb-4">
-          Expediente
-        </h3>
-        <div v-if="selected?.documentos?.length">
-          <ul class="space-y-2">
-            <li v-for="doc in selected.documentos" :key="doc.id"
-              class="flex justify-between items-center border-b pb-1">
-              <span class="text-sm font-medium capitalize">
-                {{ doc.tipo.replaceAll('_', ' ') }}
-              </span>
-              <a :href="`/storage/${doc.archivo}`" target="_blank" class="text-green-600 hover:underline text-sm">
-                Ver PDF
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div v-else class="text-gray-500">
-          No hay documentos cargados.
-        </div>
-      </div>
-    </div>
     <!-- MODAL USUARIO INVITADO -->
     <CrearUsuarioModal v-if="showInvitado" rol="invitado" ruta="postulaciones.invitados.store"
       titulo="Nuevo usuario invitado" @close="showInvitado = false" @created="showInvitado = false" />

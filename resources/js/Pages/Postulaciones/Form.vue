@@ -25,7 +25,6 @@ const form = useForm({
 const generos = [
   { value: 'Mujer', label: 'Mujer' },
   { value: 'Hombre', label: 'Hombre' },
-  { value: 'No binario', label: 'No binario' },
   { value: 'Otro', label: 'Otro' },
   { value: 'Prefiero no responder', label: 'Prefiero no responder' }
 ]
