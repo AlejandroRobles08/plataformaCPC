@@ -7,6 +7,8 @@ import { ArrowLeftIcon, CheckBadgeIcon, XCircleIcon } from '@heroicons/vue/24/so
 
 const props = defineProps({
   postulacion: { type: Object, required: true },
+  enPrimerFiltro: { type: Boolean, default: false },
+  passwordTemporal: { type: String, default: '' },
 })
 
 const page = usePage()
@@ -27,7 +29,8 @@ const estatus = computed(() =>
   ESTATUS[props.postulacion.estatus] ?? { label: 'Desconocido', clase: 'bg-gray-100 text-gray-800' }
 )
 
-const pendiente = computed(() => props.postulacion.estatus === 'pendiente')
+// Los botones de revisión solo aplican a la postulación abierta sin revisar
+const pendiente = computed(() => props.enPrimerFiltro)
 
 const formatearFecha = fecha => {
   if (!fecha) return '—'
@@ -56,7 +59,7 @@ const preAprobar = async () => {
   const { isConfirmed } = await Swal.fire({
     icon: 'question',
     title: '¿Pre-aprobar esta postulación?',
-    text: `${nombreCompleto} pasará a la siguiente etapa del proceso.`,
+    text: `${nombreCompleto} pasará a la siguiente etapa: se creará su acceso como invitado (${props.postulacion.correo}) para que cargue sus documentos.`,
     showCancelButton: true,
     confirmButtonText: 'Pre-aprobar',
     cancelButtonText: 'Cancelar',
@@ -147,6 +150,18 @@ const noAprobar = async () => {
           <div class="grid gap-1 px-6 py-3 sm:grid-cols-3 sm:gap-4">
             <dt class="text-sm font-medium text-gray-500">Fecha</dt>
             <dd class="sm:col-span-2 text-sm text-gray-800">{{ formatearFecha(postulacion.fecha_validacion) }}</dd>
+          </div>
+          <div v-if="postulacion.estatus === 'pre_aprobada' && postulacion.user" class="grid gap-1 px-6 py-3 sm:grid-cols-3 sm:gap-4">
+            <dt class="text-sm font-medium text-gray-500">Acceso como invitado</dt>
+            <dd class="sm:col-span-2 text-sm text-gray-800 space-y-1">
+              <p>Usuario: <span class="font-medium break-all">{{ postulacion.user.email }}</span></p>
+              <p>Contraseña temporal: <span class="font-mono font-medium">{{ passwordTemporal }}</span></p>
+              <p class="text-xs text-gray-500">
+                {{ postulacion.documentos_count
+                  ? 'Ya cargó sus documentos: la postulación está en el Panel de validación.'
+                  : 'Aún no carga sus documentos. Al iniciar sesión se le pedirá cambiar la contraseña.' }}
+              </p>
+            </dd>
           </div>
           <div v-if="postulacion.comentarios_revision" class="grid gap-1 px-6 py-3 sm:grid-cols-3 sm:gap-4">
             <dt class="text-sm font-medium text-gray-500">Comentarios</dt>

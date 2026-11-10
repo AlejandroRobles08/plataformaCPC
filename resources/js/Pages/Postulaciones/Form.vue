@@ -4,13 +4,21 @@ import DragagableModal from '@/Components/DraggableModal.vue'
 
 const emit = defineEmits(['close'])
 
+// Postulación pre-aprobada (viene de la postulación abierta): sus datos llegan
+// precargados y de solo lectura; la persona únicamente sube sus documentos
+const props = defineProps({
+  postulacion: { type: Object, default: null }
+})
+
+const soloDocumentos = !!props.postulacion
+
 const form = useForm({
-  nombre: '',
-  apellido_paterno: '',
-  apellido_materno: '',
-  correo: '',
-  genero: '',
-  direccion: '',
+  nombre: props.postulacion?.nombre ?? '',
+  apellido_paterno: props.postulacion?.apellido_paterno ?? '',
+  apellido_materno: props.postulacion?.apellido_materno ?? '',
+  correo: props.postulacion?.correo ?? '',
+  genero: props.postulacion?.genero ?? '',
+  direccion: props.postulacion?.direccion ?? '',
   documentos: {
     ine: null,
     comprobante_domiciliario: null,
@@ -42,8 +50,12 @@ const submit = () => {
 </script>
 
 <template>
-  <DragagableModal title="Nueva Postulación" max-width="max-w-3xl" @close="emit('close')">
+  <DragagableModal :title="soloDocumentos ? 'Cargar documentos de mi postulación' : 'Nueva Postulación'" max-width="max-w-3xl" @close="emit('close')">
       <form @submit.prevent="submit" class="space-y-6">
+
+        <p v-if="soloDocumentos" class="rounded-md bg-blue-50 p-3 text-sm text-blue-900">
+          Su postulación fue pre-aprobada. Sus datos ya están registrados; solo falta cargar los documentos de su expediente.
+        </p>
 
         <!-- Datos personales -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -54,7 +66,7 @@ const submit = () => {
               Nombre(s)
             </label>
 
-            <input v-model="form.nombre" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+            <input v-model="form.nombre" type="text" :disabled="soloDocumentos" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-600" />
 
             <div v-if="form.errors.nombre" class="text-red-500 text-sm">
               {{ form.errors.nombre }}
@@ -67,8 +79,8 @@ const submit = () => {
               Apellido paterno
             </label>
 
-            <input v-model="form.apellido_paterno" type="text"
-              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+            <input v-model="form.apellido_paterno" type="text" :disabled="soloDocumentos"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-600" />
 
             <div v-if="form.errors.apellido_paterno" class="text-red-500 text-sm">
               {{ form.errors.apellido_paterno }}
@@ -81,8 +93,8 @@ const submit = () => {
               Apellido materno
             </label>
 
-            <input v-model="form.apellido_materno" type="text"
-              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+            <input v-model="form.apellido_materno" type="text" :disabled="soloDocumentos"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-600" />
 
             <div v-if="form.errors.apellido_materno" class="text-red-500 text-sm">
               {{ form.errors.apellido_materno }}
@@ -94,7 +106,7 @@ const submit = () => {
             <label class="block text-sm font-medium text-gray-700">
               Género
             </label>
-            <select v-model="form.genero" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+            <select v-model="form.genero" :disabled="soloDocumentos" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-600">
               <option value="">Seleccione un género</option>
               <option v-for="genero in generos" :key="genero.value" :value="genero.value">
                 {{ genero.label }}
@@ -110,8 +122,8 @@ const submit = () => {
             <label class="block text-sm font-medium text-gray-700">
               Dirección
             </label>
-            <textarea v-model="form.direccion" rows="2" maxlength="500"
-              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+            <textarea v-model="form.direccion" rows="2" maxlength="500" :disabled="soloDocumentos"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-600"
               placeholder="Calle, número, colonia, código postal"></textarea>
             <div v-if="form.errors.direccion" class="text-red-500 text-sm">
               {{ form.errors.direccion }}
@@ -124,7 +136,7 @@ const submit = () => {
               Correo electrónico
             </label>
 
-            <input v-model="form.correo" type="email" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+            <input v-model="form.correo" type="email" :disabled="soloDocumentos" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-600" />
 
             <div v-if="form.errors.correo" class="text-red-500 text-sm">
               {{ form.errors.correo }}

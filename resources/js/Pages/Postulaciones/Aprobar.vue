@@ -1,19 +1,43 @@
 <script setup>
+import { computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import DraggableModal from '@/Components/DraggableModal.vue'
 
 const props = defineProps({
   postulacion: { type: Object, required: true },
+  // Solo consejos con lugar; cada uno trae la ocupación de sus fórmulas: { formula: total }
   consejos: { type: Array, default: () => [] }
 })
+
+// Deben coincidir con Integrante::MAX_FORMULAS e INTEGRANTES_POR_FORMULA
+const MAX_FORMULAS = 15
+const INTEGRANTES_POR_FORMULA = 2
 
 const emit = defineEmits(['close'])
 
 const form = useForm({
   fecha_validacion: '',
   acta_resolucion: null,
-  consejo_id: ''
+  // Si la persona eligió consejo en su postulación, queda fijo en ese
+  consejo_id: props.postulacion.consejo_solicitado_id ?? '',
+  formula: ''
 })
+
+const consejoFijo = computed(() => props.postulacion.consejo_solicitado_id != null)
+
+const consejoElegido = computed(() => props.consejos.find(c => c.id === form.consejo_id))
+
+// Solo las fórmulas del consejo elegido con lugar disponible, con su ocupación
+const formulas = computed(() => {
+  if (!consejoElegido.value) return []
+  return Array.from({ length: MAX_FORMULAS }, (_, i) => {
+    const numero = i + 1
+    return { numero, total: consejoElegido.value.ocupacion?.[numero] ?? 0 }
+  }).filter(f => f.total < INTEGRANTES_POR_FORMULA)
+})
+
+// Al cambiar de consejo, la fórmula elegida ya no aplica
+watch(() => form.consejo_id, () => { form.formula = '' })
 
 const submit = () => {
   form.post(route('postulaciones.aprobar', props.postulacion.id), {
@@ -68,18 +92,46 @@ const submit = () => {
         <label class="block text-sm font-medium text-gray-700">
           Consejo donde se registrará el integrante
         </label>
-        <select v-model="form.consejo_id" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+        <!-- Consejo al que se postuló: el select solo ofrece ese consejo -->
+        <template v-if="consejoFijo">
+          <select v-model="form.consejo_id" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+            <option :value="postulacion.consejo_solicitado_id" :disabled="!consejoElegido">
+              {{ postulacion.consejo_solicitado?.nombre }}{{ consejoElegido ? '' : ' (sin lugares disponibles)' }}
+            </option>
+          </select>
+          <p v-if="!consejoElegido" class="text-sm text-red-600 mt-1">
+            El consejo al que se postuló ya no tiene lugares disponibles.
+          </p>
+          <p v-else class="text-xs text-gray-500 mt-1">Es el consejo que la persona eligió al postularse.</p>
+        </template>
+        <select v-else v-model="form.consejo_id" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
           <option value="">Seleccione un consejo</option>
-          <option v-for="consejo in consejos" :key="consejo.id" :value="consejo.id" :disabled="consejo.lleno">
-            {{ consejo.nombre }}{{ consejo.lleno ? ' (máximo de fórmulas alcanzado)' : '' }}
+          <option v-for="consejo in consejos" :key="consejo.id" :value="consejo.id">
+            {{ consejo.nombre }}
           </option>
         </select>
-        <p class="text-xs text-gray-500 mt-1">
-          La fórmula se asigna automáticamente según el orden de alta en el consejo.
+        <p v-if="!consejoFijo && !consejos.length" class="text-xs text-gray-500 mt-1">
+          No hay consejos con lugares disponibles.
         </p>
         <div v-if="form.errors.consejo_id" class="text-red-500 text-sm">
           {{ form.errors.consejo_id }}
         </div>
+      </div>
+
+      <!-- Fórmula -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">
+          Fórmula
+        </label>
+        <select v-model="form.formula" required :disabled="!consejoElegido"
+          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
+          <option value="" disabled>
+            {{ consejoElegido ? 'Seleccione una fórmula' : 'Primero seleccione un consejo' }}
+          </option>
+          <option v-for="f in formulas" :key="f.numero" :value="f.numero">
+            Fórmula {{ f.numero }} ({{ f.total }}/{{ INTEGRANTES_POR_FORMULA }})
+          </option>
+        </select>
         <div v-if="form.errors.formula" class="text-red-500 text-sm">
           {{ form.errors.formula }}
         </div>
@@ -91,7 +143,7 @@ const submit = () => {
           class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
           Cancelar
         </button>
-        <button type="submit" :disabled="form.processing"
+        <button type="submit" :disabled="form.processing || !consejoElegido"
           class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
           Aprobar
         </button>

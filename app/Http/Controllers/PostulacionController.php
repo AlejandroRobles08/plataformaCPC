@@ -47,13 +47,18 @@ class PostulacionController extends Controller
             abort(403, 'No tienes permiso para crear una postulación.');
         }
 
-        if ($user->postulacion()->exists()) {
+        // Si viene de la postulación abierta (pre-aprobada), sus datos ya están
+        // registrados y solo falta subir los documentos
+        $existente = $user->postulacion;
+        $soloDocumentos = $existente?->esperaDocumentos() ?? false;
+
+        if ($existente && ! $soloDocumentos) {
             return redirect()
                 ->route('postulaciones.index')
                 ->with('error', 'Ya tienes una postulación registrada.');
         }
 
-        $rules = [
+        $rules = $soloDocumentos ? [] : [
             'nombre' => 'required|string|max:255',
             'apellido_paterno' => 'required|string|max:255',
             'apellido_materno' => 'nullable|string|max:255',
@@ -68,8 +73,8 @@ class PostulacionController extends Controller
 
         $request->validate($rules);
 
-        DB::transaction(function () use ($request, $user) {
-            $postulacion = Postulacion::create([
+        DB::transaction(function () use ($request, $user, $existente, $soloDocumentos) {
+            $postulacion = $soloDocumentos ? $existente : Postulacion::create([
                 'user_id' => $user->id,
                 'nombre' => $request->nombre,
                 'apellido_paterno' => $request->apellido_paterno,
@@ -94,7 +99,9 @@ class PostulacionController extends Controller
 
         return redirect()
             ->route('postulaciones.index')
-            ->with('success', 'Tu postulación fue creada correctamente y será enviada a validación.');
+            ->with('success', $soloDocumentos
+                ? 'Tus documentos se cargaron correctamente y tu postulación será enviada a validación.'
+                : 'Tu postulación fue creada correctamente y será enviada a validación.');
     }
 
     // Crear usuario invitado para que pueda registrar su postulación
@@ -134,12 +141,13 @@ class PostulacionController extends Controller
             'postulaciones' => Postulacion::with([
                 'documentos',
                 'user',
+                'consejoSolicitado:id,nombre',
             ])
-                ->where('estatus', 'pendiente')
+                ->whereIn('estatus', Postulacion::ESTATUS_POR_VALIDAR)
+                ->whereHas('documentos')
                 ->latest()
                 ->get(),
-            'consejos' => Consejo::orderBy('nombre')->get(['id', 'nombre'])
-                ->each(fn ($consejo) => $consejo->lleno = Integrante::consejoLleno($consejo->id)),
+            'consejos' => $this->consejosDisponibles(),
         ]);
     }
 
@@ -150,10 +158,13 @@ class PostulacionController extends Controller
             abort(403, 'No tienes permiso para ver esta postulación.');
         }
 
-        $postulacion->load(['consejoSolicitado:id,nombre', 'validador:id,name']);
+        $postulacion->load(['consejoSolicitado:id,nombre', 'validador:id,name', 'user:id,email'])
+            ->loadCount('documentos');
 
         return Inertia::render('Postulaciones/Show', [
             'postulacion' => $postulacion,
+            'enPrimerFiltro' => $postulacion->enPrimerFiltro(),
+            'passwordTemporal' => Postulacion::PASSWORD_TEMPORAL,
         ]);
     }
 
@@ -164,20 +175,38 @@ class PostulacionController extends Controller
             abort(403, 'No tienes permiso para pre-aprobar postulaciones.');
         }
 
-        if ($postulacion->estatus !== 'pendiente') {
+        if (! $postulacion->enPrimerFiltro()) {
             return back()->with('error', 'Esta postulación ya fue revisada.');
         }
 
-        $postulacion->update([
-            'estatus' => 'pre_aprobada',
-            'comentarios_revision' => null,
-            'validado_por' => Auth::id(),
-            'fecha_validacion' => now(),
-        ]);
+        if (User::whereRaw('LOWER(email) = ?', [mb_strtolower($postulacion->correo)])->exists()) {
+            return back()->with('error', "Ya existe un usuario con el correo {$postulacion->correo}. "
+                . 'No se puede crear su acceso como invitado.');
+        }
+
+        DB::transaction(function () use ($postulacion) {
+            // Acceso para que la persona entre a subir sus documentos.
+            // Contraseña genérica temporal: el sistema le pide cambiarla al iniciar sesión.
+            $invitado = User::create([
+                'name' => trim("{$postulacion->nombre} {$postulacion->apellido_paterno} {$postulacion->apellido_materno}"),
+                'email' => $postulacion->correo,
+                'password' => Hash::make(Postulacion::PASSWORD_TEMPORAL),
+                'must_change_password' => true,
+            ]);
+            $invitado->assignRole('invitado');
+
+            $postulacion->update([
+                'user_id' => $invitado->id,
+                'estatus' => 'pre_aprobada',
+                'comentarios_revision' => null,
+                'validado_por' => Auth::id(),
+                'fecha_validacion' => now(),
+            ]);
+        });
 
         return redirect()
             ->route('postulaciones.show', $postulacion)
-            ->with('success', 'Postulación pre-aprobada correctamente.');
+            ->with('success', 'Postulación pre-aprobada. Se creó su acceso como invitado para que cargue sus documentos.');
     }
 
     // Primer filtro: la postulación no avanza; los comentarios explican el motivo
@@ -194,7 +223,7 @@ class PostulacionController extends Controller
             'comentarios_revision.min' => 'Los comentarios deben tener al menos :min caracteres.',
         ]);
 
-        if ($postulacion->estatus !== 'pendiente') {
+        if (! $postulacion->enPrimerFiltro()) {
             return back()->with('error', 'Esta postulación ya fue revisada.');
         }
 
@@ -210,6 +239,34 @@ class PostulacionController extends Controller
             ->with('success', 'La postulación se marcó como no aprobada.');
     }
 
+    // Consejos con al menos una fórmula libre, con la ocupación de cada fórmula: { formula: total }
+    private function consejosDisponibles()
+    {
+        $ocupacion = Integrante::whereNotNull('formula')
+            ->groupBy('consejo_id', 'formula')
+            ->selectRaw('consejo_id, formula, COUNT(*) as total')
+            ->get()
+            ->groupBy('consejo_id')
+            ->map(fn ($filas) => $filas->pluck('total', 'formula'));
+
+        return Consejo::orderBy('nombre')->get(['id', 'nombre'])
+            ->map(fn (Consejo $consejo) => [
+                'id' => $consejo->id,
+                'nombre' => $consejo->nombre,
+                'ocupacion' => $ocupacion->get($consejo->id, collect()),
+            ])
+            ->filter(function (array $consejo) {
+                for ($formula = 1; $formula <= Integrante::MAX_FORMULAS; $formula++) {
+                    if (($consejo['ocupacion'][$formula] ?? 0) < Integrante::INTEGRANTES_POR_FORMULA) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->values();
+    }
+
     public function aprobar(Request $request, Postulacion $postulacion)
     {
     $user = Auth::user();
@@ -221,7 +278,17 @@ class PostulacionController extends Controller
     $request->validate([
         'fecha_validacion' => 'required|date',
         'acta_resolucion' => 'required|file|mimes:pdf|max:4096',
-        'consejo_id' => 'required|exists:consejos,id',
+        'consejo_id' => [
+            'required',
+            'exists:consejos,id',
+            // Si la persona eligió un consejo en su postulación, solo puede registrarse en ese
+            Rule::when($postulacion->consejo_solicitado_id !== null, [
+                Rule::in([$postulacion->consejo_solicitado_id]),
+            ]),
+        ],
+        'formula' => 'required|integer|min:1|max:' . Integrante::MAX_FORMULAS,
+    ], [
+        'consejo_id.in' => 'La persona solo puede registrarse en el consejo al que se postuló.',
     ]);
 
     if (! $postulacion->user_id) {
@@ -231,14 +298,15 @@ class PostulacionController extends Controller
     }
 
     return DB::transaction(function () use ($request, $postulacion, $user) {
-        if ($postulacion->estatus !== 'pendiente') {
+        if (! in_array($postulacion->estatus, Postulacion::ESTATUS_POR_VALIDAR, true)) {
             abort(422, 'Esta postulación ya fue procesada.');
         }
 
         // Bloquea el consejo para que dos altas simultáneas no tomen la misma fórmula
         $consejoId = (int) $request->consejo_id;
         Consejo::whereKey($consejoId)->lockForUpdate()->first();
-        $formula = Integrante::siguienteFormula($consejoId);
+        $formula = (int) $request->formula;
+        Integrante::asegurarEspacioEnFormula($consejoId, $formula);
 
         $archivo = $request->file('acta_resolucion');
 
@@ -333,7 +401,7 @@ class PostulacionController extends Controller
             'acta_resolucion' => 'required|file|mimes:pdf|max:4096',
         ]);
 
-        if ($postulacion->estatus !== 'pendiente') {
+        if (! in_array($postulacion->estatus, Postulacion::ESTATUS_POR_VALIDAR, true)) {
             return redirect()
                 ->route('postulaciones.validacion')
                 ->with('error', 'Esta postulación ya fue procesada.');

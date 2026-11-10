@@ -12,17 +12,26 @@ const page = usePage()
 const esInvitado = computed(() =>
   page.props.auth?.roles?.includes('invitado')
 )
-// El invitado y el super_admin pueden postularse
-const puedePostularse = computed(() =>
-  esInvitado.value || page.props.auth?.roles?.includes('super_admin')
-)
-
 const props = defineProps({
   postulaciones: {
     type: Array,
     default: () => []
   }
 })
+
+// Invitado que viene de la postulación abierta: ya pre-aprobado, falta subir documentos
+const postulacionPorDocumentar = computed(() =>
+  esInvitado.value
+    ? props.postulaciones.find(p => p.estatus === 'pre_aprobada' && !p.documentos?.length) ?? null
+    : null
+)
+
+// El super_admin y el invitado sin postulación pueden postularse;
+// el invitado pre-aprobado solo carga sus documentos
+const puedePostularse = computed(() =>
+  page.props.auth?.roles?.includes('super_admin')
+  || (esInvitado.value && (!props.postulaciones.length || !!postulacionPorDocumentar.value))
+)
 
 const showModal = ref(false)
 
@@ -116,7 +125,7 @@ function exportarPostulacionesExcel() {
 
           <button v-if="puedePostularse" @click="showModal = true" class="px-4 py-2 text-white rounded-md inline-flex items-center gap-2"
             style="background-color:#1E520B;">
-              <span>Postularme</span>
+              <span>{{ postulacionPorDocumentar ? 'Cargar documentos' : 'Postularme' }}</span>
                 <HandRaisedIcon class="w-5 h-5" />
           </button>
         </div>
@@ -203,6 +212,6 @@ function exportarPostulacionesExcel() {
     <!-- MODAL USUARIO INVITADO -->
     <CrearUsuarioModal v-if="showInvitado" rol="invitado" ruta="postulaciones.invitados.store"
       titulo="Nuevo usuario invitado" @close="showInvitado = false" @created="showInvitado = false" />
-    <Form v-if="puedePostularse && showModal" @close="showModal = false"/>
+    <Form v-if="puedePostularse && showModal" :postulacion="postulacionPorDocumentar" @close="showModal = false"/>
   </AuthenticatedLayout>
 </template>

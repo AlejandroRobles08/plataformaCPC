@@ -21,6 +21,12 @@ class Postulacion extends Model
         'cumplimiento_normatividad',
     ];
 
+    // Pendientes del segundo filtro: ya tienen documentos y esperan aprobación final
+    public const ESTATUS_POR_VALIDAR = ['pendiente', 'pre_aprobada'];
+
+    // Contraseña genérica del acceso invitado; se pide cambiarla al iniciar sesión
+    public const PASSWORD_TEMPORAL = 'pass123';
+
     public const GENEROS = ['Mujer', 'Hombre', 'Otro', 'Prefiero no responder'];
 
     // Perfil con el que la persona se postula (primer filtro, ruta pública)
@@ -77,6 +83,18 @@ class Postulacion extends Model
 
     public function consejoSolicitado(){
         return $this->belongsTo(Consejo::class, 'consejo_solicitado_id');
+    }
+
+    // Postulación abierta aún sin revisar (todavía no tiene cuenta de acceso)
+    public function enPrimerFiltro(): bool
+    {
+        return $this->estatus === 'pendiente' && $this->user_id === null;
+    }
+
+    // Pre-aprobada y con acceso creado, pero sin documentos cargados
+    public function esperaDocumentos(): bool
+    {
+        return $this->estatus === 'pre_aprobada' && $this->documentos()->doesntExist();
     }
 
     public function documentos(){
