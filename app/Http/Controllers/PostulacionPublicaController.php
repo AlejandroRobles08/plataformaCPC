@@ -48,6 +48,17 @@ class PostulacionPublicaController extends Controller
             'apellido_materno' => 'nullable|string|max:255',
             'genero' => ['required', Rule::in(Postulacion::GENEROS)],
             'correo' => 'required|email|max:255',
+            'correo_confirmacion' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) use ($request) {
+                    $correo = mb_strtolower(trim((string) $request->input('correo')));
+                    if (mb_strtolower(trim((string) $value)) !== $correo) {
+                        $fail('Los correos no coinciden. Revise que ambos estén escritos igual.');
+                    }
+                },
+            ],
             'direccion' => 'required|string|max:500',
             'consejo_solicitado_id' => [
                 'required',
@@ -63,6 +74,7 @@ class PostulacionPublicaController extends Controller
             'aviso_privacidad' => 'accepted',
         ], [
             'perfil_descripcion.min' => 'Por favor, cuéntenos un poco más sobre usted (al menos :min caracteres).',
+            'correo_confirmacion.required' => 'Vuelva a escribir su correo para confirmarlo.',
             'aviso_privacidad.accepted' => 'Para enviar su postulación es necesario aceptar el aviso de privacidad.',
         ]);
 
@@ -86,6 +98,7 @@ class PostulacionPublicaController extends Controller
             'apellido_materno' => $validated['apellido_materno'] ?? null,
             'genero' => $validated['genero'],
             'correo' => $correo,
+            'correo_confirmacion' => mb_strtolower(trim($validated['correo_confirmacion'])),
             'direccion' => $validated['direccion'],
             'consejo_solicitado_id' => $validated['consejo_solicitado_id'],
             'perfil' => $validated['perfil'],

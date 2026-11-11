@@ -48,6 +48,7 @@ class Postulacion extends Model
         'genero',
         'direccion',
         'correo',
+        'correo_confirmacion',
         'consejo_solicitado_id',
         'perfil',
         'perfil_descripcion',

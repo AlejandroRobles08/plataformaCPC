@@ -40,6 +40,7 @@ const form = useForm({
   apellido_materno: '',
   genero: '',
   correo: '',
+  correo_confirmacion: '',
   direccion: '',
   consejo_solicitado_id: null,
   perfil: '',
@@ -50,7 +51,7 @@ const form = useForm({
 
 const pasos = [
   { titulo: 'Sobre usted', icono: UserIcon, campos: ['nombre', 'apellido_paterno', 'apellido_materno', 'genero'] },
-  { titulo: 'Contacto', icono: EnvelopeIcon, campos: ['correo', 'direccion'] },
+  { titulo: 'Contacto', icono: EnvelopeIcon, campos: ['correo', 'correo_confirmacion', 'direccion'] },
   { titulo: 'Su participación', icono: UserGroupIcon, campos: ['consejo_solicitado_id', 'perfil', 'perfil_descripcion'] },
   { titulo: 'Revisar y enviar', icono: CheckCircleIcon, campos: ['aviso_privacidad'] },
 ]
@@ -61,6 +62,12 @@ const mostrarFormulario = ref(false)
 const showPrivacy = ref(false)
 
 const correoValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
+const normalizarCorreo = v => v.trim().toLowerCase()
+
+// Aviso en vivo mientras se escribe la confirmación del correo
+const correosCoinciden = computed(() =>
+  normalizarCorreo(form.correo) === normalizarCorreo(form.correo_confirmacion)
+)
 
 // Validación rápida en el navegador; la definitiva la hace el servidor
 const validarPaso = indice => {
@@ -74,6 +81,8 @@ const validarPaso = indice => {
   }
   if (indice === 1) {
     if (!correoValido(f.correo)) errores.correo = 'Escriba un correo válido, por ejemplo: nombre@correo.com'
+    if (!f.correo_confirmacion.trim()) errores.correo_confirmacion = 'Vuelva a escribir su correo para confirmarlo.'
+    else if (!correosCoinciden.value) errores.correo_confirmacion = 'Los correos no coinciden. Revise que ambos estén escritos igual.'
     if (!f.direccion.trim()) errores.direccion = 'Escriba su domicilio.'
   }
   if (indice === 2) {
@@ -339,6 +348,20 @@ const inputClass = campo => [
             <label for="correo" class="block text-sm font-medium text-gray-700">Correo electrónico <span class="text-red-600">*</span></label>
             <input id="correo" v-model="form.correo" type="email" autocomplete="email" placeholder="nombre@correo.com" :class="inputClass('correo')" />
             <p v-if="form.errors.correo" class="mt-1 text-sm text-red-600">{{ form.errors.correo }}</p>
+          </div>
+
+          <div>
+            <label for="correo_confirmacion" class="block text-sm font-medium text-gray-700">Confirme su correo electrónico <span class="text-red-600">*</span></label>
+            <input id="correo_confirmacion" v-model="form.correo_confirmacion" type="email" autocomplete="off"
+              placeholder="Escriba de nuevo su correo" :class="inputClass('correo_confirmacion')"
+              @paste.prevent @input="form.clearErrors('correo_confirmacion')" />
+            <p v-if="form.errors.correo_confirmacion" class="mt-1 text-sm text-red-600">{{ form.errors.correo_confirmacion }}</p>
+            <p v-else-if="form.correo_confirmacion.trim() && !correosCoinciden" class="mt-1 text-sm text-amber-700">
+              Los correos no coinciden.
+            </p>
+            <p v-else-if="form.correo_confirmacion.trim() && correoValido(form.correo)" class="mt-1 flex items-center gap-1 text-sm text-green-700">
+              <CheckCircleIcon class="w-4 h-4" aria-hidden="true" /> Los correos coinciden.
+            </p>
           </div>
 
           <div>
