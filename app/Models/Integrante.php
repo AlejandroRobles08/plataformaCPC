@@ -44,6 +44,7 @@ class Integrante extends Model
 
     protected $casts = [
         'alta_completada_at' => 'datetime',
+        'revisiones_vistas_at' => 'datetime',
     ];
 
     // Cada alta, baja o cambio de fórmula recalcula si el consejo está instalado

@@ -87,10 +87,20 @@ class Docu extends Model
         return $this->estatus === self::RECHAZADO;
     }
 
-    // Un documento aprobado ya no se vuelve a validar
+    // Solo se valida un documento en revisión. Flujo:
+    // integrante sube (pendiente) -> admin rechaza (rechazado: no se puede validar)
+    // -> integrante sube una nueva versión (pendiente otra vez) -> ... -> admin aprueba (aprobado: bloqueado)
     public function puedeValidarse(): bool
     {
-        return $this->estatus !== self::APROBADO;
+        return $this->estatus === self::PENDIENTE;
+    }
+
+    // Motivo por el que el documento no se puede validar (para el mensaje al admin)
+    public function motivoNoValidable(): string
+    {
+        return $this->estatus === self::APROBADO
+            ? 'El documento ya fue aprobado.'
+            : 'El documento no fue aprobado; podrá revisarse cuando el integrante suba una nueva versión.';
     }
 
     // Nombre legible para descargas: "INE - Juan Pérez.pdf"

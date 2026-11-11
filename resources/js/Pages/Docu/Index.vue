@@ -18,10 +18,14 @@ const canUpload = computed(() => isIntegrante.value || roles.value.includes('sup
 // Mensajes flash (el warning llega al ser redirigido con el expediente sin aprobar)
 const toast = (icon, title) => Swal.fire({ toast: true, position: 'top-end', icon, title,
   showConfirmButton: false, timer: 3500, timerProgressBar: true })
-watch(() => page.props.flash?.success, m => m && toast('success', m), { immediate: true })
-watch(() => page.props.flash?.error, m => m && toast('error', m), { immediate: true })
-watch(() => page.props.flash?.warning, m => m && Swal.fire({ icon: 'warning', title: 'Documentos pendientes',
-  text: m, confirmButtonText: 'Entendido' }), { immediate: true })
+// Se observa el objeto flash completo (nuevo en cada respuesta) para que el aviso
+// aparezca aunque el mensaje sea el mismo que el anterior (p. ej. dos cargas seguidas)
+watch(() => page.props.flash, flash => {
+  if (flash?.success) toast('success', flash.success)
+  else if (flash?.error) toast('error', flash.error)
+  else if (flash?.warning) Swal.fire({ icon: 'warning', title: 'Documentos pendientes',
+    text: flash.warning, confirmButtonText: 'Entendido' })
+}, { immediate: true })
 
 const documentos = [
   { key: 'ine', label: 'INE' },
@@ -184,7 +188,17 @@ const rechazarDocumento = async doc => {
                 <p class="text-sm text-red-700">{{ t.archivo.observacion }}</p>
               </div>
 
-              <div v-if="isReviewer && t.estado !== 'aprobado'" class="mt-auto flex gap-2 text-sm font-medium">
+              <!-- Rechazado: no se valida de nuevo hasta que el integrante suba otra versión -->
+              <p v-if="isReviewer && t.estado === 'rechazado'"
+                class="mt-auto flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                <ClockIcon class="h-4 w-4 shrink-0 text-gray-400" />
+                En espera de que el integrante suba una nueva versión del documento.
+              </p>
+              <p v-else-if="!isReviewer && t.estado === 'rechazado'" class="text-xs text-gray-600">
+                Corrige el documento según la observación y súbelo de nuevo para que se revise otra vez.
+              </p>
+
+              <div v-if="isReviewer && t.estado === 'pendiente'" class="mt-auto flex gap-2 text-sm font-medium">
                 <button type="button" @click="aprobarDocumento(t.archivo)"
                   class="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700">
                   <HandThumbUpIcon class="h-4 w-4" /> Aprobar

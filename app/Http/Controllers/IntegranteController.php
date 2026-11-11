@@ -65,10 +65,22 @@ class IntegranteController extends Controller
             'apellido_paterno' => 'required|string|max:255',
             'apellido_materno' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email|unique:integrantes,correo',
+            // Confirmación del correo: debe escribirse igual (sin distinguir mayúsculas ni espacios)
+            'email_confirmacion' => [
+                'required', 'string', 'max:255',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($this->normalizarCorreo($value) !== $this->normalizarCorreo($request->input('email'))) {
+                        $fail('Los correos no coinciden. Revise que ambos estén escritos igual.');
+                    }
+                },
+            ],
             'consejo_id' => 'required|exists:consejos,id',
             'formula' => ['required', 'integer', 'min:1', 'max:' . Integrante::MAX_FORMULAS],
             'cargo' => ['required', Rule::in(Integrante::CARGOS)],
+        ], [
+            'email_confirmacion.required' => 'Vuelva a escribir el correo para confirmarlo.',
         ]);
+        unset($validated['email_confirmacion']);
 
         DB::transaction(function () use ($validated) {
             // Bloquea el consejo para que dos altas simultáneas no llenen de más la fórmula
@@ -156,8 +168,21 @@ class IntegranteController extends Controller
                 'unique:integrantes,correo,' . $integrante->id,
                 'unique:users,email,' . $integrante->user_id,
         ],
-
+            // Confirmación obligatoria solo si el correo cambia
+            'correo_confirmacion' => [
+                Rule::requiredIf(fn () => $this->normalizarCorreo($request->input('correo'))
+                    !== $this->normalizarCorreo($integrante->correo)),
+                'nullable', 'string', 'max:255',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($this->normalizarCorreo($value) !== $this->normalizarCorreo($request->input('correo'))) {
+                        $fail('Los correos no coinciden. Revise que ambos estén escritos igual.');
+                    }
+                },
+            ],
+    ], [
+        'correo_confirmacion.required' => 'Vuelva a escribir el correo para confirmarlo.',
     ]);
+    unset($validated['correo_confirmacion']);
 
     DB::transaction(function () use ($validated, $integrante) {
         // Solo se valida si cambia el cargo, para que corregir otros datos nunca se bloquee
@@ -240,5 +265,11 @@ class IntegranteController extends Controller
         });
 
         return redirect()->route('consejos.integrantes', $integrante->consejo_id);
+    }
+
+    // Comparación de correos sin distinguir mayúsculas ni espacios
+    private function normalizarCorreo(?string $correo): string
+    {
+        return mb_strtolower(trim((string) $correo));
     }
 }

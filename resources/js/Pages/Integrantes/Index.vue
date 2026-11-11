@@ -66,9 +66,11 @@ function submitDescripcion() {
 // Form para editar integrantes / completar alta
 // (la fórmula no se captura ni se edita: el backend la asigna al dar de alta)
 const form = useForm({
-  nombre: '', apellido_paterno: '', apellido_materno: '', cargo: '', correo: '', genero: '',
+  nombre: '', apellido_paterno: '', apellido_materno: '', cargo: '', correo: '', correo_confirmacion: '', genero: '',
   direccion: '', discapacidad: false, discapacidad_tipo: '', consejo_id: props.consejo.id,
 })
+// Correo antes de editar: la confirmación solo es obligatoria si cambia
+const correoOriginal = ref('')
 
 // El admin crea el usuario del integrante (nombre, correo, consejo, fórmula y cargo)
 function usuarioCreado() {
@@ -91,6 +93,8 @@ function editIntegrante(integrante, modo = 'editar') {
   }
   form.nombre = integrante.nombre
   form.correo = integrante.correo
+  form.correo_confirmacion = ''
+  correoOriginal.value = integrante.correo ?? ''
   form.discapacidad = integrante.discapacidad === 'si'
   form.consejo_id = integrante.consejo_id
   showForm.value = true
@@ -212,6 +216,25 @@ const getSemaforoClase = (integrante) => {
   const aprobados = integrante?.documentos?.filter(d => d.estatus === 'aprobado').length ?? 0
   return aprobados === 0 ? 'bg-red-500' : aprobados < 7 ? 'bg-yellow-400' : 'bg-green-500'
 }
+
+// Aviso en el botón "Documentos":
+// - administración: documentos subidos que esperan revisión
+// - integrante: documentos revisados (aprobados o no) desde su última visita al Archivo digital
+const avisoDocumentos = (integrante) => {
+  const docs = integrante?.documentos ?? []
+  if (esIntegrante.value) {
+    const visto = integrante.revisiones_vistas_at ? Date.parse(integrante.revisiones_vistas_at) : 0
+    const revisados = docs.filter(d => d.estatus !== 'pendiente' && d.validado_at && Date.parse(d.validado_at) > visto)
+    if (!revisados.length) return null
+    const n = revisados.length
+    return { total: n, color: 'bg-green-500',
+      texto: `${n} ${n === 1 ? 'documento fue revisado' : 'documentos fueron revisados'} por la administración` }
+  }
+  const n = docs.filter(d => d.estatus === 'pendiente').length
+  if (!n) return null
+  return { total: n, color: 'bg-amber-400',
+    texto: `${n} ${n === 1 ? 'documento subido espera' : 'documentos subidos esperan'} revisión` }
+}
 </script>
 
 <template>
@@ -299,7 +322,17 @@ const getSemaforoClase = (integrante) => {
                       <button @click="solicitarEliminacion(f[idx].id)" class="px-2 py-1 bg-red-500 text-white rounded">Eliminar</button>
                     </template>
                     <button v-if="esMiIntegrante(f[idx]) && !(esIntegrante && altaPendiente)" @click="$inertia.get(route('docu.index', f[idx].id))"
-                      class="px-2 py-1 bg-red-800 text-white rounded flex items-center"><FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos</button>
+                      :title="avisoDocumentos(f[idx])?.texto"
+                      class="relative px-2 py-1 bg-red-800 text-white rounded flex items-center">
+                      <FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos
+                      <!-- Aviso: por revisar (admin) o revisados sin ver (integrante) -->
+                      <span v-if="avisoDocumentos(f[idx])"
+                        class="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-xs font-bold text-white ring-2 ring-white"
+                        :class="avisoDocumentos(f[idx]).color">
+                        <span class="absolute inset-0 animate-ping rounded-full opacity-60" :class="avisoDocumentos(f[idx]).color"></span>
+                        <span class="relative">{{ avisoDocumentos(f[idx]).total }}</span>
+                      </span>
+                    </button>
                   </div>
                 </template>
               </td>
@@ -324,7 +357,7 @@ const getSemaforoClase = (integrante) => {
     </div>
 
     <!-- FORMULARIO -->
-    <Form :show="showForm" :form="form" :editingId="editingId" :modo="modoForm"
+    <Form :show="showForm" :form="form" :editingId="editingId" :modo="modoForm" :correo-original="correoOriginal"
       @close="showForm = false" @submit="submitForm" @mover="moverFormula" />
 
     <!-- CREAR USUARIO INTEGRANTE (admin) -->

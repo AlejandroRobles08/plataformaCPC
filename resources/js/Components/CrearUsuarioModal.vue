@@ -7,6 +7,7 @@
 import { computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import DraggableModal from '@/Components/DraggableModal.vue'
+import { CheckCircleIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
   rol: { type: String, default: 'invitado' },
@@ -34,10 +35,15 @@ const esIntegrante = computed(() => props.rol === 'integrante')
 // para que al editarlo aparezca ya separado; el invitado solo da un nombre.
 const form = useForm({
   ...(esIntegrante.value
-    ? { nombre: '', apellido_paterno: '', apellido_materno: '', consejo_id: props.consejo?.id ?? '', formula: '', cargo: '' }
+    ? { nombre: '', apellido_paterno: '', apellido_materno: '', consejo_id: props.consejo?.id ?? '', formula: '', cargo: '',
+        email_confirmacion: '' }
     : { name: '' }),
   email: '',
 })
+
+// Confirmación del correo del integrante (igual que en Editar y en postulaciones)
+const normalizarCorreo = v => (v ?? '').trim().toLowerCase()
+const correosCoinciden = computed(() => normalizarCorreo(form.email) === normalizarCorreo(form.email_confirmacion))
 
 // Solo las fórmulas del consejo con lugar disponible, con su ocupación
 const formulas = computed(() =>
@@ -70,6 +76,18 @@ const cerrar = () => {
 }
 
 const submit = () => {
+  // Validación rápida en el navegador; la definitiva la hace el servidor
+  if (esIntegrante.value) {
+    form.clearErrors('email_confirmacion')
+    if (!form.email_confirmacion.trim()) {
+      form.setError('email_confirmacion', 'Vuelva a escribir el correo para confirmarlo.')
+      return
+    }
+    if (!correosCoinciden.value) {
+      form.setError('email_confirmacion', 'Los correos no coinciden. Revise que ambos estén escritos igual.')
+      return
+    }
+  }
   form.post(route(props.ruta), {
     preserveScroll: true,
     onSuccess: () => {
@@ -116,6 +134,21 @@ const submit = () => {
         <input v-model="form.email" type="email" required
           class="mt-1 w-full border-gray-300 rounded-md shadow-sm" />
         <p v-if="form.errors.email" class="text-red-600 text-sm mt-1">{{ form.errors.email }}</p>
+      </div>
+
+      <div v-if="esIntegrante">
+        <label class="block text-sm font-medium text-gray-700">Confirmar correo</label>
+        <input v-model="form.email_confirmacion" type="email" required autocomplete="off"
+          placeholder="Escriba de nuevo el correo"
+          class="mt-1 w-full border-gray-300 rounded-md shadow-sm"
+          @paste.prevent @input="form.clearErrors('email_confirmacion')" />
+        <p v-if="form.errors.email_confirmacion" class="text-red-600 text-sm mt-1">{{ form.errors.email_confirmacion }}</p>
+        <p v-else-if="form.email_confirmacion.trim() && !correosCoinciden" class="text-amber-700 text-sm mt-1">
+          Los correos no coinciden.
+        </p>
+        <p v-else-if="form.email_confirmacion.trim()" class="flex items-center gap-1 text-green-700 text-sm mt-1">
+          <CheckCircleIcon class="w-4 h-4" aria-hidden="true" /> Los correos coinciden.
+        </p>
       </div>
 
       <template v-if="esIntegrante">

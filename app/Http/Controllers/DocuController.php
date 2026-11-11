@@ -21,9 +21,15 @@ class DocuController extends Controller
 
         $integrante->load('documentos');
 
+        // El integrante ya vio sus revisiones: se apaga el aviso del botón "Documentos"
+        if (Auth::user()->hasRole('integrante') && Auth::user()->integrante?->id === $integrante->id) {
+            $integrante->forceFill(['revisiones_vistas_at' => now()])->saveQuietly();
+        }
+
+        // No se envía un prop "flash" propio: sobrescribiría el flash compartido
+        // (success / warning / error) y no se mostrarían las alertas
         return Inertia::render('Docu/Index', [
             'integrante' => $integrante,
-            'flash' => session('success'),
         ]);
     }
 
@@ -141,7 +147,7 @@ class DocuController extends Controller
         Gate::authorize('aprobar', $documento);
 
         if (! $documento->puedeValidarse()) {
-            return redirect()->back()->with('error', 'El documento ya fue aprobado.');
+            return redirect()->back()->with('error', $documento->motivoNoValidable());
         }
 
         $documento->update([
@@ -166,7 +172,7 @@ class DocuController extends Controller
         ]);
 
         if (! $documento->puedeValidarse()) {
-            return redirect()->back()->with('error', 'Un documento aprobado no puede rechazarse.');
+            return redirect()->back()->with('error', $documento->motivoNoValidable());
         }
 
         $documento->update([

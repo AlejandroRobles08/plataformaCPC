@@ -1,7 +1,7 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import DraggableModal from '@/Components/DraggableModal.vue';
-import { ArrowsRightLeftIcon } from '@heroicons/vue/24/outline';
+import { ArrowsRightLeftIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     show: Boolean,
@@ -9,9 +9,34 @@ const props = defineProps({
     editingId: Number,
     // 'editar' (admin) o 'alta' (el integrante captura sus datos: cargo y correo fijos)
     modo: { type: String, default: 'editar' },
+    // Correo registrado antes de editar: la confirmación solo es obligatoria si cambia
+    correoOriginal: { type: String, default: '' },
 });
 
 const emit = defineEmits(['close', 'submit', 'mover']);
+
+// Confirmación del correo (igual que en el formulario público de postulaciones)
+const normalizarCorreo = v => (v ?? '').trim().toLowerCase();
+const pideConfirmacion = computed(() => props.modo === 'editar');
+const correoCambio = computed(() => normalizarCorreo(props.form.correo) !== normalizarCorreo(props.correoOriginal));
+const correosCoinciden = computed(() => normalizarCorreo(props.form.correo) === normalizarCorreo(props.form.correo_confirmacion));
+
+// Validación rápida en el navegador; la definitiva la hace el servidor
+function enviar() {
+    if (pideConfirmacion.value) {
+        props.form.clearErrors('correo_confirmacion');
+        const confirmacion = (props.form.correo_confirmacion ?? '').trim();
+        if (correoCambio.value && !confirmacion) {
+            props.form.setError('correo_confirmacion', 'Vuelva a escribir el correo para confirmarlo.');
+            return;
+        }
+        if (confirmacion && !correosCoinciden.value) {
+            props.form.setError('correo_confirmacion', 'Los correos no coinciden. Revise que ambos estén escritos igual.');
+            return;
+        }
+    }
+    emit('submit');
+}
 
 const showDiscapacidadTipo = ref(false);
 
@@ -40,7 +65,7 @@ watch(
                 Mover de fórmula
             </button>
         </template>
-        <form @submit.prevent="$emit('submit')" class="space-y-4">
+        <form @submit.prevent="enviar" class="space-y-4">
             <!-- Nombre -->
             <div>
                 <label class="block text-sm font-medium">
@@ -112,6 +137,30 @@ watch(
                     class="w-full border rounded px-3 py-2 disabled:bg-gray-100"/>
                 <p v-if="form.errors.correo" class="text-red-500 text-sm">
                     {{ form.errors.correo }}
+                </p>
+            </div>
+
+            <!-- Confirmación de correo (solo al editar; en el alta el correo es fijo) -->
+            <div v-if="pideConfirmacion">
+                <label class="block text-sm font-medium">
+                    Confirmar correo
+                    <span v-if="correoCambio" class="text-red-600">*</span>
+                </label>
+                <input v-model="form.correo_confirmacion" type="email" autocomplete="off"
+                    placeholder="Escriba de nuevo el correo"
+                    class="w-full border rounded px-3 py-2"
+                    @paste.prevent @input="form.clearErrors('correo_confirmacion')"/>
+                <p v-if="form.errors.correo_confirmacion" class="text-red-500 text-sm">
+                    {{ form.errors.correo_confirmacion }}
+                </p>
+                <p v-else-if="form.correo_confirmacion?.trim() && !correosCoinciden" class="text-amber-700 text-sm">
+                    Los correos no coinciden.
+                </p>
+                <p v-else-if="form.correo_confirmacion?.trim()" class="flex items-center gap-1 text-green-700 text-sm">
+                    <CheckCircleIcon class="w-4 h-4" aria-hidden="true" /> Los correos coinciden.
+                </p>
+                <p v-else-if="!correoCambio" class="text-gray-500 text-xs">
+                    Solo es obligatorio si modifica el correo.
                 </p>
             </div>
 
