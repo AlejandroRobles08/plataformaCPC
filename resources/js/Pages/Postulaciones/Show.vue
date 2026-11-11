@@ -44,6 +44,7 @@ const datos = computed(() => [
   { etiqueta: 'Nombre', valor: nombreCompleto },
   { etiqueta: 'Género', valor: props.postulacion.genero },
   { etiqueta: 'Correo electrónico', valor: props.postulacion.correo },
+  { etiqueta: 'Confirmación de correo', valor: props.postulacion.correo_confirmacion },
   { etiqueta: 'Domicilio', valor: props.postulacion.direccion },
   { etiqueta: 'Consejo de interés', valor: props.postulacion.consejo_solicitado?.nombre },
   { etiqueta: 'Perfil', valor: props.postulacion.perfil },
