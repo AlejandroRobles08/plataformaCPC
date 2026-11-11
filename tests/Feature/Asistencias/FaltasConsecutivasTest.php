@@ -4,6 +4,7 @@ namespace Tests\Feature\Asistencias;
 
 use App\Models\Asistencia;
 use App\Models\Consejo;
+use App\Models\Docu;
 use App\Models\Integrante;
 use App\Models\Sesion;
 use App\Models\User;
@@ -42,13 +43,20 @@ class FaltasConsecutivasTest extends TestCase
     {
         $user = $this->usuario('integrante');
 
-        return Integrante::factory()->create([
+        $integrante = Integrante::factory()->create([
             'user_id' => $user->id,
             'correo' => $user->email,
             'consejo_id' => $this->consejo->id,
             'formula' => 1,
             'alta_completada_at' => now(),
         ]);
+
+        // Expediente del Archivo digital aprobado: sin él no se le pasa lista
+        foreach (Docu::TIPOS as $tipo) {
+            Docu::factory()->create(['integrante_id' => $integrante->id, 'tipo' => $tipo, 'estatus' => Docu::APROBADO]);
+        }
+
+        return $integrante;
     }
 
     private function sesion(string $fecha): Sesion
@@ -86,20 +94,22 @@ class FaltasConsecutivasTest extends TestCase
         ]);
     }
 
-    public function test_el_color_depende_de_las_faltas_seguidas(): void
+    public function test_el_color_depende_de_las_faltas_sin_justificar(): void
     {
         $casos = [
             'verde' => [[], ['asistio'], ['asistio', 'justificada']],
             'amarillo' => [
                 ['falto'],
                 ['falto', 'falto'],
-                ['falto', 'asistio', 'falto', 'asistio', 'falto'],
-                ['falto', 'falto', 'justificada', 'falto'],
+                ['falto', 'asistio', 'falto', 'justificada'],
+                ['falto', 'justificada', 'justificada', 'falto'],
             ],
             'rojo' => [
                 ['falto', 'falto', 'falto'],
                 ['asistio', 'falto', 'falto', 'falto'],
                 ['falto', 'falto', 'falto', 'asistio'],
+                ['falto', 'asistio', 'falto', 'asistio', 'falto'],
+                ['falto', 'falto', 'justificada', 'falto'],
             ],
         ];
 
@@ -110,7 +120,7 @@ class FaltasConsecutivasTest extends TestCase
         }
     }
 
-    public function test_tres_faltas_seguidas_cuentan_aunque_sean_de_meses_distintos_y_lejanos(): void
+    public function test_tres_faltas_cuentan_aunque_sean_de_meses_distintos_y_lejanos(): void
     {
         $integrante = $this->integrante();
 
@@ -122,7 +132,7 @@ class FaltasConsecutivasTest extends TestCase
         $this->assertSame('rojo', $this->color($integrante));
     }
 
-    public function test_una_asistencia_entre_faltas_interrumpe_la_racha(): void
+    public function test_una_asistencia_entre_faltas_no_reinicia_la_cuenta(): void
     {
         $integrante = $this->integrante();
 
@@ -131,7 +141,7 @@ class FaltasConsecutivasTest extends TestCase
         $this->registrar($integrante, '2026-03-10', 'asistio');
         $this->registrar($integrante, '2026-04-10', 'falto');
 
-        $this->assertSame('amarillo', $this->color($integrante));
+        $this->assertSame('rojo', $this->color($integrante));
     }
 
     public function test_el_index_envia_los_semaforos_y_el_integrante_solo_recibe_el_suyo(): void
@@ -170,7 +180,7 @@ class FaltasConsecutivasTest extends TestCase
                 ->has('integrantes', 2));
     }
 
-    public function test_el_backend_no_registra_asistencia_a_quien_tiene_tres_faltas_seguidas(): void
+    public function test_a_quien_tiene_tres_faltas_seguidas_se_le_acumula_la_falta_aunque_se_envie_asistio(): void
     {
         $integrante = $this->integrante();
 
@@ -181,7 +191,16 @@ class FaltasConsecutivasTest extends TestCase
         $nueva = $this->sesion('2026-04-10');
         $this->pasarLista($this->usuario('admin'), $nueva, $integrante)->assertRedirect();
 
-        $this->assertFalse(Asistencia::where('sesion_id', $nueva->id)->exists());
+        $this->assertSame('falto', Asistencia::where('sesion_id', $nueva->id)->value('estado'));
+    }
+
+    public function test_el_pase_de_lista_no_puede_marcar_justificada(): void
+    {
+        $integrante = $this->integrante();
+        $nueva = $this->sesion('2026-04-10');
+        $this->pasarLista($this->usuario('admin'), $nueva, $integrante, 'justificada')->assertRedirect();
+
+        $this->assertSame('falto', Asistencia::where('sesion_id', $nueva->id)->value('estado'));
     }
 
     public function test_la_tercera_falta_se_registra_y_saca_al_integrante_de_la_siguiente_lista(): void

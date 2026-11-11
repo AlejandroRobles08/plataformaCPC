@@ -28,7 +28,6 @@ const showJustificante = ref(false)
 const fechaSeleccionada = ref(null)
 const sesionSeleccionada = ref(null)
 const sesionJustificante = ref(null)
-const selectedDate = ref(null)
 const asistenciasSesion = ref([])
 // true cuando se programa una sesión adicional desde el formulario de asistencia
 const programacionAdicional = ref(false)
@@ -73,11 +72,7 @@ const coloresSesion = {
 }
 
 // Equivalente hex de los colores de paleta de v-calendar (para el punto del popover)
-const hexPaleta = {
-  yellow: '#facc15',
-  red: '#ef4444',
-  gray: '#9ca3af'
-}
+const hexPaleta = { yellow: '#facc15', red: '#ef4444', gray: '#9ca3af' }
 
 // Simbología arriba del calendario; "Falta" solo para el integrante
 const simbologia = computed(() => [
@@ -88,9 +83,7 @@ const simbologia = computed(() => [
 ])
 
 // Texto según el estado del justificante de una falta
-const textoJustificante = {
-  rechazado:'Justificante rechazado, puedes subir otro'
-}
+const textoJustificante = { rechazado: 'Justificante rechazado, puedes subir otro' }
 
 // Faltas del integrante (al aprobar el justificante pasan a 'justificada' y dejan de contar)
 const faltas = computed(() => {
@@ -120,17 +113,17 @@ const sesionesConFalta = computed(() =>
   new Set(faltas.value.map(a => Number(a.sesion_id)))
 )
 
+// Mes que se muestra al abrir el calendario (fecha local del navegador)
+const hoy = new Date()
+const mesActual = { month: hoy.getMonth() + 1, year: hoy.getFullYear() }
+
 // Formato YYYY-MM-DD sin problemas de zona horaria
 const formatearFechaLocal = date =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
 // Fecha legible en es-MX (ej. 1 de octubre de 2026)
 const formatearFechaLegible = fecha =>
-  new Date(`${fecha}T00:00:00`).toLocaleDateString('es-MX', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  })
+  new Date(`${fecha}T00:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
 
 // Justificantes aprobados que aún no se le han notificado al integrante (se guardan por navegador)
 const justificantesAprobados = ref([])
@@ -140,11 +133,7 @@ onMounted(() => {
   if (!esIntegrante.value || !props.integrante) return
 
   let notificados = []
-  try {
-    notificados = JSON.parse(localStorage.getItem(claveAprobados)) ?? []
-  } catch {
-    notificados = []
-  }
+  try { notificados = JSON.parse(localStorage.getItem(claveAprobados)) ?? [] } catch { notificados = [] }
 
   const nuevos = props.asistencias.filter(
     a => a.estado_justificante === 'aprobado' && !notificados.includes(a.id)
@@ -160,9 +149,7 @@ onMounted(() => {
   }
 
   // Ocultar la alerta después de 6 segundos
-  setTimeout(() => {
-    justificantesAprobados.value = []
-  }, 6000)
+  setTimeout(() => { justificantesAprobados.value = [] }, 6000)
 })
 
 // Click sobre una fecha del calendario
@@ -176,7 +163,6 @@ function abrirFormulario(day) {
 
   if (!puedeCrearAsistencia.value) return
   fechaSeleccionada.value = fecha
-  selectedDate.value = fecha
   programacionAdicional.value = false
 
   // Registrar asistencia si ya hay sesión ese día (se abre la primera; el formulario permite cambiar)
@@ -196,11 +182,6 @@ function abrirFormSesion(sesion) {
     a => Number(a.sesion_id) === Number(sesion.id)
   )
   showForm.value = true
-}
-
-// Cambiar entre las sesiones del mismo día desde el formulario
-function cambiarSesion(sesion) {
-  abrirFormSesion(sesion)
 }
 
 // Botón "Otra sesión este día": se cierra el pase de lista y se programa otra sesión en la misma fecha
@@ -262,9 +243,7 @@ function cerrarJustificante() {
 function justificanteGuardado() {
   cerrarJustificante()
   mensajeExito.value = 'Justificante subido correctamente.'
-  setTimeout(() => {
-    mensajeExito.value = ''
-  }, 4000)
+  setTimeout(() => { mensajeExito.value = '' }, 4000)
 }
 
 // Recargar sesiones después de programar
@@ -344,74 +323,43 @@ const calendarAttributes = computed(() => {
 
 <template>
   <AuthenticatedLayout>
-    <!-- Navegación -->
-    <div class="mb-4 flex items-center justify-between gap-4">
-      <!-- Volver -->
-      <Link :href="route('asistencias.index', consejo.id)"
-        class="inline-flex items-center px-3 py-2 bg-gray-200 text-gray-800 text-sm rounded hover:bg-gray-300 transition">
-        ← Volver a Asistencias
-      </Link>
-    </div>
+    <!-- Volver -->
+    <Link :href="route('asistencias.index', consejo.id)" class="mb-4 inline-flex items-center px-3 py-2 bg-gray-200 text-gray-800 text-sm rounded hover:bg-gray-300 transition">← Volver a Asistencias</Link>
 
     <!-- Instrucciones para administrador -->
-    <div v-if="puedeCrearAsistencia" class="mb-6 space-y-1 text-lg text-gray-500">
-      <p>
-        Para programar una sesión, da clic sobre la fecha deseada en el calendario. 
-        Para registrar la asistencia de una sesión ya programada, da clic sobre la misma fecha de la sesión.
-      </p>
-    </div>
+    <p v-if="puedeCrearAsistencia" class="mb-6 text-lg text-gray-500">Para programar una sesión, da clic sobre la fecha deseada en el calendario. Para registrar la asistencia de una sesión ya programada, da clic sobre la misma fecha de la sesión.</p>
 
     <!-- Instrucciones para integrante -->
-    <div v-if="esIntegrante" class="mb-6 space-y-1 text-lg text-gray-500">
-      <p>
-        Si usted no pudo asistir a una sesión pero cuenta con un justificante, puede subirlo dando clic sobre la fecha de la sesión en el calendario.
+    <p v-if="esIntegrante" class="mb-6 text-lg text-gray-500">
+      Si usted no pudo asistir a una sesión pero cuenta con un justificante, puede subirlo dando clic sobre la fecha de la sesión en el calendario.
       <br><strong>IMPORTANTE:</strong> El sistema le notificará cuando no haya asistido a una sesión y cuando su justificante haya sido aprobado o rechazado.
-      </p>
-    </div>
+    </p>
 
-    <div v-if="mensajeExito" class="mb-4 rounded-lg border border-green-200 
-    bg-green-100 px-4 py-3 text-green-800">
-      {{ mensajeExito }} 
-    </div>
+    <div v-if="mensajeExito" class="mb-4 rounded-lg border border-green-200 bg-green-100 px-4 py-3 text-green-800">{{ mensajeExito }}</div>
 
     <!-- Alerta de justificantes aprobados (se oculta a los 6 segundos) -->
-    <div v-if="justificantesAprobados.length"
-      class="mb-4 rounded-lg border border-green-200 bg-green-100 px-4 py-3 text-green-800">
-      <ul class="space-y-1">
-        <li v-for="aprobado in justificantesAprobados" :key="aprobado.id">
-          Tu justificante de la sesión {{ aprobado.tipo_sesion }} del día {{ formatearFechaLegible(aprobado.fecha) }} fue aprobado.
-        </li>
-      </ul>
-    </div>
+    <ul v-if="justificantesAprobados.length" class="mb-4 space-y-1 rounded-lg border border-green-200 bg-green-100 px-4 py-3 text-green-800">
+      <li v-for="aprobado in justificantesAprobados" :key="aprobado.id">Tu justificante de la sesión {{ aprobado.tipo_sesion }} del día {{ formatearFechaLegible(aprobado.fecha) }} fue aprobado.</li>
+    </ul>
 
     <!-- Avisos del integrante: primero las faltas (rojo) y después los justificantes en validación (amarillo) -->
-    <div v-if="esIntegrante && faltas.length" class="mb-4 grid grid-cols-1 gap-4"
-      :class="{ 'md:grid-cols-2': avisosLadoALado }">
+    <div v-if="esIntegrante && faltas.length" class="mb-4 grid grid-cols-1 gap-4" :class="{ 'md:grid-cols-2': avisosLadoALado }">
       <!-- Aviso de faltas del integrante -->
-      <div v-if="faltasPorJustificar.length"
-        class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+      <div v-if="faltasPorJustificar.length" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
         <ul class="space-y-1">
           <li v-for="falta in faltasPorJustificar" :key="falta.id">
             Tienes una inasistencia a la <strong>sesión {{ falta.tipo_sesion }}</strong> el día {{ formatearFechaLegible(falta.fecha) }}
-            <span v-if="textoJustificante[falta.estado_justificante]" class="font-semibold">
-              — {{ textoJustificante[falta.estado_justificante] }}
-            </span>
+            <span v-if="textoJustificante[falta.estado_justificante]" class="font-semibold">— {{ textoJustificante[falta.estado_justificante] }}</span>
           </li>
         </ul>
-        <p class="mt-2 text-sm">
-          Si tienes un justificante, puedes subirlo <strong>dando clic en el calendario sobre la fecha de inasistencia
-            para adjuntarlo y enviarlo.</strong>
-        </p>
+        <p class="mt-2 text-sm">Si tienes un justificante, puedes subirlo <strong>dando clic en el calendario sobre la fecha de inasistencia para adjuntarlo y enviarlo.</strong></p>
         <p class="mt-2 text-sm"><strong>IMPORTANTE:</strong> El documento deberá ser aprobado por el administrador.</p>
       </div>
 
       <!-- Aviso de justificantes en validación -->
-      <div v-if="justificantesEnValidacion.length"
-        class="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-yellow-800">
+      <div v-if="justificantesEnValidacion.length" class="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-yellow-800">
         <ul class="space-y-1">
-          <li v-for="falta in justificantesEnValidacion" :key="falta.id">
-            Tu justificante de la <strong>sesión {{ falta.tipo_sesion }}</strong> del día {{ formatearFechaLegible(falta.fecha) }} está en validación.
-          </li>
+          <li v-for="falta in justificantesEnValidacion" :key="falta.id">Tu justificante de la <strong>sesión {{ falta.tipo_sesion }}</strong> del día {{ formatearFechaLegible(falta.fecha) }} está en validación.</li>
         </ul>
         <p class="mt-2 text-sm">Se te notificará cuando el administrador lo apruebe o lo rechace.</p>
       </div>
@@ -422,27 +370,16 @@ const calendarAttributes = computed(() => {
       <div class="w-full max-w-7xl mx-auto bg-white rounded-lg shadow p-4 md:p-6">
         <!-- Simbología -->
         <div v-if="puedeCrearAsistencia || esIntegrante" class="mb-4 flex flex-wrap items-center gap-4 text-sm text-gray-700">
-          <div v-for="item in simbologia" :key="item.label" class="flex items-center gap-2">
-            <span class="w-4 h-4 rounded-full" :class="item.clase"></span>
-            {{ item.label }}
-          </div>
+          <span v-for="item in simbologia" :key="item.label" class="flex items-center gap-2"><span class="w-4 h-4 rounded-full" :class="item.clase"></span>{{ item.label }}</span>
         </div>
 
-        <Calendar v-model="selectedDate" :attributes="calendarAttributes"
-          expanded
-          @dayclick="abrirFormulario"
-          class="big-calendar">
+        <!-- initial-page: abre en el mes actual (sin él, v-calendar abre en el mes de la primera sesión) -->
+        <Calendar :attributes="calendarAttributes" :initial-page="mesActual" expanded class="big-calendar" @dayclick="abrirFormulario">
           <!-- Popover con el punto del mismo color que la sesión -->
           <template #day-popover="{ dayTitle, attributes }">
             <div class="px-1 text-xs">
-              <div class="mb-1 text-center font-semibold">
-                {{ dayTitle }}
-              </div>
-
-              <div v-for="attr in attributes" :key="attr.key" class="flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: attr.customData.color }"></span>
-                {{ attr.customData.label }}
-              </div>
+              <div class="mb-1 text-center font-semibold">{{ dayTitle }}</div>
+              <div v-for="attr in attributes" :key="attr.key" class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" :style="{ backgroundColor: attr.customData.color }"></span>{{ attr.customData.label }}</div>
             </div>
           </template>
         </Calendar>
@@ -450,33 +387,18 @@ const calendarAttributes = computed(() => {
     </div>
 
     <!-- Programar sesión -->
-    <ProgramarSesion v-if="showProgramarSesion" :consejo-id="consejo.id"
-      :fecha="fechaSeleccionada"
-      :adicional="programacionAdicional"
-      :tipos-ocupados="programacionAdicional ? tiposOcupadosDia : []"
-      @close="cerrarProgramacion"
-      @saved="handleSesionProgramada"/>
+    <ProgramarSesion v-if="showProgramarSesion" :consejo-id="consejo.id" :fecha="fechaSeleccionada" :adicional="programacionAdicional"
+      :tipos-ocupados="programacionAdicional ? tiposOcupadosDia : []" @close="cerrarProgramacion" @saved="handleSesionProgramada"/>
 
     <!-- Registrar asistencia (key: se reinicia el formulario al cambiar de sesión) -->
-    <Form v-if="showForm && sesionSeleccionada" :key="sesionSeleccionada.id"
-      :sesion="sesionSeleccionada" :integrantes="integrantes"
-      :integrantes-sin-pase-lista="integrantesSinPaseLista"
-      :integrantes-sin-expediente="integrantesSinExpediente"
-      :asistencias="asistenciasSesion"
-      :consejo-id="consejo.id"
-      :sesiones-dia="sesionesDiaSeleccionado"
-      :puede-agregar-sesion="puedeAgregarSesion"
-      @close="cerrarForm"
-      @saved="handleAsistenciaGuardada"
-      @cambiar-sesion="cambiarSesion"
-      @nueva-sesion="programarSesionAdicional"/>
+    <Form v-if="showForm && sesionSeleccionada" :key="sesionSeleccionada.id" :sesion="sesionSeleccionada" :integrantes="integrantes"
+      :integrantes-sin-pase-lista="integrantesSinPaseLista" :integrantes-sin-expediente="integrantesSinExpediente" :asistencias="asistenciasSesion"
+      :consejo-id="consejo.id" :sesiones-dia="sesionesDiaSeleccionado" :puede-agregar-sesion="puedeAgregarSesion"
+      @close="cerrarForm" @saved="handleAsistenciaGuardada" @cambiar-sesion="abrirFormSesion" @nueva-sesion="programarSesionAdicional"/>
 
     <!-- Subir justificante -->
-    <Justificante v-if="showJustificante && integrante && sesionJustificante" :consejo="consejo"
-      :integrante="integrante"
-      :sesion="sesionJustificante"
-      @close="cerrarJustificante"
-      @saved="justificanteGuardado"/>
+    <Justificante v-if="showJustificante && integrante && sesionJustificante" :consejo="consejo" :integrante="integrante" :sesion="sesionJustificante"
+      @close="cerrarJustificante" @saved="justificanteGuardado"/>
   </AuthenticatedLayout>
 </template>
 
@@ -494,13 +416,9 @@ const calendarAttributes = computed(() => {
   max-width: none !important;
 }
 
-/* Panel interno */
+/* Panel interno y grid */
 :deep(.vc-pane-layout),
-:deep(.vc-pane) {
-  width: 100% !important;
-}
-
-/* Grid */
+:deep(.vc-pane),
 :deep(.vc-weeks) {
   width: 100% !important;
 }

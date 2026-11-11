@@ -273,22 +273,21 @@ class AsistenciaController extends Controller
 
             if (!$perteneceAlConsejo) continue;
 
-            // Con 3 faltas seguidas no se le pasa lista; sí se puede corregir un registro que ya existe
-            if (
-                ($sinPaseDeLista->contains($item['integrante_id'])
-                    || $sinExpediente->contains((int) $item['integrante_id'])) &&
-                !Asistencia::where('integrante_id', $item['integrante_id'])
-                    ->where('sesion_id', $sesion->id)
-                    ->exists()
-            ) {
-                continue;
+            $existente = Asistencia::where('integrante_id', $item['integrante_id'])->where('sesion_id', $sesion->id)->first();
+            $sinPase = $sinPaseDeLista->contains($item['integrante_id']);
+
+            // Sin expediente aprobado no se le pasa lista; sí se puede corregir un registro que ya existe
+            if (!$existente && !$sinPase && $sinExpediente->contains((int) $item['integrante_id'])) continue;
+
+            // Con 3 faltas sin justificar no se le pasa lista, pero la inasistencia se sigue acumulando
+            $estado = !$existente && $sinPase ? 'falto' : $item['estado'];
+
+            // "Justificada" solo la asigna la aprobación del justificante, no el pase de lista
+            if ($estado === 'justificada' && $existente?->estado !== 'justificada') {
+                $estado = $existente?->estado ?? 'falto';
             }
 
-            $datos = [
-                'fecha' => $validated['fecha'],
-                'tipo_sesion' => $validated['tipo_sesion'],
-                'estado' => $item['estado'],
-            ];
+            $datos = ['fecha' => $validated['fecha'], 'tipo_sesion' => $validated['tipo_sesion'], 'estado' => $estado];
 
             // Solo se actualiza la evidencia si se adjuntó un archivo nuevo
             if ($evidenciaPath) {

@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import DraggableModal from '@/Components/DraggableModal.vue'
+import SemaforoAsistencias from '@/Components/SemaforoAsistencias.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useForm, Link, usePage, router } from '@inertiajs/vue3'
 import { FolderOpenIcon } from '@heroicons/vue/24/solid'
@@ -12,19 +13,10 @@ import Swal from 'sweetalert2'
 const props = defineProps({
   consejo: Object,
   integrantes: Array,
-  integranteActualId: {
-    type: Number,
-    default: null
-  },
-  consejoLleno: {
-    type: Boolean,
-    default: false
-  },
+  integranteActualId: { type: Number, default: null },
+  consejoLleno: { type: Boolean, default: false },
   // El integrante aún no captura sus datos ("Darme de alta")
-  altaPendiente: {
-    type: Boolean,
-    default: false
-  }
+  altaPendiente: { type: Boolean, default: false }
 })
 
 // Deben coincidir con Integrante::MAX_FORMULAS e Integrante::INTEGRANTES_POR_FORMULA
@@ -32,30 +24,22 @@ const MAX_FORMULAS = 15
 const INTEGRANTES_POR_FORMULA = 2
 
 const page = usePage()
-const esIntegrante = computed(() =>
-  page.props.auth.roles?.includes('integrante'))
-const esMiIntegrante = (integrante) => {
-  //para integrantes: sólo su propio registro
-  if(esIntegrante.value){
-    return integrante.id === props.integranteActualId
-  }
-  //Administradores y superadmins pueden acceder a todos los registros
-  return true
-}
-const puedeEditarIntegrante = computed(()=> { 
-const esSuperAdmin = 
-  page.props.auth.roles?.includes('super_admin')  
-const tienePermiso =
-  page.props.auth.permissions?.includes('usuarios.editar')  
-  return esSuperAdmin || tienePermiso
-})
+const roles = computed(() => page.props.auth.roles ?? [])
+const esIntegrante = computed(() => roles.value.includes('integrante'))
+// Integrantes: sólo su propio registro; administradores y superadmins: todos
+const esMiIntegrante = (integrante) => !esIntegrante.value || integrante.id === props.integranteActualId
+const puedeEditarIntegrante = computed(() =>
+  roles.value.includes('super_admin') || page.props.auth.permissions?.includes('usuarios.editar'))
+
+// Columna derecha con instrucciones: administración o integrante con el alta pendiente
+const hayInstrucciones = computed(() => puedeEditarIntegrante.value || (esIntegrante.value && props.altaPendiente))
+
+const exito = (title, text) => Swal.fire({ icon: 'success', title, text, confirmButtonColor: '#16a34a' })
 
 // Aviso cuando el integrante intenta entrar a otro módulo sin completar su alta
 onMounted(() => {
   const aviso = page.props.flash?.warning
-  if (aviso) {
-    Swal.fire({ icon: 'info', title: 'Completa tu alta', text: aviso, confirmButtonColor: '#16a34a' })
-  }
+  if (aviso) Swal.fire({ icon: 'info', title: 'Completa tu alta', text: aviso, confirmButtonColor: '#16a34a' })
 })
 
 const showForm = ref(false)
@@ -64,12 +48,9 @@ const editingId = ref(null)
 const modoForm = ref('editar')
 const showCrearUsuario = ref(false)
 
-//editar descripción del consejo
+// Editar descripción del consejo
 const showDescripcionModal = ref(false)
-
-const descripcionForm = useForm({
-  descripcion: props.consejo.descripcion ?? ''
-})
+const descripcionForm = useForm({ descripcion: props.consejo.descripcion ?? '' })
 
 function openDescripcionModal() {
   descripcionForm.descripcion = props.consejo.descripcion ?? ''
@@ -77,69 +58,41 @@ function openDescripcionModal() {
 }
 
 function submitDescripcion() {
-  descripcionForm.patch(
-    route('consejos.descripcion.update', props.consejo.id),
-    {
-      onSuccess: () => {
-        showDescripcionModal.value = false
-      }
-    }
-  )
+  descripcionForm.patch(route('consejos.descripcion.update', props.consejo.id), {
+    onSuccess: () => { showDescripcionModal.value = false }
+  })
 }
 
-//form para agregar/editar integrantes
+// Form para editar integrantes / completar alta
+// (la fórmula no se captura ni se edita: el backend la asigna al dar de alta)
 const form = useForm({
-  nombre: '',
-  apellido_paterno: '',
-  apellido_materno: '',
-  cargo: '',
-  correo: '',
-  genero: '',
-  direccion: '',
-  discapacidad: false,
-  discapacidad_tipo: '',
-  consejo_id: props.consejo.id,
-  // Captura manual de fórmula desactivada: el backend la asigna al dar de alta
-  // formula: ''
+  nombre: '', apellido_paterno: '', apellido_materno: '', cargo: '', correo: '', genero: '',
+  direccion: '', discapacidad: false, discapacidad_tipo: '', consejo_id: props.consejo.id,
 })
 
 // El admin crea el usuario del integrante (nombre, correo, consejo, fórmula y cargo)
 function usuarioCreado() {
   showCrearUsuario.value = false
-  Swal.fire({
-    icon: 'success',
-    title: 'Usuario creado',
-    text: 'El integrante ya puede ingresar con su correo y la contraseña temporal para completar su alta.',
-    confirmButtonColor: '#16a34a'
-  })
+  exito('Usuario creado', 'El integrante ya puede ingresar con su correo y la contraseña temporal para completar su alta.')
 }
 
 // "Darme de alta": el integrante completa sus datos sobre su propio registro
 function abrirAlta() {
   const propio = props.integrantes.find(i => i.id === props.integranteActualId)
-  if (!propio) return
-  editIntegrante(propio, 'alta')
+  if (propio) editIntegrante(propio, 'alta')
 }
 
 function editIntegrante(integrante, modo = 'editar') {
-
   editingId.value = integrante.id
   modoForm.value = modo
   form.clearErrors()
-
+  for (const campo of ['apellido_paterno', 'apellido_materno', 'cargo', 'genero', 'direccion', 'discapacidad_tipo']) {
+    form[campo] = integrante[campo] ?? ''
+  }
   form.nombre = integrante.nombre
-  form.apellido_paterno = integrante.apellido_paterno ?? ''
-  form.apellido_materno = integrante.apellido_materno ?? ''
-  form.cargo = integrante.cargo ?? ''
   form.correo = integrante.correo
-  form.genero = integrante.genero ?? ''
-  form.direccion = integrante.direccion ?? ''
   form.discapacidad = integrante.discapacidad === 'si'
-  form.discapacidad_tipo = integrante.discapacidad_tipo ?? ''
   form.consejo_id = integrante.consejo_id
-  // La fórmula no se edita; el integrante conserva la que se le asignó al alta
-  // form.formula = integrante.formula
-
   showForm.value = true
 }
 
@@ -147,63 +100,43 @@ function submitForm() {
   // Convierte el check a 'si'/'no' solo en los datos enviados, sin tocar el estado del form
   // (mutarlo a 'no', que es truthy, hacía aparecer el campo de tipo de discapacidad)
   form.transform(data => ({ ...data, discapacidad: data.discapacidad ? 'si' : 'no' }))
-  if (modoForm.value === 'alta') {
-    form.patch(route('integrantes.alta', editingId.value), {
-      onSuccess: () => {
-        form.reset()
-        showForm.value = false
-        Swal.fire({
-          icon: 'success',
-          title: 'Alta completada',
-          text: 'Tus datos se guardaron correctamente. Ahora puedes digitalizar tus documentos.',
-          confirmButtonColor: '#16a34a'
-        })
-      }
-    })
-  } else {
-    form.put(route('integrantes.update', editingId.value), {
-      onSuccess: () => {
-        form.reset()
-        showForm.value = false
-        Swal.fire({
-          icon: 'success',
-          title: 'Integrante actualizado',
-          text: 'Los datos del integrante se actualizaron correctamente.',
-          confirmButtonColor: '#16a34a'
-        })
-      }
-    })
-  }
+  const alta = modoForm.value === 'alta'
+  form[alta ? 'patch' : 'put'](route(alta ? 'integrantes.alta' : 'integrantes.update', editingId.value), {
+    onSuccess: () => {
+      form.reset()
+      showForm.value = false
+      alta
+        ? exito('Alta completada', 'Tus datos se guardaron correctamente. Ahora puedes digitalizar tus documentos.')
+        : exito('Integrante actualizado', 'Los datos del integrante se actualizaron correctamente.')
+    }
+  })
 }
 
-// Lugares ocupados en cada fórmula de este consejo: { formula: total }
+// Lugares ocupados y cargos asignados en cada fórmula de este consejo
 // (el admin recibe todos los integrantes del consejo; se usa al crear y al mover de fórmula)
 const ocupacion = computed(() => {
   const totales = {}
-  props.integrantes.forEach(i => {
-    if (i.formula) totales[i.formula] = (totales[i.formula] ?? 0) + 1
-  })
+  props.integrantes.forEach(i => { if (i.formula) totales[i.formula] = (totales[i.formula] ?? 0) + 1 })
   return totales
 })
 
-// Cargos ya asignados en cada fórmula de este consejo: { formula: [cargo, ...] }
 const cargosPorFormula = computed(() => {
   const cargos = {}
-  props.integrantes.forEach(i => {
-    if (i.formula && i.cargo) (cargos[i.formula] ??= []).push(i.cargo)
-  })
+  props.integrantes.forEach(i => { if (i.formula && i.cargo) (cargos[i.formula] ??= []).push(i.cargo) })
   return cargos
 })
 
-// MOVER DE FÓRMULA
+// MOVER DE FÓRMULA: sólo se ofrecen fórmulas vacías (0/2) o con un lugar libre (1/2)
 async function moverFormula() {
   const integrante = props.integrantes.find(i => i.id === editingId.value)
   if (!integrante) return
 
   const opciones = {}
   for (let n = 1; n <= MAX_FORMULAS; n++) {
-    if (n === integrante.formula) continue
-    opciones[n] = `Fórmula ${n} (${ocupacion.value[n] ?? 0}/${INTEGRANTES_POR_FORMULA})`
+    const total = ocupacion.value[n] ?? 0
+    if (n !== integrante.formula && total < INTEGRANTES_POR_FORMULA) {
+      opciones[n] = `Fórmula ${n} (${total}/${INTEGRANTES_POR_FORMULA})`
+    }
   }
 
   const { value: formula } = await Swal.fire({
@@ -211,7 +144,7 @@ async function moverFormula() {
     text: `${integrante.nombre_completo} está en la fórmula ${integrante.formula ?? '-'}.`,
     input: 'select',
     inputOptions: opciones,
-    inputPlaceholder: 'Selecciona la fórmula destino',
+    inputPlaceholder: 'Seleccione la fórmula paramover al integrante',
     showCancelButton: true,
     confirmButtonText: 'Mover',
     cancelButtonText: 'Cancelar',
@@ -225,173 +158,103 @@ async function moverFormula() {
     onSuccess: () => {
       showForm.value = false
       form.reset()
-      Swal.fire({
-        icon: 'success',
-        title: 'Integrante movido',
-        text: `El integrante se movió a la fórmula ${formula}.`,
-        confirmButtonColor: '#16a34a'
-      })
+      exito('Integrante movido', `El integrante se movió a la fórmula ${formula}.`)
     },
-    onError: errors => {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al mover de fórmula',
-        text: errors.formula ?? errors.cargo ?? 'La fórmula seleccionada se encuentra llena.',
-        confirmButtonColor: '#dc2626'
-      })
-    }
+    onError: errors => Swal.fire({
+      icon: 'error',
+      title: 'Error al mover de fórmula',
+      text: errors.formula ?? errors.cargo ?? 'La fórmula seleccionada se encuentra llena.',
+      confirmButtonColor: '#dc2626'
+    })
   })
 }
 
 // BAJA / ELIMINACIÓN
 const showDeleteModal = ref(false)
 const integranteAEliminar = ref(null)
-
-const bajaForm = useForm({
-  motivo: '',
-  fecha_baja: '',
-  evidencia_pdf: null,
-})
-
+const bajaForm = useForm({ motivo: '', fecha_baja: '', evidencia_pdf: null })
 const esErrorRegistro = computed(() => bajaForm.motivo === 'error_registro')
+const bajaIncompleta = computed(() =>
+  !bajaForm.motivo || (!esErrorRegistro.value && (!bajaForm.fecha_baja || !bajaForm.evidencia_pdf)))
 
 function solicitarEliminacion(id) {
-
   integranteAEliminar.value = id
   bajaForm.reset()
   showDeleteModal.value = true
 }
 
 function confirmarEliminacion() {
-  if (bajaForm.motivo === 'error_registro') {
-    bajaForm.post(route('integrantes.baja', integranteAEliminar.value), {
-
-      onSuccess: () => {
-        showDeleteModal.value = false
-        integranteAEliminar.value = null
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Integrante eliminado',
-          text: 'El integrante se eliminó por error de registro.',
-          confirmButtonColor: '#16a34a'
-        })
-      }
-    })
-    return
-  }
-
-  if (!bajaForm.fecha_baja || !bajaForm.evidencia_pdf) return
+  if (bajaIncompleta.value) return
+  const error = esErrorRegistro.value
   bajaForm.post(route('integrantes.baja', integranteAEliminar.value), {
-    forceFormData: true,
-   onSuccess: () => {
+    forceFormData: !error,
+    onSuccess: () => {
       showDeleteModal.value = false
       integranteAEliminar.value = null
-      Swal.fire({
-        icon: 'success',
-        title: 'Baja registrada',
-        text: 'La baja del integrante se registró correctamente.',
-        confirmButtonColor: '#16a34a'
-      })
+      error
+        ? exito('Integrante eliminado', 'El integrante se eliminó por error de registro.')
+        : exito('Baja registrada', 'La baja del integrante se registró correctamente.')
     }
   })
 }
 
-//agupar integrantes por fórmula
-const formulas = computed(() => { 
-
- const grouped = {} 
-  props.integrantes.forEach(i => { 
-    const key = i.formula ?? 0 
-    if (!grouped[key]) {
-      grouped[key] = []
-    } 
-    grouped[key].push(i) 
-  })
-  return Object.entries(grouped)
-      .sort((a,b) => Number(a[0]) - Number(b[0])) 
+// Agrupar integrantes por fórmula
+const formulas = computed(() => {
+  const grouped = {}
+  props.integrantes.forEach(i => (grouped[i.formula ?? 0] ??= []).push(i))
+  return Object.entries(grouped).sort((a, b) => Number(a[0]) - Number(b[0]))
 })
 
-//semaforización de documentos
+// Semaforización de documentos: 0 aprobados rojo, 1-6 amarillo, 7 verde
+// (un integrante no ve el semáforo de los demás)
 const getSemaforoClase = (integrante) => {
-    //si es integrante y no es su propio registro, no mostrar semáforo
-     if(esIntegrante.value && !esMiIntegrante(integrante)) {
-      return null}
-      //conteo de documentos aprobados
-      const aprobados = integrante?.documentos?.filter(
-      documento => documento.estatus === 'aprobado').length ?? 0
-      //0 aprobados: rojo, 1-6: amarillo, 7: verde
-      if (aprobados === 0) {return 'bg-red-500'}
-      if (aprobados < 7) {return 'bg-yellow-400'}
-    return 'bg-green-500'
-  }
-
+  if (esIntegrante.value && !esMiIntegrante(integrante)) return null
+  const aprobados = integrante?.documentos?.filter(d => d.estatus === 'aprobado').length ?? 0
+  return aprobados === 0 ? 'bg-red-500' : aprobados < 7 ? 'bg-yellow-400' : 'bg-green-500'
+}
 </script>
 
 <template>
   <AuthenticatedLayout>
-    <div class="mt-2 mb-4">
-      <Link :href="route('consejos.index', consejo.id)" class="text-gray-600 hover:underline">
-        ← Volver a Consejos de Participación Ciudadana
-      </Link>
-    </div>
+    <Link :href="route('consejos.index', consejo.id)" class="inline-block mt-2 mb-4 text-gray-600 hover:underline">← Volver a Consejos de Participación Ciudadana</Link>
     <div class="p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-bold">
-          Integrantes del Consejo de Participación Ciudadana de {{ consejo.nombre }}
-        </h1>
-        <button v-if="puedeEditarIntegrante" @click="showCrearUsuario = true" :disabled="consejoLleno"
-          class="px-4 py-2 bg-yellow-700 text-white rounded hover:bg-yellow-800 
-          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black">
-          + Dar de alta a un integrante
-        </button>
-        <!-- Desaparece en cuanto el integrante guarda sus datos -->
-        <button v-else-if="esIntegrante && altaPendiente" @click="abrirAlta"
-          class="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800Guardar asistencia">
-          Darme de alta
-        </button>
-      </div>
-
-      <!-- Instrucciones para administrador -->
-      <div v-if="puedeEditarIntegrante" class="mb-6 space-y-1 text-lg text-gray-500">
-        <p>
-          Para dar de alta en el sistema a una persona que ya forma parte de este consejo, de clic en
-          <strong>+ Agregar Integrante</strong> y capture los datos solicitados.
-        </p>
-        <p>
-          <strong>IMPORTANTE:</strong> El integrante no tendrá acceso a los demás módulos 
-          hasta que complete su alta. Si usted capturó algún dato por error, puede corregirlo con el botón <strong>Editar</strong>.
-        </p>
-      </div>
-
-      <!-- Instrucciones para integrante con el alta pendiente -->
-      <div v-else-if="esIntegrante && altaPendiente" class="mb-6 space-y-1 text-lg text-gray-500">
-        <p>
-          ¡Bienvenida(o)! Para comenzar a usar la plataforma, dé clic en el botón <strong>Darme de alta</strong>
-          y complete sus datos. Revise que su nombre esté escrito <strong>correctamente</strong> antes de guardar.
-        </p>
-        <p>
-          Su cargo y su correo ya fueron registrados por la administración y no se pueden modificar desde aquí;
-          si alguno es incorrecto, comuníquese con la persona administradora.
-        </p>
-        <p>
-          <strong>IMPORTANTE:</strong> No tendrá acceso a los demás módulos de la plataforma hasta que complete su alta. Este paso se realiza una sola vez.
-        </p>
-      </div>
-
-      <div v-if="consejoLleno" class="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-yellow-800">
-        Este consejo ha llegado a su máximo de fórmulas
-      </div>
+      <h1 class="mb-4 text-2xl font-bold">Integrantes del Consejo de Participación Ciudadana de {{ consejo.nombre }}</h1>
 
       <!-- DESCRIPCIÓN CON BOTÓN MINIMALISTA -->
       <div class="flex items-start gap-2 mb-6">
-        <p class="text-gray-700">
-          {{ consejo.descripcion }}
-        </p>
-        <button v-if="puedeEditarIntegrante" @click="openDescripcionModal" class="text-gray-400 hover:text-gray-600 transition"
-          title="Editar descripción">
+        <p class="text-gray-700">{{ consejo.descripcion }}</p>
+        <button v-if="puedeEditarIntegrante" @click="openDescripcionModal"
+          class="text-gray-400 hover:text-gray-600 transition" title="Editar descripción">
           <PencilIcon class="w-4 h-4" />
         </button>
+      </div>
+
+      <!-- Semaforización (izquierda) e instrucciones según el rol (derecha) -->
+      <div class="mb-6 grid grid-cols-1 gap-4" :class="{ 'md:grid-cols-2': hayInstrucciones }">
+        <SemaforoAsistencias :es-integrante="esIntegrante" />
+
+        <!-- Instrucciones para administrador -->
+        <div v-if="puedeEditarIntegrante" class="space-y-2 rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
+          <p>Para dar de alta en el sistema a una persona que ya forma parte de este consejo, de clic en <strong>+ Dar de alta a un integrante</strong> y capture los datos solicitados.</p>
+          <p><strong>IMPORTANTE:</strong> El integrante no tendrá acceso a los demás módulos hasta que complete su alta. Si usted capturó algún dato por error, puede corregirlo con el botón <strong>Editar</strong>.</p>
+        </div>
+
+        <!-- Instrucciones para integrante con el alta pendiente -->
+        <div v-else-if="esIntegrante && altaPendiente" class="space-y-2 rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
+          <p>¡Bienvenida(o)! Para comenzar a usar la plataforma, dé clic en el botón <strong>Darme de alta</strong> y complete sus datos. Revise que su nombre esté escrito <strong>correctamente</strong> antes de guardar.</p>
+          <p>Su cargo y su correo ya fueron registrados por la administración y no se pueden modificar desde aquí; si alguno es incorrecto, comuníquese con la persona administradora.</p>
+          <p><strong>IMPORTANTE:</strong> No tendrá acceso a los demás módulos de la plataforma hasta que complete su alta. Este paso se realiza una sola vez.</p>
+        </div>
+      </div>
+
+      <p v-if="consejoLleno" class="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-yellow-800">Este consejo ha llegado a su máximo de fórmulas</p>
+
+      <!-- Alta de integrantes -->
+      <div v-if="hayInstrucciones" class="mb-4 flex justify-end">
+        <button v-if="puedeEditarIntegrante" @click="showCrearUsuario = true" :disabled="consejoLleno"
+          class="px-4 py-2 bg-yellow-700 text-white rounded hover:bg-yellow-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black">+ Dar de alta a un integrante</button>
+        <!-- Desaparece en cuanto el integrante guarda sus datos -->
+        <button v-else-if="esIntegrante && altaPendiente" @click="abrirAlta" class="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800">Darme de alta</button>
       </div>
 
       <!-- TABLA -->
@@ -411,57 +274,34 @@ const getSemaforoClase = (integrante) => {
               <td class="px-4 py-2 border text-center">{{ numero }}</td>
 
               <td class="px-4 py-2 border">
-                <div v-if="f[0]" class="flex items-center gap-2">
-                  <span v-if="getSemaforoClase(f[0])"class="semaforo" :class="getSemaforoClase(f[0])"></span>
-                  <span>{{ f[0].nombre_completo }}</span>
-                </div>
-                <span v-else class="text-gray-400">En espera de asignación de Persona Consejera</span>
-
-                <br />
-
-                <div v-if="f[1]" class="flex items-center gap-2">
-                  <span v-if="getSemaforoClase(f[1])" class="semaforo" :class="getSemaforoClase(f[1])"></span>
-                  <span>{{ f[1].nombre_completo }}</span>
-                </div>
-                <span v-else class="text-gray-400">En espera de asignación de Persona Consejera</span>
+                <template v-for="idx in [0, 1]" :key="idx">
+                  <br v-if="idx" />
+                  <p v-if="f[idx]" class="flex items-center gap-2">
+                    <span v-if="getSemaforoClase(f[idx])" class="semaforo" :class="getSemaforoClase(f[idx])"></span>{{ f[idx].nombre_completo }}
+                  </p>
+                  <span v-else class="text-gray-400">En espera de asignación de Persona Consejera</span>
+                </template>
               </td>
 
               <td class="px-4 py-2 border">
-                <span v-if="f[0]">{{ f[0].cargo }}</span>
-                <span v-else class="text-gray-400">En espera de asignación de cargo</span>
-                <br />
-                <span v-if="f[1]">{{ f[1].cargo }}</span>
-                <span v-else class="text-gray-400">En espera de asignación de cargo</span>
+                <template v-for="idx in [0, 1]" :key="idx">
+                  <br v-if="idx" />
+                  <span v-if="f[idx]">{{ f[idx].cargo }}</span>
+                  <span v-else class="text-gray-400">En espera de asignación de cargo</span>
+                </template>
               </td>
 
               <td class="px-4 py-2 border">
-                <div v-if="f[0]" class="flex space-x-2">
-                  <button v-if="puedeEditarIntegrante" @click="editIntegrante(f[0])" class="px-2 py-1 bg-yellow-700 text-white rounded">
-                    Editar
-                  </button>
-                  <button v-if="puedeEditarIntegrante" @click="solicitarEliminacion(f[0].id)" class="px-2 py-1 bg-red-500 text-white rounded">
-                    Eliminar
-                  </button>
-                  <button v-if="esMiIntegrante(f[0]) && !(esIntegrante && altaPendiente)"
-                  @click="$inertia.get(route('docu.index', f[0].id))"
-                    class="px-2 py-1 bg-red-800 text-white rounded flex items-center">
-                    <FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos
-                  </button>
-                </div>
-
-                <div v-if="f[1]" class="flex space-x-2 mt-2">
-                  <button v-if="puedeEditarIntegrante" @click="editIntegrante(f[1])" class="px-2 py-1 bg-yellow-700 text-white rounded">
-                    Editar
-                  </button>
-                  <button v-if="puedeEditarIntegrante" @click="solicitarEliminacion(f[1].id)" class="px-2 py-1 bg-red-500 text-white rounded">
-                    Eliminar
-                  </button>
-                  <button v-if="esMiIntegrante(f[1]) && !(esIntegrante && altaPendiente)"
-                  @click="$inertia.get(route('docu.index', f[1].id))"
-                    class="px-2 py-1 bg-red-800 text-white rounded flex items-center">
-                    <FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos
-                  </button>
-                </div>
+                <template v-for="idx in [0, 1]" :key="idx">
+                  <div v-if="f[idx]" class="flex space-x-2" :class="{ 'mt-2': idx }">
+                    <template v-if="puedeEditarIntegrante">
+                      <button @click="editIntegrante(f[idx])" class="px-2 py-1 bg-yellow-700 text-white rounded">Editar</button>
+                      <button @click="solicitarEliminacion(f[idx].id)" class="px-2 py-1 bg-red-500 text-white rounded">Eliminar</button>
+                    </template>
+                    <button v-if="esMiIntegrante(f[idx]) && !(esIntegrante && altaPendiente)" @click="$inertia.get(route('docu.index', f[idx].id))"
+                      class="px-2 py-1 bg-red-800 text-white rounded flex items-center"><FolderOpenIcon class="w-5 h-5 mr-1" /> Documentos</button>
+                  </div>
+                </template>
               </td>
             </tr>
           </tbody>
@@ -475,19 +315,10 @@ const getSemaforoClase = (integrante) => {
     <div v-if="showDescripcionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
       <div class="bg-white rounded-lg p-6 w-full max-w-lg">
         <h2 class="text-lg font-bold mb-4">Editar descripción del consejo</h2>
-
-        <textarea v-model="descripcionForm.descripcion" rows="4"
-          class="w-full border rounded px-3 py-2 mb-4"></textarea>
-
+        <textarea v-model="descripcionForm.descripcion" rows="4" class="w-full border rounded px-3 py-2 mb-4"></textarea>
         <div class="flex justify-end space-x-2">
-          <button @click="showDescripcionModal = false" class="px-4 py-2 bg-gray-300 rounded">
-            Cancelar
-          </button>
-
-          <button @click="submitDescripcion" :disabled="descripcionForm.processing"
-            class="px-4 py-2 bg-black text-white rounded hover:bg-gray-700 disabled:opacity-50">
-            Guardar
-          </button>
+          <button @click="showDescripcionModal = false" class="px-4 py-2 bg-gray-300 rounded">Cancelar</button>
+          <button @click="submitDescripcion" :disabled="descripcionForm.processing" class="px-4 py-2 bg-black text-white rounded hover:bg-gray-700 disabled:opacity-50">Guardar</button>
         </div>
       </div>
     </div>
@@ -504,57 +335,27 @@ const getSemaforoClase = (integrante) => {
 
     <!-- MODAL DE BAJA -->
     <DraggableModal v-if="showDeleteModal" title="Registrar baja de integrante" max-width="max-w-md"
-      @close="showDeleteModal =false">
-      <!--motivo-->
-      <label class="block font-semibold mb-1">
-        Motivo
-      </label>
-
+      @close="showDeleteModal = false">
+      <label class="block font-semibold mb-1">Motivo</label>
       <select v-model="bajaForm.motivo" class="w-full border rounded px-3 py-2 mb-4">
-        <option value=""> Seleccione un motivo de baja </option>
-        <option value="inasistencia"> Inasistencia </option>
-        <option value="sancion"> Sanciones </option>
-        <option value="fin_periodo"> No realizó periodo de reeleción / Fin de periodo </option>
-        <option value="renuncia"> Renuncia </option>
-        <option value="error_registro"> Error de registro </option>
+        <option value="">Seleccione un motivo de baja</option>
+        <option value="inasistencia">Inasistencia</option>
+        <option value="sancion">Sanciones</option>
+        <option value="fin_periodo">No realizó periodo de reeleción / Fin de periodo</option>
+        <option value="renuncia">Renuncia</option>
+        <option value="error_registro">Error de registro</option>
       </select>
 
-      <!--fecha-->
-      <div v-if="!esErrorRegistro" class="mb-4">
-        <label class="block font-semibold mb-1">
-          Fecha de baja
-        </label>
-        <input type="date" v-model="bajaForm.fecha_baja" class="w-full border rounded px-3 py-2"/>
-      </div>
+      <template v-if="!esErrorRegistro">
+        <label class="block font-semibold mb-1">Fecha de baja</label>
+        <input type="date" v-model="bajaForm.fecha_baja" class="w-full border rounded px-3 py-2 mb-4" />
+        <label class="block font-semibold mb-1">Evidencia PDF</label>
+        <input type="file" accept="application/pdf" class="w-full border rounded px-3 py-2 mb-4" @change="e => bajaForm.evidencia_pdf = e.target.files[0]" />
+      </template>
 
-      <!--evidencia PDF-->
-      <div v-if="!esErrorRegistro" class="mb-4">
-        <label class="block font-semibold mb-1">
-          Evidencia PDF
-        </label>
-        <input type="file" accept="application/pdf" class="w-full border rounden px-3 py-2"
-          @change="e=> bajaForm.evidencia_pdf = e.target.files[0]"/>
-      </div>
-
-      <!--Botones-->
       <div class="flex justify-end space-x-2 pt-4">
-        <button type="button" @click="showDeleteModal = false" class="px-4 py-2 bg-gray-300 rounded">
-          Cancelar
-        </button>
-
-        <button type="button" @click="confirmarEliminacion"
-            :disabled="
-                !bajaForm.motivo ||
-                (
-                    !esErrorRegistro &&
-                    (
-                        !bajaForm.fecha_baja ||
-                        !bajaForm.evidencia_pdf
-                    )
-                )"
-            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-800 disabled:opacity-50">
-            Confirmar baja
-        </button>
+        <button type="button" @click="showDeleteModal = false" class="px-4 py-2 bg-gray-300 rounded">Cancelar</button>
+        <button type="button" @click="confirmarEliminacion" :disabled="bajaIncompleta" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-800 disabled:opacity-50">Confirmar baja</button>
       </div>
     </DraggableModal>
   </AuthenticatedLayout>

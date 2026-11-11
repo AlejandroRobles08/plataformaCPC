@@ -1,4 +1,5 @@
 <script setup>
+import SemaforoAsistencias from '@/Components/SemaforoAsistencias.vue'
 import { Link, usePage, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import {ClipboardDocumentIcon,CalendarIcon,FlagIcon,DocumentCheckIcon} from '@heroicons/vue/24/solid'
@@ -134,19 +135,13 @@ function obtenerSemaforo(integranteId) {
   return props.semaforos[integranteId]
 }
 
-const leyendaSemaforo = [
-  { color: 'verde', texto: 'No se registran inasistencias.' },
-  { color: 'amarillo', texto: 'Se registran inasistencias, sin acumular 3 faltas consecutivas.' },
-  { color: 'rojo', texto: 'Se acumulan 3 faltas consecutivas, ya sea en el mismo mes o en meses diferentes, sean o no consecutivos. Esta condición es causa de baja directa del sistema.' }
-]
-
 // Al entrar al calendario, avisa al integrante en rojo; devolver false detiene la visita hasta cerrar la alerta
 function avisarFaltasConsecutivas() {
   if (!esIntegrante.value || obtenerSemaforo(props.integranteActualId) !== 'rojo') return true
 
   Swal.fire({
     icon: 'warning',
-    title: 'Ha acumulado 3 faltas consecutivas',
+    title: 'Ha acumulado 3 faltas sin justificar',
     text: 'Si no justifica sus inasistencias, causará baja del sistema. Puede adjuntar su justificante dando clic en el calendario sobre la fecha de la inasistencia. Si ya lo envió, espere a que sea validado.',
     confirmButtonText: 'Entendido',
     confirmButtonColor: '#374151'
@@ -178,20 +173,7 @@ function colorClase(color) {
       </h1>
       <div class="mb-6 grid grid-cols-1 gap-4 text-sm text-gray-600 md:grid-cols-2">
         <!-- Informativo de la semaforización -->
-        <div class="rounded-lg border border-gray-200 p-4">
-          <p class="mb-2 font-semibold">Semaforización de asistencias</p>
-          <ul class="space-y-1">
-            <li v-for="s in leyendaSemaforo" :key="s.color" class="flex items-start gap-2">
-              <span class="mt-1 h-3 w-3 shrink-0 rounded-full" :class="colorClase(s.color)"></span>
-              <span><strong class="capitalize">{{ s.color }}:</strong> {{ s.texto }}</span>
-            </li>
-          </ul>
-          <p class="mt-2">
-            {{ esIntegrante
-              ? 'Si usted acumula 3 faltas consecutivas, dejará de estar disponible para el pase de lista hasta que su justificante sea enviado y validado.'
-              : 'Cuando un integrante acumule 3 faltas consecutivas, usted ya no lo verá disponible para el pase de lista hasta que su justificante sea enviado y validado.' }}
-          </p>
-        </div>
+        <SemaforoAsistencias :es-integrante="esIntegrante" />
 
         <!-- Instrucciones -->
         <div class="space-y-2 rounded-lg border border-gray-200 p-4">

@@ -1,4 +1,4 @@
-<script setup>
+  <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ref, watchEffect, computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'

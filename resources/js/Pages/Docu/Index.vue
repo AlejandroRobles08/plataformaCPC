@@ -1,446 +1,234 @@
 <script setup>
-
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Link, useForm, usePage, router } from '@inertiajs/vue3'
-import {EyeIcon, CloudArrowUpIcon, ArrowDownTrayIcon, PaperClipIcon, BellIcon, CheckCircleIcon, XCircleIcon,
-  ClockIcon, HandThumbUpIcon, HandThumbDownIcon, } from '@heroicons/vue/24/solid'
+import { EyeIcon, CloudArrowUpIcon, ArrowDownTrayIcon, PaperClipIcon, BellIcon, CheckCircleIcon, XCircleIcon,
+  ClockIcon, HandThumbUpIcon, HandThumbDownIcon } from '@heroicons/vue/24/solid'
 import { ref, watch, computed } from 'vue'
 import Swal from 'sweetalert2'
 
-
-const props = defineProps({
-  integrante: Object,
-})
+const props = defineProps({ integrante: Object })
 const page = usePage()
 
-// Roles del usuario autenticado
-const roles = computed(() => {
-  return page.props.roles ?? page.props.auth?.roles ?? []
-})
-const isReviewer = computed(() =>
-  roles.value.includes('admin') ||
-  roles.value.includes('super_admin')
-)
-const isIntegrante = computed(() =>
-  roles.value.includes('integrante')
-)
-// El super_admin también puede subir documentos
-const canUpload = computed(() =>
-  isIntegrante.value || roles.value.includes('super_admin')
-)
+// Roles: admin y super_admin revisan; integrante y super_admin suben documentos
+const roles = computed(() => page.props.auth?.roles ?? [])
+const isReviewer = computed(() => roles.value.includes('admin') || roles.value.includes('super_admin'))
+const isIntegrante = computed(() => roles.value.includes('integrante'))
+const canUpload = computed(() => isIntegrante.value || roles.value.includes('super_admin'))
 
-//Sweet Alert para mensajes flash
-watch(
-  () => page.props.flash?.success,
-  (success) => {
-    if (success) {
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: success,
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-      })
-    }
-  },
-  { immediate: true })
+// Mensajes flash (el warning llega al ser redirigido con el expediente sin aprobar)
+const toast = (icon, title) => Swal.fire({ toast: true, position: 'top-end', icon, title,
+  showConfirmButton: false, timer: 3500, timerProgressBar: true })
+watch(() => page.props.flash?.success, m => m && toast('success', m), { immediate: true })
+watch(() => page.props.flash?.error, m => m && toast('error', m), { immediate: true })
+watch(() => page.props.flash?.warning, m => m && Swal.fire({ icon: 'warning', title: 'Documentos pendientes',
+  text: m, confirmButtonText: 'Entendido' }), { immediate: true })
 
-// Aviso al ser redirigido desde otro módulo con el expediente sin aprobar
-watch(
-  () => page.props.flash?.warning,
-  (warning) => {
-    if (warning) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Documentos pendientes',
-        text: warning,
-        confirmButtonText: 'Entendido',
-      })
-    }
-  },
-  { immediate: true })
-
-watch(
-  () => page.props.flash?.error,
-  (error) => {
-    if (error) {
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'error',
-        title: error,
-        showConfirmButton: false,
-        timer: 4000,
-        timerProgressBar: true,
-      })
-    }
-  },
-  { immediate: true })
-
-// Formulario de documentos
-const form = useForm({
-  ine: null,
-  comprobante_domiciliario: null,
-  bajo_protesta_art_170: null,
-  integracion_formula: null,
-  curriculum_vitae: null,
-  carta_motivos: null,
-  cumplimiento_normatividad: null, })
-  
-const selectedFiles = ref({})
-
-const submitForm = () => {
-  form.post(route('docu.store', props.integrante.id), {
-    forceFormData: true,
-
-    onSuccess: () => {
-      form.reset()
-      selectedFiles.value = {}
-
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Documentos guardados correctamente',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-      })
-    },
-  })
-}
-
-// Lista de documentos
 const documentos = [
-  {
-    key: 'ine',
-    label: 'INE',
-  },
-  {
-    key: 'comprobante_domiciliario',
-    label: 'Comprobante domiciliario',
-  },
-  {
-    key: 'bajo_protesta_art_170',
-    label: 'Bajo protesta art. 170',
-  },
-  {
-    key: 'integracion_formula',
-    label: 'Integración de fórmula',
-  },
-  {
-    key: 'curriculum_vitae',
-    label: 'Currículum Vitae',
-  },
-  {
-    key: 'carta_motivos',
-    label: 'Carta de motivos',
-  },
-  {
-    key: 'cumplimiento_normatividad',
-    label: 'Cumplimiento de normatividad',
-  },
+  { key: 'ine', label: 'INE' },
+  { key: 'comprobante_domiciliario', label: 'Comprobante domiciliario' },
+  { key: 'bajo_protesta_art_170', label: 'Bajo protesta art. 170' },
+  { key: 'integracion_formula', label: 'Integración de fórmula' },
+  { key: 'curriculum_vitae', label: 'Currículum Vitae' },
+  { key: 'carta_motivos', label: 'Carta de motivos' },
+  { key: 'cumplimiento_normatividad', label: 'Cumplimiento de normatividad' },
 ]
 
-// Obtener documento existente
-const getDoc = (tipo) =>
-  props.integrante.documentos?.find(
-    (documento) => documento.tipo === tipo
-  )
-
-// Nombre limpio del documento
-const getCleanFileName = (doc) => {
-  if (!doc || !doc.tipo) return ''
-  const item = documentos.find(
-    documento => documento.key === doc.tipo
-  )
-  if (!item) {
-    return 'Documento.pdf'
-  }
-  return `${item.label}.pdf`
+// Estilos por estado
+const ESTILOS = {
+  aprobado: { texto: 'Aprobado', icono: CheckCircleIcon, insignia: 'bg-green-100 text-green-800 ring-green-200',
+    borde: 'border-l-green-500', iconoColor: 'text-green-600 bg-green-50' },
+  pendiente: { texto: 'En revisión', icono: ClockIcon, insignia: 'bg-amber-100 text-amber-800 ring-amber-200',
+    borde: 'border-l-amber-400', iconoColor: 'text-amber-600 bg-amber-50' },
+  rechazado: { texto: 'No aprobado', icono: XCircleIcon, insignia: 'bg-red-100 text-red-800 ring-red-200',
+    borde: 'border-l-red-500', iconoColor: 'text-red-600 bg-red-50' },
+  faltante: { texto: 'Sin cargar', icono: BellIcon, insignia: 'bg-gray-100 text-gray-700 ring-gray-200',
+    borde: 'border-l-gray-300', iconoColor: 'text-gray-500 bg-gray-100' },
 }
 
-// Manejar selección de archivo
-const handleFileSelect = (event, key) => {
+// Cada tarjeta con su documento guardado (si existe) y su estado
+const tarjetas = computed(() => documentos.map(d => {
+  const archivo = props.integrante.documentos?.find(doc => doc.tipo === d.key)
+  const estado = archivo?.estatus ?? 'faltante'
+  // Solo se sube un documento que falta o que fue rechazado
+  return { ...d, archivo, estado, estilo: ESTILOS[estado], subible: ['faltante', 'rechazado'].includes(estado) }
+}))
+
+const resumen = computed(() => {
+  const conteo = { aprobado: 0, pendiente: 0, rechazado: 0, faltante: 0 }
+  tarjetas.value.forEach(t => conteo[t.estado]++)
+  return conteo
+})
+const porcentajeAprobado = computed(() => Math.round(resumen.value.aprobado / documentos.length * 100))
+const expedienteCompleto = computed(() => resumen.value.aprobado === documentos.length)
+// Sin documentos por subir (todos en revisión o aprobados) no se muestra "Guardar documentos"
+const hayPorSubir = computed(() => tarjetas.value.some(t => t.subible))
+
+// Formulario de carga
+const form = useForm(Object.fromEntries(documentos.map(d => [d.key, null])))
+const selectedFiles = ref({})
+const archivosElegidos = computed(() => Object.keys(selectedFiles.value).length)
+
+const elegirArchivo = (event, key) => {
   const file = event.target.files[0]
   if (file) {
     form[key] = file
     selectedFiles.value[key] = file.name
   }
+  event.target.value = '' // permite volver a elegir el mismo archivo tras quitarlo
 }
-
-// Texto del estado
-const getStatusLabel = (doc) => {
-  if (!doc) {
-    return 'No cargado'
-  }
-  switch (doc.estatus) {
-    case 'aprobado':
-      return 'Aprobado'
-    case 'rechazado':
-      return 'Rechazado'
-    case 'pendiente':
-    default:
-      return 'Pendiente de revisión'
-  }
+const quitarArchivo = key => {
+  form[key] = null
+  delete selectedFiles.value[key]
 }
+const submitForm = () => form.post(route('docu.store', props.integrante.id), {
+  forceFormData: true,
+  onSuccess: () => { form.reset(); selectedFiles.value = {} },
+})
 
-// Aprobar documento
-const aprobarDocumento = (documento) => {
-  Swal.fire({
-    title: '¿Aprobar documento?',
-    text: 'El documento será marcado como aprobado.',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, aprobar',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#15803d',
-  }).then((result) => {
-    if (result.isConfirmed) {
-      router.patch(
-        route('docu.aprobar', documento.id),
-        {},
-        {
-          preserveScroll: true,
-        }
-      )
-    }
-  })
+// Validación del administrador
+const aprobarDocumento = async doc => {
+  const { isConfirmed } = await Swal.fire({ title: '¿Aprobar documento?', text: 'El documento será marcado como aprobado.',
+    icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aprobar', cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#15803d' })
+  if (isConfirmed) router.patch(route('docu.aprobar', doc.id), {}, { preserveScroll: true })
 }
-
-// Rechazar documento
-const rechazarDocumento = async (documento) => {
-  const result = await Swal.fire({
-    title: 'No se aprobará el documento',
-    text: 'Indique las observaciones para el integrante.',
-    input: 'textarea',
-    inputLabel: 'Observación',
-    inputPlaceholder:
-      'Desriba las razones por las que no se aprobará el documento.',
-    inputAttributes: {
-      'aria-label': 'Observación del documento',
-    },
-    showCancelButton: true,
-    confirmButtonText: 'No aprobar',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#dc2626',
-
-    inputValidator: (value) => {
-      if (!value) {
-        return 'Debes escribir una observación.'
-      }
-    },
-  })
-  if (result.isConfirmed) {
-    router.patch(
-      route('docu.rechazar', documento.id),
-      {
-        observacion: result.value,
-      },
-      {
-        preserveScroll: true,
-      }
-    )
-  }
+const rechazarDocumento = async doc => {
+  const { isConfirmed, value } = await Swal.fire({ title: 'No se aprobará el documento',
+    text: 'Indique las observaciones para el integrante.', input: 'textarea', inputLabel: 'Observación',
+    inputPlaceholder: 'Describa las razones por las que no se aprobará el documento.',
+    inputAttributes: { 'aria-label': 'Observación del documento' },
+    showCancelButton: true, confirmButtonText: 'No aprobar', cancelButtonText: 'Cancelar', confirmButtonColor: '#dc2626',
+    inputValidator: v => !v && 'Debes escribir una observación.' })
+  if (isConfirmed) router.patch(route('docu.rechazar', doc.id), { observacion: value }, { preserveScroll: true })
 }
 </script>
 
-
 <template>
   <AuthenticatedLayout>
-    <!-- Botón regresar -->
-    <div class="mb-4">
-      <!-- Admin / Super Admin -->
-      <Link v-if="isReviewer" :href="route('consejos.integrantes', integrante.consejo_id)"
-        class="inline-flex items-center px-3 
-        py-2 text-sm text-gray-800 transition bg-gray-200 rounded hover:bg-gray-300">
-        ← Volver a Integrantes
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <Link :href="isReviewer ? route('consejos.integrantes', integrante.consejo_id) : route('dashboard')"
+        class="mb-5 inline-flex text-sm font-medium text-gray-600 hover:text-gray-900">
+        ← {{ isReviewer ? 'Volver a Integrantes' : 'Volver al inicio' }}
       </Link>
-      <!-- Integrante -->
-      <Link v-else :href="route('dashboard')"
-        class="inline-flex items-center px-3 py-2 text-sm text-gray-800 
-        transition bg-gray-200 rounded hover:bg-gray-300">
-        ← Volver al inicio
-      </Link>
-    </div>
 
-    <div class="p-6">
-      <h1 class="mb-2 text-2xl font-bold">
-        Documentos de
-        {{ integrante.nombre }}
-        {{ integrante.apellido }}
-      </h1>
-      <p class="mb-6 text-sm text-gray-500">
-        Revisa el estado de cada documento y consulta las observaciones
-        cuando sea necesario.
-      </p>
-      <!-- Formulario -->
-      <form @submit.prevent="submitForm" class="space-y-4">
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div v-for="doc in documentos" :key="doc.key"
-            class="p-4 transition bg-gray-50 border rounded-lg hover:bg-gray-100">
-            <!-- Nombre -->
-            <label class="block mb-3 text-sm font-semibold">
-              {{ doc.label }}
-            </label>
-            <!-- Documento existente -->
-            <div v-if="getDoc(doc.key)">
-              <!-- Nombre archivo -->
-              <p class="flex items-center gap-1 mb-3 text-sm font-medium text-gray-700">
-                <PaperClipIcon class="w-4 h-4" />
-                {{ getCleanFileName(getDoc(doc.key)) }}
-              </p>
-              <!-- Estado pendiente -->
-              <div
-                v-if="getDoc(doc.key).estatus === 'pendiente'"
-                class="flex items-center gap-2 mb-3 text-sm text-yellow-700">
-                <ClockIcon class="w-5 h-5" />
-                Pendiente de revisión
-              </div>
-              
-              <!-- Estado rechazado -->
-              <div v-else-if="getDoc(doc.key).estatus === 'rechazado'"
-                class="flex items-center gap-2 mb-3 text-sm text-red-700">
-                <XCircleIcon class="w-5 h-5" />
-                Documento rechazado
-              </div>
-
-              <!-- Documento aprobado -->
-              <div v-if="getDoc(doc.key).estatus === 'aprobado'"
-                class="flex items-center gap-2 p-3 mb-4 text-sm font-medium text-green-700
-                bg-green-50 border border-green-200 rounded-lg">
-                <CheckCircleIcon class="w-5 h-5 text-green-600" />
-              <div>
-                <p class="font-semibold">
-                  Documento validado
-                </p>
-                <!-- 
-                <p class="text-xs font-normal text-green-600">
-                  Este documento ha sido revisado y aprobado por el administrador.
-                </p> -->
-              </div>
-            </div>
-              <!-- Acciones generales -->
-              <div class="flex flex-wrap gap-3 mb-4">
-                <a :href="route('docu.show', getDoc(doc.key).id)"
-                  target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
-                  <EyeIcon class="w-4 h-4 mr-1" />
-                  Ver
-                </a>
-
-                <a :href="route('docu.download', getDoc(doc.key).id)"
-                  class="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800">
-                  <ArrowDownTrayIcon class="w-4 h-4 mr-1" />
-                  Descargar
-                </a>
-              </div>
-
-              <!-- Observación -->
-              <div v-if=" getDoc(doc.key).estatus === 'rechazado' && getDoc(doc.key).observacion
-                "class="p-3 mb-4 border border-red-200 rounded-lg bg-red-50">
-                <p class="mb-1 text-sm font-semibold text-red-700">
-                  Observación del administrador:
-                </p>
-                <p class="text-sm text-red-600">
-                  {{ getDoc(doc.key).observacion }}
-                </p>
-              </div>
-
-              <!-- Acciones para alidar (rechazar/aprobar) -->
-              <div v-if="isReviewer" class="flex flex-wrap gap-3">
-                <!-- Documento aprobado -->
-                 <div v-if="getDoc(doc.key).estatus === 'aprobado'" 
-                 class="flex items-center gap-2 mb-3 text-sm text-green-700">
-                  <CheckCircleIcon class="w-5 h-5" />
-                  Documento validado y aprobado
-                 </div>
-
-                <!-- Aprobar -->
-                <button v-else type="button" @click="aprobarDocumento(getDoc(doc.key))"
-                  class="inline-flex items-center px-3 py-2 text-sm text-white transition bg-green-600 
-                  rounded hover:bg-green-700">
-                  <HandThumbUpIcon class="w-4 h-4 mr-1" />
-                  Aprobar
-                </button>
-
-                <!-- Rechazar -->
-                <button v-if="getDoc(doc.key).estatus !== 'aprobado'"
-                  type="button" @click="rechazarDocumento(getDoc(doc.key))"
-                  class="inline-flex items-center px-3 py-2 text-sm text-white 
-                  transition bg-red-600 rounded hover:bg-red-700">
-                  <HandThumbDownIcon class="w-4 h-4 mr-1" />
-                  No aprobar
-                </button>
-              </div>
-
-              <!-- Reemplazar documento -->
-              <div v-if=" canUpload && getDoc(doc.key).estatus === 'rechazado'
-                "class="mt-4">
-                <label
-                  class="inline-flex items-center px-3 py-2 text-xs transition bg-white 
-                  border border-gray-300 rounded cursor-pointer hover:bg-gray-200">
-                  <PaperClipIcon class="w-4 h-4 mr-1" />
-                  Reemplazar documento
-                  <input
-                    type="file" accept="application/pdf" class="hidden"
-                    @change="handleFileSelect($event, doc.key)"/>
-                </label>
-
-                <span v-if="selectedFiles[doc.key]" class="block mt-2 text-xs text-gray-700">
-                  {{ selectedFiles[doc.key] }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Documento no cargado -->
-            <div v-else>
-              <div class="flex items-center gap-2 text-sm text-gray-500">
-                <BellIcon class="w-5 h-5 text-yellow-500" />
-                Aún no se ha subido
-              </div>
-
-              <!-- Integrante y super_admin pueden cargar -->
-              <div v-if="canUpload" class="mt-4">
-
-                <label
-                  class="inline-flex items-center px-3 py-2 text-xs transition bg-white border border-gray-300 
-                  rounded cursor-pointer hover:bg-gray-200">
-                  <PaperClipIcon class="w-4 h-4 mr-1 text-gray-600" />
-                  Cargar documento
-                  <input type="file" accept="application/pdf" class="hidden"
-                    @change="handleFileSelect($event, doc.key)"/>
-                </label>
-
-                <span
-                  v-if="selectedFiles[doc.key]" class="block mt-2 text-xs text-gray-700">
-                  {{ selectedFiles[doc.key] }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Error de validación del documento -->
-            <p v-if="form.errors[doc.key]" class="mt-2 text-xs text-red-600">
-              {{ form.errors[doc.key] }}
+      <!-- Encabezado con avance del expediente -->
+      <section class="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Archivo digital</p>
+            <h1 class="mt-1 text-2xl font-bold text-gray-900">{{ integrante.nombre_completo }}</h1>
+            <p class="mt-1 text-sm text-gray-500">
+              {{ isReviewer
+                ? 'Revisa cada documento y apruébalo o indica las observaciones para su corrección.'
+                : 'Sube tus documentos en PDF (máx. 2 MB). Al aprobarse todos podrás usar los demás módulos.' }}
             </p>
+          </div>
+          <div class="md:w-72">
+            <div class="mb-1 flex justify-between text-sm">
+              <span class="font-medium text-gray-700">Documentos aprobados</span>
+              <span class="font-semibold text-gray-900">{{ resumen.aprobado }} de {{ documentos.length }}</span>
+            </div>
+            <div class="h-2.5 overflow-hidden rounded-full bg-gray-200">
+              <div class="h-full rounded-full bg-green-600 transition-all duration-500" :style="{ width: `${porcentajeAprobado}%` }"></div>
+            </div>
           </div>
         </div>
 
-        <p v-if="form.errors.documentos" class="text-sm text-red-600">
-          {{ form.errors.documentos }}
-        </p>
+        <!-- Resumen por estado -->
+        <div class="mt-5 flex flex-wrap gap-2">
+          <span v-for="(cantidad, estado) in resumen" :key="estado"
+            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset" :class="ESTILOS[estado].insignia">
+            <component :is="ESTILOS[estado].icono" class="h-4 w-4" />
+            {{ ESTILOS[estado].texto }}: {{ cantidad }}
+          </span>
+        </div>
+      </section>
 
-        <!-- Guardar documentos -->
-        <div v-if="canUpload" class="flex justify-end mt-6">
-          <button type="submit" :disabled="form.processing" class="flex items-center px-4 py-2 
-            text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50">
-            <CloudArrowUpIcon class="w-5 h-5 mr-1" />
-            {{
-              form.processing
-                ? 'Guardando...'
-                : 'Guardar documentos'
-            }}
+      <div v-if="expedienteCompleto" class="mb-6 flex gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
+        <CheckCircleIcon class="h-6 w-6 shrink-0 text-green-600" />
+        <div>
+          <p class="font-semibold">Expediente completo y validado</p>
+          <p class="text-sm text-green-700">Todos los documentos fueron revisados y aprobados. Ya no es necesario cargar más archivos.</p>
+        </div>
+      </div>
+
+      <form @submit.prevent="submitForm">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <article v-for="t in tarjetas" :key="t.key"
+            class="flex flex-col gap-4 rounded-xl border border-l-4 border-gray-200 bg-white p-5 shadow-sm hover:shadow-md" :class="t.estilo.borde">
+            <header class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" :class="t.estilo.iconoColor">
+                  <component :is="t.estilo.icono" class="h-5 w-5" />
+                </span>
+                <h2 class="text-sm font-semibold text-gray-900">{{ t.label }}</h2>
+              </div>
+              <span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset" :class="t.estilo.insignia">{{ t.estilo.texto }}</span>
+            </header>
+
+            <template v-if="t.archivo">
+              <div class="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                <span class="flex min-w-0 items-center gap-1.5"><PaperClipIcon class="h-4 w-4 shrink-0 text-gray-400" /><span class="truncate">{{ t.label }}.pdf</span></span>
+                <span class="flex shrink-0 gap-1 text-gray-500">
+                  <a :href="route('docu.show', t.archivo.id)" target="_blank" title="Ver" class="rounded p-1.5 hover:bg-white hover:text-blue-600"><EyeIcon class="h-4 w-4" /></a>
+                  <a :href="route('docu.download', t.archivo.id)" title="Descargar" class="rounded p-1.5 hover:bg-white hover:text-indigo-600"><ArrowDownTrayIcon class="h-4 w-4" /></a>
+                </span>
+              </div>
+
+              <p v-if="t.estado === 'pendiente'" class="text-xs text-gray-500">
+                {{ isReviewer ? 'Este documento espera tu revisión.' : 'El documento está en revisión por la administración.' }}
+              </p>
+
+              <div v-if="t.estado === 'rechazado' && t.archivo.observacion" class="rounded-lg border border-red-200 bg-red-50 p-3">
+                <p class="mb-1 text-xs font-semibold uppercase text-red-700">Observación</p>
+                <p class="text-sm text-red-700">{{ t.archivo.observacion }}</p>
+              </div>
+
+              <div v-if="isReviewer && t.estado !== 'aprobado'" class="mt-auto flex gap-2 text-sm font-medium">
+                <button type="button" @click="aprobarDocumento(t.archivo)"
+                  class="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700">
+                  <HandThumbUpIcon class="h-4 w-4" /> Aprobar
+                </button>
+                <button type="button" @click="rechazarDocumento(t.archivo)"
+                  class="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-red-300 px-3 py-2 text-red-700 hover:bg-red-50">
+                  <HandThumbDownIcon class="h-4 w-4" /> No aprobar
+                </button>
+              </div>
+            </template>
+            <p v-else class="text-sm text-gray-500">Aún no se ha subido este documento.</p>
+
+            <!-- Cargar o reemplazar -->
+            <div v-if="canUpload && t.subible" class="mt-auto">
+              <div v-if="selectedFiles[t.key]"
+                class="flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                <span class="flex min-w-0 items-center gap-1.5"><PaperClipIcon class="h-4 w-4 shrink-0" /><span class="truncate">{{ selectedFiles[t.key] }}</span></span>
+                <button type="button" title="Quitar" class="rounded p-1 text-blue-700 hover:bg-blue-100" @click="quitarArchivo(t.key)"><XCircleIcon class="h-4 w-4" /></button>
+              </div>
+              <label v-else
+                class="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm font-medium text-gray-600 hover:border-gray-400 hover:bg-gray-50">
+                <CloudArrowUpIcon class="h-5 w-5 text-gray-400" />
+                {{ t.estado === 'rechazado' ? 'Reemplazar documento' : 'Seleccionar PDF' }}
+                <input type="file" accept="application/pdf" class="hidden" @change="elegirArchivo($event, t.key)" />
+              </label>
+            </div>
+
+            <p v-if="form.errors[t.key]" class="text-xs text-red-600">{{ form.errors[t.key] }}</p>
+          </article>
+        </div>
+
+        <p v-if="form.errors.documentos" class="mt-4 text-sm text-red-600">{{ form.errors.documentos }}</p>
+
+        <!-- Guardar documentos: se oculta cuando ya no queda nada por subir -->
+        <div v-if="canUpload && hayPorSubir"
+          class="sticky bottom-4 mt-6 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-gray-600">
+            {{ archivosElegidos
+              ? `${archivosElegidos} ${archivosElegidos === 1 ? 'documento listo' : 'documentos listos'} para guardar.`
+              : 'Selecciona los documentos que vas a subir.' }}
+          </p>
+          <button type="submit" :disabled="form.processing || !archivosElegidos"
+            class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50">
+            <CloudArrowUpIcon class="h-5 w-5" /> {{ form.processing ? 'Guardando...' : 'Guardar documentos' }}
           </button>
         </div>
       </form>

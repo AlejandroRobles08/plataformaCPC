@@ -11,7 +11,7 @@ const CARGO_TITULAR = 'Persona Consejera Titular'
 const props = defineProps({
   consejoId: {type: [Number, String],required: true},
   integrantes: {type: Array, required: true},
-  // Ids con 3 faltas consecutivas: no se les pasa lista hasta que se apruebe su justificante
+  // Ids con 3 faltas sin justificar: no se les pasa lista hasta que se apruebe su justificante
   integrantesSinPaseLista: {type: Array, default: () => []},
   // Ids sin todos sus documentos del Archivo digital aprobados: tampoco se les pasa lista
   integrantesSinExpediente: {type: Array, default: () => []},
@@ -49,31 +49,34 @@ const estaSinPaseLista = integrante =>
 const estaSinExpediente = integrante =>
   props.integrantesSinExpediente.some(id => Number(id) === Number(integrante.id))
 
-// Lista ya guardada: quienes tienen registro en la sesión. Lista nueva: quienes siguen disponibles.
+const estadoGuardado = integrante =>
+  props.asistencias.find(a => Number(a.integrante_id) === Number(integrante.id))?.estado
+
+// Con 3 faltas sin justificar aparece en la lista nueva, pero bloqueado: se le registra la falta en automático
+const bloqueado = integrante => !listaGuardada.value && estaSinPaseLista(integrante)
+
+// Lista ya guardada: quienes tienen registro en la sesión. Lista nueva: todos menos quienes no tienen su expediente aprobado.
 // Se fija al abrir el modal porque form.asistencias se construye una sola vez con esta lista.
 const integrantesLista = listaGuardada.value
-  ? props.integrantes.filter(i => props.asistencias.some(a => Number(a.integrante_id) === Number(i.id)))
-  : props.integrantes.filter(i => !estaSinPaseLista(i) && !estaSinExpediente(i))
-
-// Quiénes no aparecen en una lista nueva por acumular 3 faltas consecutivas
-const integrantesExcluidos = listaGuardada.value
-  ? []
-  : props.integrantes.filter(estaSinPaseLista)
+  ? props.integrantes.filter(estadoGuardado)
+  : props.integrantes.filter(i => estaSinPaseLista(i) || !estaSinExpediente(i))
 
 // Quiénes no aparecen en una lista nueva por no tener su expediente aprobado
-const integrantesSinDocumentos = listaGuardada.value
-  ? []
-  : props.integrantes.filter(i => estaSinExpediente(i) && !estaSinPaseLista(i))
+const integrantesSinDocumentos = listaGuardada.value ? [] : props.integrantes.filter(i => !integrantesLista.includes(i))
+
+// "Justificada" no se elige en el pase de lista: solo aparece (marcada) cuando se aprobó el justificante
+const opcionesEstado = integrante => [
+  { valor: 'asistio', texto: 'Asistió' },
+  { valor: 'falto', texto: 'No asistió' },
+  ...(estadoGuardado(integrante) === 'justificada' ? [{ valor: 'justificada', texto: 'Justificada' }] : [])
+]
 
 // Datos de asistencia.
 const form = ref({
-  asistencias: integrantesLista.map( i => {
-    const asistenciaExistente = props.asistencias.find(a=> Number(a.integrante_id) === Number(i.id))
-    return {
-      integrante_id: i.id,
-      estado: asistenciaExistente?.estado ?? 'asistio'
-    }
-  })
+  asistencias: integrantesLista.map(i => ({
+    integrante_id: i.id,
+    estado: bloqueado(i) ? 'falto' : (estadoGuardado(i) ?? 'asistio')
+  }))
 })
 
 // Integrantes agrupados por fórmula (sin fórmula al final), con la persona titular primero.
@@ -208,21 +211,12 @@ async function submitForm() {
 
   // Asistencias.
   form.value.asistencias.forEach((a, index) => {
-    formData.append(
-      `asistencias[${index}][integrante_id]`,
-      a.integrante_id
-    )
-
-    formData.append(
-      `asistencias[${index}][estado]`,
-      a.estado
-    )
+    formData.append(`asistencias[${index}][integrante_id]`, a.integrante_id)
+    formData.append(`asistencias[${index}][estado]`, a.estado)
   })
 
   // Evidencia.
-  if (evidencia.value) {
-    formData.append('evidencia', evidencia.value)
-  }
+  if (evidencia.value) formData.append('evidencia', evidencia.value)
   procesando.value = true
   router.post(
     route('asistencias.sesion.store', props.consejoId),
@@ -258,143 +252,67 @@ async function submitForm() {
 </script>
 
 <template>
-  <DraggableModal :title="`Registrar asistencia - ${sesion.fecha}`"
-    max-width="max-w-2xl" @close="emit('close')">
+  <DraggableModal :title="`Registrar asistencia - ${sesion.fecha}`" max-width="max-w-2xl" @close="emit('close')">
     <!-- Selector de sesión cuando hay más de una en el día -->
     <div v-if="sesionesDia.length > 1" class="mb-4">
-      <p class="mb-2 text-sm font-medium">
-        Sesiones de este día
-      </p>
+      <p class="mb-2 text-sm font-medium">Sesiones de este día</p>
       <div class="flex flex-wrap gap-2">
-        <button v-for="(s, idx) in sesionesDia" :key="s.id"
-          type="button"
-          class="rounded px-3 py-1.5 text-sm capitalize transition disabled:opacity-50"
-          :class="Number(s.id) === Number(sesion.id)
-            ? 'bg-gray-700 text-white'
-            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'"
-          :disabled="procesando"
-          @click="Number(s.id) !== Number(sesion.id) && emit('cambiar-sesion', s)">
+        <button v-for="(s, idx) in sesionesDia" :key="s.id" type="button" class="rounded px-3 py-1.5 text-sm capitalize transition disabled:opacity-50"
+          :class="Number(s.id) === Number(sesion.id) ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'"
+          :disabled="procesando" @click="Number(s.id) !== Number(sesion.id) && emit('cambiar-sesion', s)">
           Sesión {{ idx + 1 }} · {{ s.tipo_sesion }}<template v-if="s.hora_inicio"> · {{ s.hora_inicio.slice(0, 5) }}</template>
         </button>
       </div>
     </div>
 
     <!-- Pase de lista ya enviado -->
-    <div v-if="listaGuardada"
-      class="mb-4 rounded-lg border border-green-200 bg-green-100 px-4 py-3 text-green-800">
-      Lista de asistencia guardada correctamente.
-    </div>
+    <div v-if="listaGuardada" class="mb-4 rounded-lg border border-green-200 bg-green-100 px-4 py-3 text-green-800">Lista de asistencia guardada correctamente.</div>
 
     <!-- Datos de la sesión -->
     <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <!-- Fecha -->
-      <div>
-        <label class="mb-1 block text-sm font-medium">
-          Fecha
-        </label>
-
-        <input type="date" :value="sesion.fecha"
-          readonly class="w-full rounded border bg-gray-100 px-3 py-2"/>
-      </div>
-
-      <!-- Tipo de sesión -->
-      <div>
-        <label class="mb-1 block text-sm font-medium">
-          Tipo de sesión
-        </label>
-
-        <input type="text" :value="sesion.tipo_sesion"
-          readonly class="w-full rounded border bg-gray-100 px-3 py-2 capitalize"/>
-      </div>
-
+      <label class="block text-sm font-medium">Fecha
+        <input type="date" :value="sesion.fecha" readonly class="mt-1 w-full rounded border bg-gray-100 px-3 py-2 font-normal"/>
+      </label>
+      <label class="block text-sm font-medium">Tipo de sesión
+        <input type="text" :value="sesion.tipo_sesion" readonly class="mt-1 w-full rounded border bg-gray-100 px-3 py-2 font-normal capitalize"/>
+      </label>
       <!-- Horario (solo en sesiones programadas con horario) -->
-      <div v-if="sesion.hora_inicio && sesion.hora_fin" class="sm:col-span-2">
-        <label class="mb-1 block text-sm font-medium">
-          Horario
-        </label>
-
-        <input type="text" readonly class="w-full rounded border bg-gray-100 px-3 py-2"
-          :value="`${sesion.hora_inicio.slice(0, 5)} a ${sesion.hora_fin.slice(0, 5)} hrs`"/>
-      </div>
+      <label v-if="sesion.hora_inicio && sesion.hora_fin" class="block text-sm font-medium sm:col-span-2">Horario
+        <input type="text" readonly class="mt-1 w-full rounded border bg-gray-100 px-3 py-2 font-normal" :value="`${sesion.hora_inicio.slice(0, 5)} a ${sesion.hora_fin.slice(0, 5)} hrs`"/>
+      </label>
     </div>
 
-    <!-- Integrantes fuera del pase de lista -->
-    <div v-if="integrantesExcluidos.length"
-      class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-      <p class="font-semibold">
-        No disponibles por acumular 3 faltas consecutivas, hasta que su justificante sea enviado y validado:
-      </p>
+    <!-- Integrantes fuera del pase de lista por expediente -->
+    <div v-if="integrantesSinDocumentos.length" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <p class="font-semibold">No disponibles porque sus documentos del Archivo digital aún no están todos aprobados:</p>
       <ul class="mt-1 list-inside list-disc">
-        <li v-for="i in integrantesExcluidos" :key="i.id">
-          {{ i.nombre }} {{ i.apellido }}
-        </li>
-      </ul>
-    </div>
-
-    <div v-if="integrantesSinDocumentos.length"
-      class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <p class="font-semibold">
-        No disponibles porque sus documentos del Archivo digital aún no están todos aprobados:
-      </p>
-      <ul class="mt-1 list-inside list-disc">
-        <li v-for="i in integrantesSinDocumentos" :key="i.id">
-          {{ i.nombre }} {{ i.apellido }}
-        </li>
+        <li v-for="i in integrantesSinDocumentos" :key="i.id">{{ i.nombre }} {{ i.apellido }}</li>
       </ul>
     </div>
 
     <!-- Integrantes -->
     <div class="mb-4 rounded border p-3">
-      <p class="mb-2 text-sm font-medium">
-        Integrantes
-      </p>
+      <p class="mb-2 text-sm font-medium">Integrantes</p>
 
       <!-- Altura mínima para que la paginación no se mueva en una página con una sola fórmula -->
       <div :class="{ 'sm:min-h-48': totalPaginas > 1 }">
-        <div v-for="formula in formulasPagina"
-          :key="formula.numero ?? 'sin-formula'"
-          class="mb-2 last:mb-0">
-          <p class="rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-            {{ formula.numero ? `Fórmula ${formula.numero}` : 'Sin fórmula' }}
-          </p>
+        <div v-for="formula in formulasPagina" :key="formula.numero ?? 'sin-formula'" class="mb-2 last:mb-0">
+          <p class="rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">{{ formula.numero ? `Fórmula ${formula.numero}` : 'Sin fórmula' }}</p>
 
-          <div v-for="i in formula.integrantes"
-            :key="i.id"
-            class="flex flex-col gap-1 border-b py-1.5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div v-for="i in formula.integrantes" :key="i.id" class="flex flex-col gap-1 border-b py-1.5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <p class="text-sm font-semibold">
               {{ i.nombre }} {{ i.apellido }}
+              <!-- 3 faltas sin justificar: no se le pasa lista hasta que se apruebe su justificante -->
+              <span v-if="estaSinPaseLista(i)" class="block text-xs font-medium text-red-600" title="Se le registra la falta en automático hasta que se apruebe su justificante">
+                ⚠ 3 faltas sin justificar: sin pase de lista hasta justificar
+              </span>
             </p>
 
-            <!-- Admin con la lista guardada: casillas bloqueadas (el estado solo cambia al aprobar un justificante) -->
-            <div class="flex shrink-0 flex-wrap gap-3 text-sm" :class="{ 'opacity-60': soloLectura }">
-              <label class="flex items-center gap-1">
-                <input
-                  type="radio"
-                  :name="`estado-${i.id}`"
-                  value="asistio"
-                  :disabled="soloLectura"
-                  v-model="form.asistencias[i.indice].estado"/>
-                Asistió
-              </label>
-
-              <label class="flex items-center gap-1">
-                <input
-                  type="radio"
-                  :name="`estado-${i.id}`"
-                  value="falto"
-                  :disabled="soloLectura"
-                  v-model="form.asistencias[i.indice].estado"/>
-                No asistió
-              </label>
-
-              <label class="flex items-center gap-1">
-                <input
-                  type="radio"
-                  :name="`estado-${i.id}`"
-                  value="justificada"
-                  :disabled="soloLectura"
-                  v-model="form.asistencias[i.indice].estado"/>
-                Justificada
+            <!-- Casillas bloqueadas en solo lectura o con 3 faltas sin justificar (el estado solo cambia al aprobar un justificante) -->
+            <div class="flex shrink-0 flex-wrap gap-3 text-sm" :class="{ 'opacity-60': soloLectura || bloqueado(i) }">
+              <label v-for="op in opcionesEstado(i)" :key="op.valor" class="flex items-center gap-1">
+                <input type="radio" :name="`estado-${i.id}`" :value="op.valor" :disabled="soloLectura || bloqueado(i) || op.valor === 'justificada'" v-model="form.asistencias[i.indice].estado"/>
+                {{ op.texto }}
               </label>
             </div>
           </div>
@@ -409,77 +327,36 @@ async function submitForm() {
 
     <!-- Evidencia -->
     <div class="mb-4">
-      <label class="mb-1 block text-sm font-medium">
-        Evidencia documental (PDF)
-      </label>
+      <p class="mb-1 text-sm font-medium">Evidencia documental (PDF)</p>
 
       <!-- Evidencia ya guardada -->
-      <div v-if="evidenciaActual" class="mb-2 rounded border bg-gray-100 px-3 py-2">
-        <a :href="`/storage/${evidenciaActual}`" target="_blank" rel="noopener"
-          class="font-medium text-blue-700 underline hover:text-blue-900">
-          Ver evidencia documental
-        </a>
-      </div>
+      <a v-if="evidenciaActual" :href="`/storage/${evidenciaActual}`" target="_blank" rel="noopener"
+        class="mb-2 block rounded border bg-gray-100 px-3 py-2 font-medium text-blue-700 underline hover:text-blue-900">Ver evidencia documental</a>
 
       <!-- El admin ya no puede reemplazarla; el super_admin sí -->
       <template v-if="!soloLectura">
-        <p v-if="evidenciaActual" class="mb-1 text-xs text-gray-500">
-          Adjunta un archivo solo si quieres reemplazar la evidencia actual.
-        </p>
-
-        <input
-          type="file"
-          accept="application/pdf"
-          class="w-full rounded border px-3 py-2"
-          @change="onFileChange"/>
-
-        <p v-if="errorArchivo" class="mt-1 text-sm text-red-500">
-          {{ errorArchivo }}
-        </p>
-
-        <p v-if="errores.evidencia" class="mt-1 text-sm text-red-500">
-          {{ errores.evidencia }}
-        </p>
-
-        <p class="mt-1 text-xs text-gray-500">
-          Solo se permiten archivos PDF de hasta 4 MB.
-        </p>
+        <p v-if="evidenciaActual" class="mb-1 text-xs text-gray-500">Adjunta un archivo solo si quieres reemplazar la evidencia actual.</p>
+        <input type="file" accept="application/pdf" class="w-full rounded border px-3 py-2" @change="onFileChange"/>
+        <p v-if="errorArchivo || errores.evidencia" class="mt-1 text-sm text-red-500">{{ errorArchivo || errores.evidencia }}</p>
+        <p class="mt-1 text-xs text-gray-500">Solo se permiten archivos PDF de hasta 4 MB.</p>
       </template>
 
-      <p v-else-if="!evidenciaActual" class="text-sm text-gray-500">
-        Sin evidencia documental.
-      </p>
+      <p v-else-if="!evidenciaActual" class="text-sm text-gray-500">Sin evidencia documental.</p>
     </div>
 
     <!-- Errores generales del backend -->
-    <p v-if="errores.asistencias || errores.fecha" class="mb-4 text-sm text-red-600">
-      {{ errores.asistencias || errores.fecha }}
-    </p>
+    <p v-if="errores.asistencias || errores.fecha" class="mb-4 text-sm text-red-600">{{ errores.asistencias || errores.fecha }}</p>
 
     <!-- Botones -->
     <div class="flex items-center gap-2 border-t pt-4">
       <!-- Programar otra sesión el mismo día (extrema izquierda) -->
-      <button v-if="puedeAgregarSesion" type="button"
-        class="rounded border border-gray-400 px-4 py-2 text-sm transition hover:bg-gray-100 disabled:opacity-50"
-        :disabled="procesando"
-        title="Programar una sesión adicional en esta misma fecha"
-        @click="emit('nueva-sesion')">
-        + Otra sesión este día
-      </button>
+      <button v-if="puedeAgregarSesion" type="button" class="rounded border border-gray-400 px-4 py-2 text-sm transition hover:bg-gray-100 disabled:opacity-50"
+        :disabled="procesando" title="Programar una sesión adicional en esta misma fecha" @click="emit('nueva-sesion')">+ Otra sesión este día</button>
 
-      <button type="button"
-        class="ml-auto rounded bg-gray-300 px-4 py-2 transition hover:bg-gray-400 disabled:opacity-50"
-        :disabled="procesando"
-        @click="emit('close')">
-        Cancelar
-      </button>
+      <button type="button" class="ml-auto rounded bg-gray-300 px-4 py-2 transition hover:bg-gray-400 disabled:opacity-50" :disabled="procesando" @click="emit('close')">Cancelar</button>
 
-      <button type="button"
-        class="rounded bg-gray-700 px-4 py-2 text-white transition hover:bg-gray-800 disabled:opacity-50"
-        :disabled="procesando || soloLectura || !integrantesLista.length"
-        @click="submitForm">
-        {{ procesando ? 'Guardando...' : 'Guardar asistencia' }}
-      </button>
+      <button type="button" class="rounded bg-gray-700 px-4 py-2 text-white transition hover:bg-gray-800 disabled:opacity-50"
+        :disabled="procesando || soloLectura || !integrantesLista.length" @click="submitForm">{{ procesando ? 'Guardando...' : 'Guardar asistencia' }}</button>
     </div>
   </DraggableModal>
 </template>

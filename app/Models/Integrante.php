@@ -23,8 +23,8 @@ class Integrante extends Model
     public const MIN_FORMULAS = 10;
     public const INTEGRANTES_POR_FORMULA = 2;
     public const CARGOS = ['Persona Consejera Titular', 'Persona Consejera Suplente'];
-    // Faltas seguidas (sin importar el mes) que causan baja y sacan al integrante del pase de lista
-    public const FALTAS_CONSECUTIVAS_BAJA = 3;
+    // Faltas sin justificar (seguidas o no, del mismo mes o de meses distintos) que causan baja y sacan al integrante del pase de lista
+    public const FALTAS_BAJA = 3;
     
     protected $fillable = [
         'user_id',
@@ -142,27 +142,13 @@ class Integrante extends Model
         return $this->hasOne(IntegranteBaja::class);
     }
 
-    // Semáforo de asistencia a partir de los estados del integrante, ordenados por sesión:
-    // verde sin faltas, amarillo con faltas y rojo con una racha de 3 faltas seguidas.
-    // Una asistencia o una falta justificada interrumpe la racha; las sesiones sin registro no cuentan.
+    // Semáforo de asistencia: verde sin faltas, amarillo con faltas y rojo al acumular 3 faltas sin justificar.
+    // Una asistencia no reinicia la cuenta; solo la reduce un justificante aprobado (la falta pasa a 'justificada').
     public static function colorSemaforo(iterable $estados): string
     {
-        $color = 'verde';
-        $racha = 0;
+        $faltas = collect($estados)->filter(fn ($estado) => $estado === 'falto')->count();
 
-        foreach ($estados as $estado) {
-            $racha = $estado === 'falto' ? $racha + 1 : 0;
-
-            if ($racha >= self::FALTAS_CONSECUTIVAS_BAJA) {
-                return 'rojo';
-            }
-
-            if ($racha > 0) {
-                $color = 'amarillo';
-            }
-        }
-
-        return $color;
+        return $faltas >= self::FALTAS_BAJA ? 'rojo' : ($faltas ? 'amarillo' : 'verde');
     }
 
     // Color del semáforo de cada integrante, indexado por id
