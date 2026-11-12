@@ -270,6 +270,16 @@ Route::middleware('auth', 'privacy', 'alta', 'expediente')->group(function () {
         ->middleware('role:invitado|super_admin')
         ->name('postulaciones.store');
 
+    // Expediente de la persona postulante: observaciones y reemplazo de documentos no aprobados
+    Route::middleware('role:invitado|super_admin')->group(function () {
+        Route::get('/postulaciones/mis-documentos', [PostulacionController::class, 'misDocumentos'])
+            ->name('postulaciones.documentos');
+
+        Route::post('/postulaciones/mis-documentos', [PostulacionController::class, 'reemplazarDocumentos'])
+            ->middleware('throttle:20,1')
+            ->name('postulaciones.documentos.store');
+    });
+
     // Validación de postulaciones
     Route::middleware('role:admin|super_admin')->group(function () {
 
@@ -295,6 +305,13 @@ Route::middleware('auth', 'privacy', 'alta', 'expediente')->group(function () {
 
         Route::post('/postulaciones/{postulacion}/rechazar', [PostulacionController::class, 'rechazar'])
             ->name('postulaciones.rechazar');
+
+        // Validación de cada documento del expediente de la postulación
+        Route::patch('/postulaciones/documentos/{documento}/aprobar', [PostulacionController::class, 'aprobarDocumento'])
+            ->name('postulaciones.documentos.aprobar');
+
+        Route::patch('/postulaciones/documentos/{documento}/rechazar', [PostulacionController::class, 'rechazarDocumento'])
+            ->name('postulaciones.documentos.rechazar');
     });
 
     // Usuarios

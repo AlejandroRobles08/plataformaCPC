@@ -24,19 +24,38 @@ class Postulacion extends Model
     // Pendientes del segundo filtro: ya tienen documentos y esperan aprobación final
     public const ESTATUS_POR_VALIDAR = ['pendiente', 'pre_aprobada'];
 
-    // Contraseña genérica del acceso invitado; se pide cambiarla al iniciar sesión
-    public const PASSWORD_TEMPORAL = 'pass123';
+    // Nombres legibles de los documentos (mismos que ve la persona en el formulario)
+    public const NOMBRES_DOCUMENTOS = [
+        'ine' => 'INE',
+        'comprobante_domiciliario' => 'Comprobante domiciliario',
+        'bajo_protesta' => 'Bajo protesta art. 170',
+        'integracion_formula' => 'Integración de fórmula',
+        'curriculum_vitae' => 'Currículum Vitae',
+        'carta_motivos' => 'Carta de motivos',
+        'cumplimiento_normatividad' => 'Cumplimiento de normatividad',
+    ];
 
     public const GENEROS = ['Mujer', 'Hombre', 'Otro', 'Prefiero no responder'];
 
     // Perfil con el que la persona se postula (primer filtro, ruta pública)
     public const PERFILES = [
         'Ciudadanía en general',
-        'Sector académico o de investigación',
-        'Sector empresarial o productivo',
-        'Organización de la sociedad civil',
-        'Colegio o asociación de profesionistas',
+        'Representación vecinal o comité de colonia',
         'Juventudes (18 a 29 años)',
+        'Sector académico o de investigación',
+        'Organización de la sociedad civil',
+        'Sector empresarial o productivo',
+        'Salud (medicina, enfermería, psicología u otra área)',
+        'Seguridad, prevención o protección civil',
+        'Derecho y derechos humanos',
+        'Arquitectura, ingeniería o urbanismo',
+        'Arte, cultura o gestión cultural',
+        'Persona artesana o productora local',
+        'Medio ambiente y sustentabilidad',
+        'Bienestar animal o medicina veterinaria',
+        'Inclusión de personas con discapacidad',
+        'Igualdad de género y derechos de las mujeres',
+        'Niñez y adolescencia (educación, trabajo social u otra área)',
         'Otro',
     ];
 
@@ -100,5 +119,24 @@ class Postulacion extends Model
 
     public function documentos(){
         return $this->hasMany(PostulacionDocumento::class);
+    }
+
+    // Postulaciones en el segundo filtro con documentos que esperan revisión
+    // (alerta roja del botón "Panel de validación")
+    public function scopeConDocumentosPorRevisar($query)
+    {
+        return $query->whereIn('estatus', self::ESTATUS_POR_VALIDAR)
+            ->whereHas('documentos', fn ($q) => $q->where('estatus', PostulacionDocumento::PENDIENTE));
+    }
+
+    // Expediente completo: todos los documentos requeridos están cargados y aprobados
+    public function expedienteAprobado(): bool
+    {
+        $aprobados = $this->documentos()
+            ->where('estatus', PostulacionDocumento::APROBADO)
+            ->pluck('tipo')
+            ->all();
+
+        return empty(array_diff(self::TIPOS_DOCUMENTOS, $aprobados));
     }
 }

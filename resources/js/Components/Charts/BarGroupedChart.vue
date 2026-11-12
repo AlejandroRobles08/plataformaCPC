@@ -55,8 +55,9 @@ const options = {
   scales: {
     x: {
       beginAtZero: true,
+      suggestedMax: 30,  // 15 fórmulas = 30 integrantes por consejo
       ticks: {
-        stepSize: 1,
+        stepSize: 2,
         precision: 0,
       }
     },

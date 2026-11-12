@@ -10,9 +10,61 @@ class Consejo extends Model
 {
     use HasFactory;
 
+    // Ícono por defecto para los consejos que no tienen uno asignado
+    public const ICONO_DEFAULT = 'group_work';
+
+    // Catálogo de íconos (Material Symbols) que se pueden elegir al agregar un consejo: nombre => etiqueta
+    public const ICONOS = [
+        'diversity_2' => 'Pueblos indígenas / diversidad',
+        'self_improvement' => 'Bienestar',
+        'pets' => 'Bienestar animal',
+        'account_balance' => 'Patrimonio edificado',
+        'theater_comedy' => 'Cultura',
+        'sports_soccer' => 'Deporte',
+        'balance' => 'Derechos humanos',
+        'location_city' => 'Desarrollo urbano',
+        'assured_workload' => 'Gobierno',
+        'accessible_forward' => 'Discapacidad',
+        'eco' => 'Ecología',
+        'school' => 'Educación',
+        'emoji_people' => 'Juventud',
+        'child_care' => 'Niñez',
+        'construction' => 'Obras',
+        'commute' => 'Movilidad',
+        'volunteer_activism' => 'Grupos vulnerables',
+        'crisis_alert' => 'Protección civil',
+        'medical_services' => 'Salud',
+        'local_police' => 'Seguridad pública',
+        'luggage' => 'Turismo',
+        'directions_bus' => 'Transporte',
+        'traffic' => 'Vialidad',
+        'palette' => 'Artesanías / arte',
+        'female' => 'Mujeres',
+        'diversity_3' => 'Igualdad / inclusión',
+        'elderly' => 'Personas mayores',
+        'family_restroom' => 'Familia',
+        'home_work' => 'Vivienda',
+        'storefront' => 'Comercio',
+        'work' => 'Empleo',
+        'agriculture' => 'Campo',
+        'water_drop' => 'Agua',
+        'park' => 'Parques',
+        'recycling' => 'Reciclaje',
+        'science' => 'Ciencia',
+        'computer' => 'Tecnología',
+        'menu_book' => 'Lectura',
+        'music_note' => 'Música',
+        'handshake' => 'Colaboración',
+        'gavel' => 'Justicia',
+        'record_voice_over' => 'Participación ciudadana',
+        'public' => 'Asuntos internacionales',
+        'group_work' => 'General',
+    ];
+
     protected $fillable = [
         'nombre',
         'descripcion',
+        'icono',
         'instalado_at',
         'acta_instalacion',
         'instalado_por',

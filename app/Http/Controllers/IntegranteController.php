@@ -11,6 +11,9 @@ use App\Models\IntegranteBaja;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use App\Notifications\BienvenidaIntegrante;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -82,7 +85,10 @@ class IntegranteController extends Controller
         ]);
         unset($validated['email_confirmacion']);
 
-        DB::transaction(function () use ($validated) {
+        // Contraseña temporal única por integrante (se envía por correo; sin símbolos para copiarla fácil)
+        $passwordTemporal = Str::password(12, symbols: false);
+
+        $integrante = DB::transaction(function () use ($validated, $passwordTemporal) {
             // Bloquea el consejo para que dos altas simultáneas no llenen de más la fórmula
             Consejo::whereKey($validated['consejo_id'])->lockForUpdate()->first();
             Integrante::asegurarEspacioEnFormula($validated['consejo_id'], $validated['formula']);
@@ -93,13 +99,12 @@ class IntegranteController extends Controller
                     $validated['nombre'], $validated['apellido_paterno'], $validated['apellido_materno'] ?? null
                 ),
                 'email' => $validated['email'],
-                //contraseña temporal inicial
-                'password' => Hash::make('pass123'),
+                'password' => Hash::make($passwordTemporal),
                 'must_change_password' => true,
             ]);
             $user->assignRole('integrante');
 
-            Integrante::create([
+            return Integrante::create([
                 'user_id' => $user->id,
                 'nombre' => $validated['nombre'],
                 'apellido_paterno' => $validated['apellido_paterno'],
@@ -112,9 +117,22 @@ class IntegranteController extends Controller
             ]);
         });
 
-        return redirect()
-            ->route('consejos.integrantes', $validated['consejo_id'])
-            ->with('success', 'Usuario integrante creado correctamente.');
+        // Se envía después del commit: si la transacción falla, nadie recibe una contraseña
+        // de una cuenta inexistente; si el correo falla, el integrante ya quedó guardado.
+        $redirect = redirect()->route('consejos.integrantes', $validated['consejo_id']);
+
+        try {
+            $integrante->user->notify(new BienvenidaIntegrante($integrante, $passwordTemporal));
+        } catch (\Throwable $e) {
+            Log::error('No se pudo enviar el correo de bienvenida al integrante', [
+                'integrante_id' => $integrante->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $redirect->with('warning', 'Usuario integrante creado, pero no se pudo enviar el correo de bienvenida.');
+        }
+
+        return $redirect->with('success', 'Usuario integrante creado. Se le envió su acceso por correo.');
     }
 
     // "Darme de alta": el integrante captura sus propios datos una sola vez.

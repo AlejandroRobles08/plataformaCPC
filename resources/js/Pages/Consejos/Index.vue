@@ -1,78 +1,13 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, usePage } from '@inertiajs/vue3'
-import { computed, defineComponent, h } from 'vue'
+import { computed } from 'vue'
+import { PlusIcon } from '@heroicons/vue/24/solid'
 
 defineProps({
   consejos: Array,
   origen: String,
 })
-
-//Iconos importados desde Google Fonts
-const PetsIcon = defineComponent({
-  name: 'PetsIcon',
-  render() {
-    return h(
-      'span',
-      { class: 'material-icons text-white text-5xl' },
-      'pets'
-    )
-  }
-})
-
-const AccesibleIcon = defineComponent({
-  name: 'AccesibleIcon',
-  render() {
-    return h(
-      'span',
-      { class: 'material-symbols-outlined text-white text-5xl' },
-      'accessible_forward'
-    )
-  }
-})
-
-const LocalPoliceIcon = defineComponent({
-  name: 'LocalPoliceIcon',
-  render() {
-    return h(
-      'span',
-      { class: 'material-symbols-outlined text-white text-5xl' },
-      'local_police'
-    )
-  }
-})
-
-const PaletteIcon = defineComponent({
-  name: 'PaletteIcon',
-  render() {
-    return h(
-      'span',
-      { class: 'material-symbols-outlined text-white text-5xl' },
-      'palette'
-    )
-  }
-})
-
-const FemaleIcon = defineComponent({
-  name: 'FemaleIcon',
-  render() {
-    return h(
-      'span',
-      { class: 'material-symbols-outlined text-white text-5xl' },
-      'female'
-    )
-  }
-})
-
-import {
-  GlobeAmericasIcon,
-  UsersIcon,
-  MusicalNoteIcon,
-  HeartIcon,
-  BuildingOfficeIcon,
-  WrenchScrewdriverIcon,
-  PlusIcon,
-} from '@heroicons/vue/24/solid'
 
 // Solo admin y super_admin tienen el permiso para agregar consejos
 const page = usePage()
@@ -85,24 +20,15 @@ const esIntegrante = computed(() =>
   page.props.auth?.roles?.includes('integrante')
 )
 
-// colapsa espacios y saltos de línea para que nombres largos coincidan con su llave
-const normalize = (text) =>
-  text?.replace(/\s+/g, ' ').trim().toLowerCase()
-
-// en el mismo orden (por ID) que ConsejoSeeder
-const icons = {
-  'discapacidad': AccesibleIcon,
-  'bienestar animal': PetsIcon,
-  'centro histórico y patrimonio edificado': BuildingOfficeIcon,
-  'ecología y medio ambiente': GlobeAmericasIcon,
-  'seguridad pública': LocalPoliceIcon,
-  'salud': HeartIcon,
-  'impulso a las artesanías': PaletteIcon,
-  'niñez y adolescencia': UsersIcon,
-  'cultura': MusicalNoteIcon,
-  'obras y servicios públicos': WrenchScrewdriverIcon,
-  'igualdad de género, y prevención, atención y erradicación de la violencia contra la mujer.': FemaleIcon,
+// Texto del aviso rojo según el módulo
+const mensajesPendientes = {
+  integrantes: 'Documentos por revisar',
+  asistencias: 'Justificantes por revisar',
+  legalidad: 'Solicitudes de reelección por revisar',
 }
+
+// Ícono (Material Symbols) guardado en el consejo; genérico si aún no tiene uno
+const ICONO_DEFAULT = 'group_work'
 </script>
 
 <template>
@@ -153,16 +79,25 @@ const icons = {
                     ? route('legalidad.index', { consejo: consejo.id })
                     : route('consejos.integrantes', consejo.id)
           "
-          :class="consejo.instalado || esIntegrante
+          :class="consejo.instalado
             ? 'bg-[#7D2447] hover:bg-[#5E1B35]'
             : 'bg-gray-600 hover:bg-black'"
-          class="p-4 shadow rounded-lg flex flex-col items-center justify-center
+          class="relative p-4 shadow rounded-lg flex flex-col items-center justify-center
                  font-semibold text-center text-white transition">
 
-          <!-- los consejos agregados desde la plataforma aún no tienen ícono -->
-          <component v-if="icons[normalize(consejo.nombre)]"
-            :is="icons[normalize(consejo.nombre)]"
-            class="w-10 h-10 text-white mb-2"/>
+          <!-- Aviso de pendientes por revisar dentro del consejo -->
+          <span v-if="consejo.pendientes"
+            :title="mensajesPendientes[origen]"
+            class="absolute -top-2 -right-2 min-w-6 h-6 px-1 flex items-center justify-center
+                   rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-white">
+            <span class="absolute inset-0 animate-ping rounded-full bg-red-600 opacity-60"></span>
+            <!-- Siempre 1: solo avisa que hay algo; el detalle está dentro de cada módulo -->
+            <span class="relative">1</span>
+          </span>
+
+          <span class="material-symbols-outlined text-white text-5xl mb-2">
+            {{ consejo.icono || ICONO_DEFAULT }}
+          </span>
 
           {{ consejo.nombre }}
         </Link>

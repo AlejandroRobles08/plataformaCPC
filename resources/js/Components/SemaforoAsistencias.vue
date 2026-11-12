@@ -1,5 +1,5 @@
 <script setup>
-// Instructivo de la semaforización de asistencias (Asistencias y Archivo digital)
+// Instructivo de la semaforización de asistencias (Asistencias)
 defineProps({ esIntegrante: Boolean })
 
 const leyenda = [

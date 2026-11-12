@@ -9,9 +9,10 @@ const props = defineProps({
   consejos: { type: Array, default: () => [] }
 })
 
-// Deben coincidir con Integrante::MAX_FORMULAS e INTEGRANTES_POR_FORMULA
+// Deben coincidir con Integrante::MAX_FORMULAS, INTEGRANTES_POR_FORMULA y CARGOS
 const MAX_FORMULAS = 15
 const INTEGRANTES_POR_FORMULA = 2
+const CARGOS = ['Persona Consejera Titular', 'Persona Consejera Suplente']
 
 const emit = defineEmits(['close'])
 
@@ -20,7 +21,8 @@ const form = useForm({
   acta_resolucion: null,
   // Si la persona eligió consejo en su postulación, queda fijo en ese
   consejo_id: props.postulacion.consejo_solicitado_id ?? '',
-  formula: ''
+  formula: '',
+  cargo: ''
 })
 
 const consejoFijo = computed(() => props.postulacion.consejo_solicitado_id != null)
@@ -38,6 +40,22 @@ const formulas = computed(() => {
 
 // Al cambiar de consejo, la fórmula elegida ya no aplica
 watch(() => form.consejo_id, () => { form.formula = '' })
+
+// Cargos que siguen libres en la fórmula elegida (titular y suplente)
+const cargosDisponibles = computed(() => {
+  if (!consejoElegido.value || !form.formula) return []
+  const ocupados = consejoElegido.value.cargos?.[form.formula] ?? []
+  return CARGOS.filter(cargo => !ocupados.includes(cargo))
+})
+
+// Si solo queda un cargo libre se asigna solo; si el elegido dejó de estar libre, se limpia
+watch(cargosDisponibles, disponibles => {
+  if (disponibles.length === 1) {
+    form.cargo = disponibles[0]
+  } else if (!disponibles.includes(form.cargo)) {
+    form.cargo = ''
+  }
+})
 
 const submit = () => {
   form.post(route('postulaciones.aprobar', props.postulacion.id), {
@@ -134,6 +152,26 @@ const submit = () => {
         </select>
         <div v-if="form.errors.formula" class="text-red-500 text-sm">
           {{ form.errors.formula }}
+        </div>
+      </div>
+
+      <!-- Cargo: solo los que siguen libres en la fórmula -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">
+          Cargo
+        </label>
+        <select v-model="form.cargo" required :disabled="!form.formula"
+          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
+          <option value="" disabled>
+            {{ form.formula ? 'Seleccione un cargo' : 'Primero seleccione una fórmula' }}
+          </option>
+          <option v-for="cargo in cargosDisponibles" :key="cargo" :value="cargo">{{ cargo }}</option>
+        </select>
+        <p v-if="form.formula && cargosDisponibles.length === 1" class="text-xs text-gray-500 mt-1">
+          Es el único cargo disponible en esta fórmula.
+        </p>
+        <div v-if="form.errors.cargo" class="text-red-500 text-sm">
+          {{ form.errors.cargo }}
         </div>
       </div>
 

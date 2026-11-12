@@ -324,7 +324,7 @@ const calendarAttributes = computed(() => {
 <template>
   <AuthenticatedLayout>
     <!-- Volver -->
-    <Link :href="route('asistencias.index', consejo.id)" class="mb-4 inline-flex items-center px-3 py-2 bg-gray-200 text-gray-800 text-sm rounded hover:bg-gray-300 transition">← Volver a Asistencias</Link>
+    <Link :href="route('asistencias.index', consejo.id)" class="inline-block mt-2 mb-4 text-gray-600 hover:underline">← Volver a Asistencias</Link>
 
     <!-- Instrucciones para administrador -->
     <p v-if="puedeCrearAsistencia" class="mb-6 text-lg text-gray-500">Para programar una sesión, da clic sobre la fecha deseada en el calendario. Para registrar la asistencia de una sesión ya programada, da clic sobre la misma fecha de la sesión.</p>

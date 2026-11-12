@@ -149,6 +149,31 @@ export default {
         && this.estado !== "rechazado";
     },
 
+    //fecha en que se habilita la carga: una semana antes del fin del periodo
+    aperturaCarga() {
+      if (!this.fin) return null;
+
+      const apertura = this.fecha(this.fin);
+      apertura.setDate(apertura.getDate() - 7);
+
+      return apertura;
+    },
+
+    //la carga está abierta desde la apertura hasta el último día del periodo, inclusive
+    cargaHabilitada() {
+      return !!this.aperturaCarga
+        && !this.vencido
+        && this.fecha(new Date()) >= this.aperturaCarga;
+    },
+
+    documentosReeleccion() {
+      return [
+        { campo: "doc_nombramiento", nombre: "Documento de nombramiento *", requerido: true },
+        { campo: "doc_carta_reeleccion", nombre: "Carta de reelección *", requerido: true },
+        { campo: "doc_otros", nombre: "Otros documentos (opcional)", requerido: false },
+      ];
+    },
+
     //fechas estimadas del periodo de reelección
     reeleccion() {
       if (!this.fin) return null;
@@ -178,6 +203,11 @@ export default {
     //formatea la fecha a DD/MM/AAAA
     formatoFecha(valor) {
       if (!valor) return "No disponible";
+
+      if (valor instanceof Date) {
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${pad(valor.getDate())}/${pad(valor.getMonth() + 1)}/${valor.getFullYear()}`;
+      }
 
       const [anio, mes, dia] = String(valor).substring(0, 10).split("-");
       return `${dia}/${mes}/${anio}`;
@@ -239,7 +269,7 @@ export default {
 
               <div class="grid gap-3 sm:grid-cols-[150px_1fr]">
                 <span class="opacity-70">Periodo actual:</span>
-                <span>{{ inicio ? `Primer periodo (${anio(inicio)} - ${anio(fin)})` : "Sin periodo registrado" }}</span>
+                <span>{{ inicio ? `${periodo?.ya_reelegido ? "Periodo de reelección" : "Periodo inicial"} (${anio(inicio)} - ${anio(fin)})` : "Sin periodo registrado" }}</span>
               </div>
             </div>
 
@@ -272,7 +302,7 @@ export default {
                 <strong class="block">Periodo vencido</strong>
                 <p class="mt-1 text-sm">
                   {{ periodo?.ya_reelegido
-                    ? "Concluyó tu primer periodo. No es posible otra reelección consecutiva."
+                    ? "Concluyó tu periodo de reelección. No es posible otra reelección consecutiva."
                     : "El periodo inicial concluyó sin que se solicitara la reelección." }}
                 </p>
               </div>
@@ -286,56 +316,59 @@ export default {
                 </div>
               </div>
 
-              <!-- Solicitud de reelección -->
-              <form v-if="reeleccionDisponible" class="mt-3 space-y-4"
-                @submit.prevent="enviarSolicitud">
-                <p class="text-sm opacity-75">
-                  Adjunta los documentos requeridos para solicitar tu reelección.
+              <!-- Reelección disponible: la carga se abre una semana antes del fin del periodo -->
+              <div v-else-if="reeleccionDisponible && !cargaHabilitada"
+                class="rounded-lg border p-4 text-sm">
+                <strong class="block">Reelección disponible próximamente</strong>
+                <p class="mt-1 opacity-75">
+                  Podrás cargar tus documentos de reelección a partir del
+                  <strong>{{ formatoFecha(aperturaCarga) }}</strong>, una semana antes de que concluya tu periodo.
                 </p>
+              </div>
 
+              <div v-else-if="reeleccionDisponible"
+                class="inline-flex items-center gap-3 rounded-xl border border-[#7A1F32] px-4 py-3 text-[#7A1F32]">
+                <span class="text-2xl">●</span>
                 <div>
-                  <label class="mb-1 block text-sm font-medium">Documento de nombramiento *</label>
-                  <input type="file" accept=".pdf,application/pdf" required
-                    class="block w-full rounded-lg border p-2 text-sm file:mr-3 file:rounded file:border file:px-3 file:py-2"
-                    @change="seleccionarArchivo($event, 'doc_nombramiento')" />
-                  <p v-if="form.errors.doc_nombramiento" class="mt-1 text-sm text-red-600">
-                    {{ form.errors.doc_nombramiento }}
-                  </p>
+                  <strong class="block">Reelección abierta</strong>
+                  <small>Adjunta tus documentos antes del {{ formatoFecha(fin) }}</small>
                 </div>
-
-                <div>
-                  <label class="mb-1 block text-sm font-medium">Carta de reelección *</label>
-                  <input type="file" accept=".pdf,application/pdf" required
-                    class="block w-full rounded-lg border p-2 text-sm file:mr-3 file:rounded file:border file:px-3 file:py-2"
-                    @change="seleccionarArchivo($event, 'doc_carta_reeleccion')" />
-                  <p v-if="form.errors.doc_carta_reeleccion" class="mt-1 text-sm text-red-600">
-                    {{ form.errors.doc_carta_reeleccion }}
-                  </p>
-                </div>
-
-                <div>
-                  <label class="mb-1 block text-sm font-medium">Otros documentos (opcional)</label>
-                  <input type="file" accept=".pdf,application/pdf"
-                    class="block w-full rounded-lg border p-2 text-sm file:mr-3 file:rounded file:border file:px-3 file:py-2"
-                    @change="seleccionarArchivo($event, 'doc_otros')" />
-                  <p v-if="form.errors.doc_otros" class="mt-1 text-sm text-red-600">
-                    {{ form.errors.doc_otros }}
-                  </p>
-                </div>
-
-                <p class="text-xs opacity-70">Formato PDF. Tamaño máximo de 5 MB por archivo.</p>
-
-                <button type="submit" :disabled="form.processing"
-                  class="w-full rounded-lg bg-[#7A1F32] px-4 py-3 font-semibold text-white transition hover:bg-[#922840] disabled:cursor-not-allowed disabled:opacity-50">
-                  {{ form.processing ? "Enviando solicitud..." : "Enviar solicitud de reelección" }}
-                </button>
-              </form>
+              </div>
 
               <div v-else-if="estado === 'sin_periodo'"
                 class="rounded-lg border p-3 text-sm">
                 No tienes un periodo registrado.
               </div>
             </div>
+
+            <!-- Solicitud de reelección: documentos en una sola fila -->
+            <form v-if="reeleccionDisponible && cargaHabilitada"
+              class="space-y-4 border-t pt-4 md:col-span-2"
+              @submit.prevent="enviarSolicitud">
+              <p class="text-sm opacity-75">
+                Adjunta los documentos requeridos para solicitar tu reelección.
+              </p>
+
+              <div class="grid gap-4 md:grid-cols-3">
+                <div v-for="d in documentosReeleccion" :key="d.campo" class="min-w-0">
+                  <label class="mb-1 block text-sm font-medium">{{ d.nombre }}</label>
+                  <input type="file" accept=".pdf,application/pdf" :required="d.requerido"
+                    class="block w-full rounded-lg border p-2 text-sm file:mr-3 file:rounded file:border file:px-3 file:py-2"
+                    @change="seleccionarArchivo($event, d.campo)" />
+                  <p v-if="form.errors[d.campo]" class="mt-1 text-sm text-red-600">
+                    {{ form.errors[d.campo] }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-xs opacity-70">Formato PDF. Tamaño máximo de 5 MB por archivo.</p>
+                <button type="submit" :disabled="form.processing"
+                  class="rounded-lg bg-[#7A1F32] px-6 py-3 font-semibold text-white transition hover:bg-[#922840] disabled:cursor-not-allowed disabled:opacity-50">
+                  {{ form.processing ? "Enviando solicitud..." : "Enviar solicitud de reelección" }}
+                </button>
+              </div>
+            </form>
           </div>
 
           <!-- Fechas y tiempo restante -->
@@ -372,7 +405,7 @@ export default {
                       Periodo actual ({{ anio(inicio) }} - {{ anio(fin) }})
                     </h3>
                     <p class="mt-1 text-sm opacity-75">
-                      {{ periodo?.ya_reelegido ? "Periodo de reelección" : "Primer periodo" }}
+                      {{ periodo?.ya_reelegido ? "Periodo de reelección" : "Periodo inicial" }}
                     </p>
                   </div>
                   <span class="rounded-lg border border-current px-3 py-2 text-sm">
@@ -390,8 +423,8 @@ export default {
           <div class="rounded-xl border p-5 bg-gray-300">
             <h3 class="font-bold">ⓘ Información importante</h3>
             <p class="mt-2 text-sm leading-relaxed opacity-75">
-              El cargo permite una sola reelección consecutiva, además del periodo ordinario inicial.
-              Al concluir el segundo periodo no se permitirá otra reelección consecutiva.
+              El cargo permite una sola reelección consecutiva, además del periodo inicial.
+              Al concluir el periodo de reelección no se permitirá otra reelección consecutiva.
             </p>
           </div>
         </section>

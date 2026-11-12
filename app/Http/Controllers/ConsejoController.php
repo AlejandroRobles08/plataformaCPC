@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Asistencia;
 use App\Models\Consejo;
+use App\Models\Docu;
+use App\Models\Legalidad;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -42,11 +45,50 @@ class ConsejoController extends Controller
             ->orderBy('id')
             ->get();
 
+        // Aviso rojo en la tarjeta: pendientes por revisar en el módulo, solo para quien los valida
+        $pendientes = $user->hasAnyRole(['admin', 'super_admin'])
+            ? $this->pendientesPorConsejo($origen)
+            : collect();
+
+        $consejos->each(fn ($consejo) => $consejo->setAttribute('pendientes', (int) ($pendientes[$consejo->id] ?? 0)));
+
         //este es el origen de la vista de los consejos
         return inertia('Consejos/Index', [
             'consejos' => $consejos,
             'origen' => $origen,
         ]);
+    }
+
+    // Cantidad de elementos por revisar en cada consejo, según el módulo:
+    // Archivo digital: documentos subidos en espera de validación.
+    // Asistencias: justificantes enviados en espera de validación.
+    // Periodo en el cargo: solicitudes de reelección enviadas en espera de validación.
+    private function pendientesPorConsejo(string $origen): \Illuminate\Support\Collection
+    {
+        $query = match ($origen) {
+            'integrantes' => Docu::query()
+                ->join('integrantes', 'integrantes.id', '=', 'docus.integrante_id')
+                ->where('docus.estatus', Docu::PENDIENTE),
+            'asistencias' => Asistencia::query()
+                ->join('integrantes', 'integrantes.id', '=', 'asistencias.integrante_id')
+                ->whereNotNull('asistencias.justificante')
+                ->where('asistencias.estado_justificante', 'pendiente'),
+            // El periodo guarda su propio consejo_id (así filtra la vista de Periodo en el cargo)
+            'legalidad' => Legalidad::query()
+                ->where('estatus_reeleccion', 'pendiente')
+                ->whereNotNull('fecha_inicio_reeleccion'),
+            default => null,
+        };
+
+        if (! $query) {
+            return collect();
+        }
+
+        $columna = $origen === 'legalidad' ? 'legalidad.consejo_id' : 'integrantes.consejo_id';
+
+        return $query->selectRaw("{$columna} as consejo_id, COUNT(*) as total")
+            ->groupBy($columna)
+            ->pluck('total', 'consejo_id');
     }
 
     //formulario para dar de alta e instalar un consejo
@@ -56,6 +98,7 @@ class ConsejoController extends Controller
 
         return inertia('Consejos/Instalacion', [
             'origen' => array_key_exists($origen, self::RUTAS_ORIGEN) ? $origen : 'integrantes',
+            'iconos' => Consejo::ICONOS,
         ]);
     }
 
@@ -65,12 +108,16 @@ class ConsejoController extends Controller
         $validated = $request->validate([
             'nombre' => 'required|string|max:255|unique:consejos,nombre',
             'descripcion' => 'nullable|string|max:255',
+            'icono' => ['required', Rule::in(array_keys(Consejo::ICONOS))],
             'origen' => ['nullable', Rule::in(array_keys(self::RUTAS_ORIGEN))],
+        ], [
+            'icono.required' => 'Selecciona un ícono para el consejo.',
         ]);
 
         Consejo::create([
             'nombre' => trim($validated['nombre']),
             'descripcion' => $validated['descripcion'] ?? null,
+            'icono' => $validated['icono'],
         ]);
 
         return redirect()->route(self::RUTAS_ORIGEN[$validated['origen'] ?? 'integrantes']);

@@ -8,7 +8,6 @@ import { ArrowLeftIcon, CheckBadgeIcon, XCircleIcon } from '@heroicons/vue/24/so
 const props = defineProps({
   postulacion: { type: Object, required: true },
   enPrimerFiltro: { type: Boolean, default: false },
-  passwordTemporal: { type: String, default: '' },
 })
 
 const page = usePage()
@@ -17,6 +16,7 @@ watchEffect(() => {
   const flash = page.props.flash
   if (flash?.success) Swal.fire({ icon: 'success', title: 'Correcto', text: flash.success })
   if (flash?.error) Swal.fire({ icon: 'error', title: 'Error', text: flash.error })
+  if (flash?.warning) Swal.fire({ icon: 'warning', title: 'Atención', text: flash.warning })
 })
 
 const ESTATUS = {
@@ -156,11 +156,10 @@ const noAprobar = async () => {
             <dt class="text-sm font-medium text-gray-500">Acceso como invitado</dt>
             <dd class="sm:col-span-2 text-sm text-gray-800 space-y-1">
               <p>Usuario: <span class="font-medium break-all">{{ postulacion.user.email }}</span></p>
-              <p>Contraseña temporal: <span class="font-mono font-medium">{{ passwordTemporal }}</span></p>
               <p class="text-xs text-gray-500">
                 {{ postulacion.documentos_count
                   ? 'Ya cargó sus documentos: la postulación está en el Panel de validación.'
-                  : 'Aún no carga sus documentos. Al iniciar sesión se le pedirá cambiar la contraseña.' }}
+                  : 'Aún no carga sus documentos. Su contraseña temporal y la lista de documentos se le enviaron por correo.' }}
               </p>
             </dd>
           </div>

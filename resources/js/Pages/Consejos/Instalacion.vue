@@ -7,6 +7,11 @@ const props = defineProps({
   origen: {
     type: String,
     default: 'integrantes'
+  },
+  // Catálogo de íconos de Material Symbols: nombre => etiqueta
+  iconos: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -22,6 +27,7 @@ const rutasOrigen = {
 const form = useForm({
   nombre: '',
   descripcion: '',
+  icono: '',
   origen: props.origen,
 })
 
@@ -83,6 +89,41 @@ function submit() {
           </p>
           <p v-if="form.errors.descripcion" class="text-red-500 text-sm">
             {{ form.errors.descripcion }}
+          </p>
+        </div>
+
+        <!-- Ícono -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">
+            Ícono del consejo
+          </label>
+          <p class="text-xs text-gray-500 mb-2">
+            Seleccione un ícono para mostrarse en la tarjeta del consejo.
+          </p>
+
+          <div class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-64 overflow-y-auto p-1">
+            <button v-for="(etiqueta, icono) in iconos" :key="icono" type="button"
+              :title="etiqueta" :aria-label="etiqueta" :aria-pressed="form.icono === icono"
+              @click="form.icono = icono"
+              :class="form.icono === icono
+                ? 'bg-[#7D2447] text-white border-[#7D2447]'
+                : 'bg-white text-gray-700 border-gray-300 hover:border-[#7D2447] hover:text-[#7D2447]'"
+              class="flex flex-col items-center justify-center gap-1 p-2 border rounded-md transition">
+              <span class="material-symbols-outlined text-3xl">{{ icono }}</span>
+              <span class="text-[10px] leading-tight text-center line-clamp-2">{{ etiqueta }}</span>
+            </button>
+          </div>
+
+          <!-- Vista previa de cómo se verá la tarjeta -->
+          <div v-if="form.icono" class="mt-3 flex justify-center">
+            <div class="w-40 p-4 rounded-lg bg-gray-600 text-white flex flex-col items-center font-semibold text-center">
+              <span class="material-symbols-outlined text-5xl mb-2">{{ form.icono }}</span>
+              {{ form.nombre || 'Nombre del consejo' }}
+            </div>
+          </div>
+
+          <p v-if="form.errors.icono" class="text-red-500 text-sm">
+            {{ form.errors.icono }}
           </p>
         </div>
 

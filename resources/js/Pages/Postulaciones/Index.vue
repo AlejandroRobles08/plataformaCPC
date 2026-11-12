@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ref, watchEffect, computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
-import { HandRaisedIcon, EyeIcon } from '@heroicons/vue/24/solid'
+import { HandRaisedIcon, EyeIcon, HeartIcon, FolderOpenIcon } from '@heroicons/vue/24/solid'
 import Swal from 'sweetalert2'
 import Form from './Form.vue'
 import CrearUsuarioModal from '@/Components/CrearUsuarioModal.vue'
@@ -16,8 +16,27 @@ const props = defineProps({
   postulaciones: {
     type: Array,
     default: () => []
+  },
+  // Postulaciones con documentos cargados que esperan revisión (alerta del Panel de validación)
+  documentosPorRevisar: {
+    type: Number,
+    default: 0
   }
 })
+
+// Invitado con documentos ya cargados: puede consultar su expediente y las observaciones
+const miPostulacionConDocumentos = computed(() =>
+  esInvitado.value
+    ? props.postulaciones.find(p => p.documentos?.length) ?? null
+    : null
+)
+
+// Documentos que no se aprobaron y la persona debe volver a cargar
+const documentosNoAprobados = computed(() =>
+  ['pendiente', 'pre_aprobada'].includes(miPostulacionConDocumentos.value?.estatus)
+    ? miPostulacionConDocumentos.value.documentos.filter(d => d.estatus === 'rechazado').length
+    : 0
+)
 
 // Invitado que viene de la postulación abierta: ya pre-aprobado, falta subir documentos
 const postulacionPorDocumentar = computed(() =>
@@ -31,6 +50,13 @@ const postulacionPorDocumentar = computed(() =>
 const puedePostularse = computed(() =>
   page.props.auth?.roles?.includes('super_admin')
   || (esInvitado.value && (!props.postulaciones.length || !!postulacionPorDocumentar.value))
+)
+
+// Invitado cuya postulación no fue aprobada: se le muestra un mensaje amable en lugar de solo el estatus
+const postulacionNoAprobada = computed(() =>
+  esInvitado.value
+    ? props.postulaciones.find(p => p.estatus === 'no_aprobada') ?? null
+    : null
 )
 
 const showModal = ref(false)
@@ -105,8 +131,16 @@ function exportarPostulacionesExcel() {
 
     <div v-if="!esInvitado" class="mb-4 flex justify-between">
       <Link :href="route('postulaciones.validacion')"
-        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+        class="relative px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
         Panel de validación
+        <!-- Aviso: hay postulaciones con documentos cargados por revisar -->
+        <span v-if="documentosPorRevisar"
+          :title="`${documentosPorRevisar} ${documentosPorRevisar === 1 ? 'postulación tiene' : 'postulaciones tienen'} documentos por revisar`"
+          class="absolute -top-2 -right-2 min-w-6 h-6 px-1 flex items-center justify-center
+                 rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-white">
+          <span class="absolute inset-0 animate-ping rounded-full bg-red-600 opacity-60"></span>
+          <span class="relative">{{ documentosPorRevisar }}</span>
+        </span>
       </Link>
 
       <button @click="showInvitado = true"
@@ -117,11 +151,71 @@ function exportarPostulacionesExcel() {
 
     <div class="py-12">
       <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <!-- Mensaje para el invitado cuya postulación no fue aprobada -->
+        <section v-if="postulacionNoAprobada" role="status"
+          class="mb-6 overflow-hidden rounded-lg border border-puebla-guinda/20 bg-white shadow-sm">
+          <div class="h-1 bg-puebla-guinda"></div>
+          <div class="flex flex-col gap-4 p-6 sm:flex-row sm:items-start">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-puebla-guinda/10">
+              <HeartIcon class="h-6 w-6 text-puebla-guinda" aria-hidden="true" />
+            </div>
+            <div class="space-y-3 text-sm text-gray-600">
+              <h2 class="text-lg font-semibold text-gray-800">
+                Gracias por postularse, {{ postulacionNoAprobada.nombre }}
+              </h2>
+              <p>
+                Después de revisar cuidadosamente todas las postulaciones, le informamos que en esta ocasión
+                su postulación <span class="font-semibold text-gray-800">no fue aprobada</span>.
+              </p>
+              <p>
+                Este resultado no demerita su trayectoria ni su compromiso con la comunidad: los lugares en cada
+                consejo son limitados y la selección responde a los perfiles requeridos en esta convocatoria.
+              </p>
+              <div class="rounded-md bg-puebla-arena-claro px-4 py-3 text-gray-700">
+                <p class="font-semibold text-gray-800">Le invitamos a seguir participando</p>
+                <p class="mt-1">
+                  Las convocatorias para integrar los Consejos de Participación Ciudadana se abren de manera periódica.
+                  Nos dará mucho gusto recibir nuevamente su postulación en una próxima ocasión.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Aviso para el invitado con documentos no aprobados -->
+        <div v-if="documentosNoAprobados" role="alert"
+          class="mb-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <span class="font-semibold">
+              {{ documentosNoAprobados === 1 ? 'Un documento no fue aprobado.' : `${documentosNoAprobados} documentos no fueron aprobados.` }}
+            </span>
+            Revise las observaciones y cargue una nueva versión para continuar con su postulación.
+          </p>
+          <Link :href="route('postulaciones.documentos')"
+            class="shrink-0 rounded-md bg-red-600 px-4 py-2 text-center font-semibold text-white hover:bg-red-700">
+            Ver observaciones
+          </Link>
+        </div>
+
         <div class="mb-4 flex justify-end space-x-2">
           <button v-if="!esInvitado" @click="exportarPostulacionesExcel"
             class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
             Exportar Excel
           </button>
+
+          <Link v-if="miPostulacionConDocumentos" :href="route('postulaciones.documentos')"
+            class="relative px-4 py-2 rounded-md inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+            <FolderOpenIcon class="w-5 h-5" />
+            <span>Mis documentos</span>
+            <!-- Aviso: documentos no aprobados con observaciones por atender -->
+            <span v-if="documentosNoAprobados"
+              :title="`${documentosNoAprobados} ${documentosNoAprobados === 1 ? 'documento no fue aprobado' : 'documentos no fueron aprobados'}`"
+              class="absolute -top-2 -right-2 min-w-6 h-6 px-1 flex items-center justify-center
+                     rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-white">
+              <span class="absolute inset-0 animate-ping rounded-full bg-red-600 opacity-60"></span>
+              <span class="relative">{{ documentosNoAprobados }}</span>
+            </span>
+          </Link>
 
           <button v-if="puedePostularse" @click="showModal = true" class="px-4 py-2 text-white rounded-md inline-flex items-center gap-2"
             style="background-color:#1E520B;">

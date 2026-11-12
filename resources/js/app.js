@@ -5,6 +5,7 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import SlowRequestIndicator from './Components/SlowRequestIndicator.vue';
 
 // V-Calendar
 import { setupCalendar } from 'v-calendar';
@@ -20,7 +21,7 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        return createApp({ render: () => h(App, props) })
+        return createApp({ render: () => [h(App, props), h(SlowRequestIndicator)] })
             .use(plugin)
             .use(ZiggyVue)
             .use(setupCalendar, {
@@ -31,6 +32,6 @@ createInertiaApp({
             })
             .mount(el);
     },
-    // Se reemplaza por el componente LoadingScreen dentro del layout
+    // Se reemplaza por SlowRequestIndicator (global, solo para peticiones lentas)
     progress: false,
 });

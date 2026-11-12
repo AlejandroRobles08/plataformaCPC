@@ -4,7 +4,6 @@ import Navigation from './Navigation.vue'
 import TopMenu from './TopMenu.vue'
 import NavigationMobile from './NavigationMobile.vue'
 import PasswordReminderModal from '@/Components/PasswordReminderModal.vue'
-import LoadingScreen from '@/Components/LoadingScreen.vue'
 
 
 const handlePageShow = (event) => {
@@ -42,7 +41,6 @@ onBeforeUnmount(() => {
               <slot />
             </div>
           </main>
-          <LoadingScreen />
         </div>
       </div>
     </div>

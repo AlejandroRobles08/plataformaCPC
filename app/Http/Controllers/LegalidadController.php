@@ -146,9 +146,16 @@ class LegalidadController extends Controller
         );
 
         // Si el periodo ya concluyó, se perdió el derecho a solicitarla
-        abort_if($legalidad->fin_cargo->lt(Carbon::today()),
+        abort_if($this->periodoVencido($legalidad),
             403,
             'El periodo en el cargo ya está vencido.'
+        );
+
+        // La carga de documentos se habilita una semana antes del fin del periodo
+        $apertura = $legalidad->fin_cargo->copy()->subDays(7);
+        abort_if($this->hoy() < $apertura->toDateString(),
+            403,
+            'La carga de documentos se habilita a partir del ' . $apertura->format('d/m/Y') . '.'
         );
 
         $request->validate([
@@ -219,8 +226,20 @@ class LegalidadController extends Controller
         );
     }
 
-    /** Aprueba la reelección y reinicia el periodo por 3 años desde hoy. */
-    public function aprobarReeleccion(Legalidad $legalidad)
+    /** El periodo vence al terminar su último día en horario de México (el servidor usa UTC). */
+    private function periodoVencido(Legalidad $legalidad): bool
+    {
+        return $legalidad->fin_cargo->toDateString() < $this->hoy();
+    }
+
+    /** Fecha de hoy (AAAA-MM-DD) en horario de México. */
+    private function hoy(): string
+    {
+        return Carbon::today('America/Mexico_City')->toDateString();
+    }
+
+    /** Aprueba la reelección; el periodo de reelección inicia en la fecha de aprobación y dura 3 años. */
+    public function aprobarReeleccion(Request $request, Legalidad $legalidad)
     {
         Gate::authorize('validarReeleccion', $legalidad);
 
@@ -235,7 +254,22 @@ class LegalidadController extends Controller
             403,
             'No existe una solicitud pendiente por validar.'
         );
-        $inicio = Carbon::now();
+
+        // La aprobación no puede ser anterior a la fecha en que se envió la solicitud
+        $validated = $request->validate([
+            'fecha_aprobacion' => [
+                'required',
+                'date',
+                'after_or_equal:' . $legalidad->fecha_inicio_reeleccion->toDateString(),
+            ],
+        ], [
+            'fecha_aprobacion.required' => 'Indica la fecha de aprobación.',
+            'fecha_aprobacion.after_or_equal' => 'La fecha de aprobación no puede ser anterior a la solicitud ('
+                . $legalidad->fecha_inicio_reeleccion->format('d/m/Y') . ').',
+        ]);
+
+        // El periodo de reelección inicia en la fecha de aprobación
+        $inicio = Carbon::parse($validated['fecha_aprobacion'])->startOfDay();
         $fin = $inicio->copy()->addYears(3);
 
         // ya_reelegido impide una segunda reelección
@@ -245,6 +279,7 @@ class LegalidadController extends Controller
             'periodo_habil' => '03:00:00',
             'estatus_reeleccion' => 'aprobado',
             'fecha_validacion' => now(),
+            'fecha_aprobacion' => $inicio,
             'validado_por' => Auth::id(),
             'ya_reelegido' => true,
         ]);

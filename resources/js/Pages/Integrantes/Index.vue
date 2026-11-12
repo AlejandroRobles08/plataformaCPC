@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import DraggableModal from '@/Components/DraggableModal.vue'
-import SemaforoAsistencias from '@/Components/SemaforoAsistencias.vue'
+import SemaforoDocumentos from '@/Components/SemaforoDocumentos.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useForm, Link, usePage, router } from '@inertiajs/vue3'
 import { FolderOpenIcon } from '@heroicons/vue/24/solid'
@@ -253,8 +253,8 @@ const avisoDocumentos = (integrante) => {
       </div>
 
       <!-- Semaforización (izquierda) e instrucciones según el rol (derecha) -->
-      <div class="mb-6 grid grid-cols-1 gap-4" :class="{ 'md:grid-cols-2': hayInstrucciones }">
-        <SemaforoAsistencias :es-integrante="esIntegrante" />
+      <div class="mb-6 grid grid-cols-1 gap-4" :class="{ 'md:grid-cols-2': puedeEditarIntegrante || esIntegrante }">
+        <SemaforoDocumentos :es-integrante="esIntegrante" />
 
         <!-- Instrucciones para administrador -->
         <div v-if="puedeEditarIntegrante" class="space-y-2 rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
@@ -268,9 +268,16 @@ const avisoDocumentos = (integrante) => {
           <p>Su cargo y su correo ya fueron registrados por la administración y no se pueden modificar desde aquí; si alguno es incorrecto, comuníquese con la persona administradora.</p>
           <p><strong>IMPORTANTE:</strong> No tendrá acceso a los demás módulos de la plataforma hasta que complete su alta. Este paso se realiza una sola vez.</p>
         </div>
+
+        <!-- Instrucciones para integrante con el alta completada -->
+        <div v-else-if="esIntegrante" class="space-y-2 rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
+          <p>Para poder interactuar con los demás módulos de la plataforma, <strong>todos sus documentos</strong> deben estar <strong>aprobados</strong> por la administración.</p>
+          <p>Dé clic en el botón <strong>Documentos</strong> para subir los documentos que le falten o corregir los que no hayan sido aprobados. El semáforo junto a su nombre le indica el avance de su expediente.</p>
+          <p><strong>IMPORTANTE:</strong> Mientras su expediente no esté completo, no tendrá acceso a los demás módulos ni podrá registrarse su asistencia.</p>
+        </div>
       </div>
 
-      <p v-if="consejoLleno" class="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-yellow-800">Este consejo ha llegado a su máximo de fórmulas</p>
+      <p v-if="consejoLleno && !esIntegrante" class="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-yellow-800">Este consejo ha llegado a su máximo de fórmulas</p>
 
       <!-- Alta de integrantes -->
       <div v-if="hayInstrucciones" class="mb-4 flex justify-end">

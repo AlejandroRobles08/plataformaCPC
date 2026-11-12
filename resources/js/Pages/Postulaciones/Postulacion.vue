@@ -1,27 +1,76 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { ref, watchEffect } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
-import { CheckBadgeIcon, XMarkIcon, EyeIcon, DocumentTextIcon } from '@heroicons/vue/24/solid'
+import { CheckBadgeIcon, XMarkIcon, EyeIcon, DocumentTextIcon, CheckCircleIcon, XCircleIcon, ClockIcon,
+  HandThumbUpIcon, HandThumbDownIcon } from '@heroicons/vue/24/solid'
 import Aprobar from './Aprobar.vue'
 
 const page = usePage()
 const props = defineProps({
   postulaciones: { type: Array, default: () => [] },
-  consejos: { type: Array, default: () => [] }
+  consejos: { type: Array, default: () => [] },
+  nombresDocumentos: { type: Object, default: () => ({}) }
 })
-const postulacionSeleccionada = ref(null)
-const mostrarExpediente = ref(false)
+
+// Se guarda solo el id: al aprobar / no aprobar un documento llegan props nuevos
+// y el modal debe mostrar el estado actualizado
+const idSeleccionado = ref(null)
+const postulacionSeleccionada = computed(() =>
+  props.postulaciones.find(p => p.id === idSeleccionado.value) ?? null
+)
+const mostrarExpediente = computed(() => !!postulacionSeleccionada.value)
 
 const abrirExpediente = postulacion => {
-  postulacionSeleccionada.value = postulacion
-  mostrarExpediente.value = true
+  idSeleccionado.value = postulacion.id
 }
 
 const cerrarExpediente = () => {
-  postulacionSeleccionada.value = null
-  mostrarExpediente.value = false
+  idSeleccionado.value = null
+}
+
+// Estado de los documentos (mismo flujo que el archivo digital)
+const ESTILOS_DOC = {
+  aprobado: { texto: 'Aprobado', icono: CheckCircleIcon, insignia: 'bg-green-100 text-green-800 ring-green-200', iconoColor: 'text-green-600' },
+  pendiente: { texto: 'Por revisar', icono: ClockIcon, insignia: 'bg-amber-100 text-amber-800 ring-amber-200', iconoColor: 'text-amber-600' },
+  rechazado: { texto: 'No aprobado', icono: XCircleIcon, insignia: 'bg-red-100 text-red-800 ring-red-200', iconoColor: 'text-red-600' },
+}
+const estiloDoc = doc => ESTILOS_DOC[doc.estatus] ?? ESTILOS_DOC.pendiente
+const nombreDocumento = doc => props.nombresDocumentos[doc.tipo] ?? doc.tipo.replaceAll('_', ' ')
+
+const contar = (postulacion, estatus) => (postulacion.documentos ?? []).filter(d => d.estatus === estatus).length
+const porRevisar = postulacion => contar(postulacion, 'pendiente')
+// Solo se aprueba la postulación con todos sus documentos aprobados
+const expedienteAprobado = postulacion =>
+  Object.keys(props.nombresDocumentos).every(tipo =>
+    postulacion.documentos?.some(d => d.tipo === tipo && d.estatus === 'aprobado'))
+
+const aprobarDocumento = async doc => {
+  const { isConfirmed } = await Swal.fire({
+    title: '¿Aprobar documento?', text: `${nombreDocumento(doc)} será marcado como aprobado.`,
+    icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aprobar', cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#15803d'
+  })
+  if (isConfirmed) {
+    router.patch(route('postulaciones.documentos.aprobar', doc.id), {}, { preserveScroll: true, preserveState: true })
+  }
+}
+
+const rechazarDocumento = async doc => {
+  const { isConfirmed, value } = await Swal.fire({
+    title: 'No se aprobará el documento',
+    text: 'Indique las observaciones para la persona postulante.',
+    input: 'textarea', inputLabel: 'Observación',
+    inputPlaceholder: 'Describa las razones por las que no se aprueba el documento.',
+    inputAttributes: { 'aria-label': 'Observación del documento', maxlength: 2000 },
+    showCancelButton: true, confirmButtonText: 'No aprobar', cancelButtonText: 'Cancelar', confirmButtonColor: '#dc2626',
+    inputValidator: v => !v?.trim() && 'Debes escribir una observación.'
+  })
+  if (isConfirmed) {
+    router.patch(route('postulaciones.documentos.rechazar', doc.id), { observacion: value },
+      { preserveScroll: true, preserveState: true })
+  }
 }
 
 const verDocumento = archivo => {
@@ -45,12 +94,27 @@ watchEffect(() => {
       text: flash.error
     })
   }
+  if (flash?.warning) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Atención',
+      text: flash.warning
+    })
+  }
 })
 
 // Aprobar postulación (modal con fecha, acta y consejo)
 const postulacionAprobar = ref(null)
 
 const aprobar = postulacion => {
+  if (!expedienteAprobado(postulacion)) {
+    Swal.fire({
+      icon: 'info',
+      title: 'Expediente sin aprobar',
+      text: 'Antes de aprobar la postulación, revise y apruebe todos los documentos del expediente.',
+    })
+    return
+  }
   postulacionAprobar.value = postulacion
 }
 
@@ -124,16 +188,26 @@ const rechazar = id => {
 
                 <td class="px-4 py-3 text-center">
                   <button @click="abrirExpediente(p)"
-                    class="text-blue-600 hover:text-blue-800"
-                    title="Revisar expediente">
+                    class="relative text-blue-600 hover:text-blue-800"
+                    :title="porRevisar(p) ? `${porRevisar(p)} documento(s) por revisar` : 'Revisar expediente'">
                     <EyeIcon class="w-6 h-6" />
+                    <!-- Aviso: la persona subió documentos que esperan revisión -->
+                    <span v-if="porRevisar(p)"
+                      class="absolute -top-2 -right-3 min-w-5 h-5 px-1 flex items-center justify-center
+                             rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-white">
+                      <span class="absolute inset-0 animate-ping rounded-full bg-red-600 opacity-60"></span>
+                      <span class="relative">{{ porRevisar(p) }}</span>
+                    </span>
                   </button>
+                  <p class="mt-1 text-xs text-gray-500">
+                    {{ contar(p, 'aprobado') }} de {{ Object.keys(nombresDocumentos).length }} aprobados
+                  </p>
                 </td>
 
                 <td class="px-4 py-3 text-center space-x-3">
                   <button @click="aprobar(p)"
-                    class="text-green-600 hover:text-green-800"
-                    title="Aprobar postulación">
+                    :class="expedienteAprobado(p) ? 'text-green-600 hover:text-green-800' : 'text-gray-300 cursor-not-allowed'"
+                    :title="expedienteAprobado(p) ? 'Aprobar postulación' : 'Apruebe todos los documentos para aprobar la postulación'">
                     <CheckBadgeIcon class="w-6 h-6" />
                   </button>
 
@@ -212,18 +286,44 @@ const rechazar = id => {
             <div v-else class="border rounded-lg divide-y">
               <div v-for="documento in postulacionSeleccionada.documentos"
                 :key="documento.id"
-                class="flex items-center justify-between gap-4 p-4">
-                <div class="flex items-center gap-3">
-                  <DocumentTextIcon class="w-6 h-6 text-red-600 shrink-0" />
-                  <span class="capitalize">
-                    {{ documento.tipo.replaceAll('_', ' ') }}
-                  </span>
+                class="flex flex-col gap-3 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <component :is="estiloDoc(documento).icono" class="w-6 h-6 shrink-0" :class="estiloDoc(documento).iconoColor" />
+                    <span class="font-medium text-gray-800">{{ nombreDocumento(documento) }}</span>
+                    <span class="rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset" :class="estiloDoc(documento).insignia">
+                      {{ estiloDoc(documento).texto }}
+                    </span>
+                  </div>
+
+                  <div class="flex flex-wrap gap-2 text-sm font-medium">
+                    <button @click="verDocumento(documento.archivo)"
+                      class="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                      <DocumentTextIcon class="w-4 h-4" /> Ver PDF
+                    </button>
+                    <template v-if="documento.estatus === 'pendiente'">
+                      <button type="button" @click="aprobarDocumento(documento)"
+                        class="inline-flex items-center gap-1 px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                        <HandThumbUpIcon class="w-4 h-4" /> Aprobar
+                      </button>
+                      <button type="button" @click="rechazarDocumento(documento)"
+                        class="inline-flex items-center gap-1 px-3 py-2 rounded border border-red-300 text-red-700 hover:bg-red-50">
+                        <HandThumbDownIcon class="w-4 h-4" /> No aprobar
+                      </button>
+                    </template>
+                  </div>
                 </div>
 
-                <button @click="verDocumento(documento.archivo)"
-                  class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
-                  Ver PDF
-                </button>
+                <div v-if="documento.estatus === 'rechazado'" class="space-y-2">
+                  <div v-if="documento.observacion" class="rounded-lg border border-red-200 bg-red-50 p-3">
+                    <p class="mb-1 text-xs font-semibold uppercase text-red-700">Observación</p>
+                    <p class="text-sm text-red-700 whitespace-pre-line break-words">{{ documento.observacion }}</p>
+                  </div>
+                  <p class="flex items-center gap-1.5 text-xs text-gray-600">
+                    <ClockIcon class="h-4 w-4 shrink-0 text-gray-400" />
+                    En espera de que la persona suba una nueva versión del documento.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

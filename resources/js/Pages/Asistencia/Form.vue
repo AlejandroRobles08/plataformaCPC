@@ -7,13 +7,12 @@ import Pagination from '@/Components/Pagination.vue'
 
 const FORMULAS_POR_PAGINA = 2
 const CARGO_TITULAR = 'Persona Consejera Titular'
-
 const props = defineProps({
   consejoId: {type: [Number, String],required: true},
   integrantes: {type: Array, required: true},
   // Ids con 3 faltas sin justificar: no se les pasa lista hasta que se apruebe su justificante
   integrantesSinPaseLista: {type: Array, default: () => []},
-  // Ids sin todos sus documentos del Archivo digital aprobados: tampoco se les pasa lista
+  // Ids sin todos sus documentos del Archivo digital aprobados: se les registra inasistencia en automático
   integrantesSinExpediente: {type: Array, default: () => []},
   sesion: {type: Object, required: true},
   asistencias: {type: Array, default: () => []},
@@ -22,9 +21,7 @@ const props = defineProps({
   // Si todavía se puede programar otra sesión ese día
   puedeAgregarSesion: {type: Boolean, default: false}
 })
-
 const emit = defineEmits(['close', 'saved', 'nueva-sesion', 'cambiar-sesion'])
-
 const page = usePage()
 
 // Solo el super_admin puede modificar un pase de lista ya guardado
@@ -52,17 +49,21 @@ const estaSinExpediente = integrante =>
 const estadoGuardado = integrante =>
   props.asistencias.find(a => Number(a.integrante_id) === Number(integrante.id))?.estado
 
-// Con 3 faltas sin justificar aparece en la lista nueva, pero bloqueado: se le registra la falta en automático
-const bloqueado = integrante => !listaGuardada.value && estaSinPaseLista(integrante)
+// Bloqueado en "No asistió" (se le registra la falta en automático):
+// - con 3 faltas sin justificar, en una lista nueva
+// - sin expediente aprobado, siempre (salvo que la falta ya se haya justificado)
+const bloqueado = integrante =>
+  (!listaGuardada.value && estaSinPaseLista(integrante)) ||
+  (estaSinExpediente(integrante) && estadoGuardado(integrante) !== 'justificada')
 
-// Lista ya guardada: quienes tienen registro en la sesión. Lista nueva: todos menos quienes no tienen su expediente aprobado.
+// Lista ya guardada: quienes tienen registro en la sesión. Lista nueva: todos.
 // Se fija al abrir el modal porque form.asistencias se construye una sola vez con esta lista.
 const integrantesLista = listaGuardada.value
   ? props.integrantes.filter(estadoGuardado)
-  : props.integrantes.filter(i => estaSinPaseLista(i) || !estaSinExpediente(i))
+  : props.integrantes
 
-// Quiénes no aparecen en una lista nueva por no tener su expediente aprobado
-const integrantesSinDocumentos = listaGuardada.value ? [] : props.integrantes.filter(i => !integrantesLista.includes(i))
+// Quiénes quedarán con inasistencia por no tener su expediente aprobado (aviso en una lista nueva)
+const integrantesSinDocumentos = listaGuardada.value ? [] : props.integrantes.filter(estaSinExpediente)
 
 // "Justificada" no se elige en el pase de lista: solo aparece (marcada) cuando se aprobó el justificante
 const opcionesEstado = integrante => [
@@ -102,7 +103,6 @@ const formulas = computed(() => {
 
 // Paginación en el navegador: recargar la página cerraría el modal y perdería lo capturado
 const paginaActual = ref(1)
-
 const totalPaginas = computed(() =>
   Math.ceil(formulas.value.length / FORMULAS_POR_PAGINA)
 )
@@ -146,7 +146,6 @@ async function confirmarPaginasSinRevisar() {
     .filter(pagina => !paginasRevisadas.has(pagina))
 
   if (!sinRevisar.length) return true
-
   const consecuencia = listaGuardada.value
     ? 'Los integrantes de esas páginas conservarán el estado que ya tienen.'
     : 'Los integrantes de esas páginas se registrarán como "Asistió".'
@@ -160,12 +159,10 @@ async function confirmarPaginasSinRevisar() {
     cancelButtonText: 'Revisar',
     confirmButtonColor: '#374151'
   })
-
   if (isConfirmed) {
     avisoAceptado.value = true
     return true
   }
-
   // Lleva a la primera página pendiente
   paginaActual.value = sinRevisar[0]
   return false
@@ -179,20 +176,17 @@ const procesando = ref(false)
 // Valida que la evidencia sea un PDF.
 function onFileChange(e) {
   const file = e.target.files[0]
-
   if (!file) {
     evidencia.value = null
     errorArchivo.value = ''
     return
   }
-
   if (file.type !== 'application/pdf') {
     errorArchivo.value = 'Solo se permiten archivos PDF.'
     evidencia.value = null
     e.target.value = ''
     return
   }
-
   errorArchivo.value = ''
   evidencia.value = file
 }
@@ -282,9 +276,9 @@ async function submitForm() {
       </label>
     </div>
 
-    <!-- Integrantes fuera del pase de lista por expediente -->
+    <!-- Integrantes con inasistencia automática por expediente incompleto -->
     <div v-if="integrantesSinDocumentos.length" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <p class="font-semibold">No disponibles porque sus documentos del Archivo digital aún no están todos aprobados:</p>
+      <p class="font-semibold">Integrantes con expediente incompleto: se les registrará inasistencia. Podrán justificarla cuando su expediente esté completo y aprobado.</p>
       <ul class="mt-1 list-inside list-disc">
         <li v-for="i in integrantesSinDocumentos" :key="i.id">{{ i.nombre }} {{ i.apellido }}</li>
       </ul>
@@ -305,6 +299,10 @@ async function submitForm() {
               <!-- 3 faltas sin justificar: no se le pasa lista hasta que se apruebe su justificante -->
               <span v-if="estaSinPaseLista(i)" class="block text-xs font-medium text-red-600" title="Se le registra la falta en automático hasta que se apruebe su justificante">
                 ⚠ 3 faltas sin justificar: sin pase de lista hasta justificar
+              </span>
+              <!-- Sin expediente aprobado: inasistencia automática, justificable al completar el expediente -->
+              <span v-else-if="estaSinExpediente(i) && bloqueado(i)" class="block text-xs font-medium text-amber-600" title="Podrá justificarla cuando su expediente esté completo y aprobado">
+                ⚠ Expediente incompleto: inasistencia automática
               </span>
             </p>
 

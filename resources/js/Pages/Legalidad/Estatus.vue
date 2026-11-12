@@ -85,9 +85,9 @@ export default {
       }[this.estado(p)];
     },
 
-    //"Primer periodo" cuando ya se aprobó la reelección, "Periodo inicial" en otro caso
+    //"Periodo de reelección" cuando ya se aprobó la reelección, "Periodo inicial" en otro caso
     tipoPeriodo(p) {
-      return p.ya_reelegido || p.estatus_reeleccion === "aprobado" ? "Primer periodo" : "Periodo inicial";
+      return p.ya_reelegido || p.estatus_reeleccion === "aprobado" ? "Periodo de reelección" : "Periodo inicial";
     },
 
     documentos(p) {
@@ -109,21 +109,53 @@ export default {
       this.seleccionado = null;
     },
 
-    //confirma y aprueba la reelección; reinicia el periodo por 3 años desde hoy
+    //fecha local en formato AAAA-MM-DD para los campos tipo date
+    fechaISO(fecha) {
+      const pad = n => String(n).padStart(2, "0");
+      return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
+    },
+
+    //captura la fecha de aprobación y aprueba la reelección; el periodo de reelección inicia en esa fecha por 3 años
     aprobar() {
+      const minima = String(this.seleccionado.fecha_inicio_reeleccion ?? "").substring(0, 10);
+
       Swal.fire({
         title: "¿Aprobar la reelección?",
-        text: "El periodo se reiniciará por 3 años a partir de hoy. Esta acción no se puede deshacer.",
+        html: `
+          <p style="margin-bottom:12px">El periodo de reelección iniciará en la fecha de aprobación y durará 3 años. Esta acción no se puede deshacer.</p>
+          <label for="fecha_aprobacion" style="display:block;text-align:left;margin:10px 0 5px;font-weight:600">Fecha de aprobación</label>
+          <input type="date" id="fecha_aprobacion" class="swal2-input" style="margin:0;width:100%"
+            value="${this.fechaISO(new Date())}" ${minima ? `min="${minima}"` : ""}>
+        `,
         icon: "question",
         showCancelButton: true,
         confirmButtonText: "Aprobar",
         cancelButtonText: "Cancelar",
         confirmButtonColor: "#15803d",
+        preConfirm: () => {
+          const fecha = document.getElementById("fecha_aprobacion").value;
+          if (!fecha) {
+            Swal.showValidationMessage("Indica la fecha de aprobación.");
+            return false;
+          }
+          if (minima && fecha < minima) {
+            Swal.showValidationMessage("La fecha de aprobación no puede ser anterior a la solicitud.");
+            return false;
+          }
+          return fecha;
+        },
       }).then(result => {
         if (!result.isConfirmed) return;
-        router.post(`/legalidad/${this.seleccionado.id}/aprobar`, {}, {
+        router.post(`/legalidad/${this.seleccionado.id}/aprobar`, { fecha_aprobacion: result.value }, {
           preserveScroll: true,
           onSuccess: () => this.cerrarModal(),
+          onError: errors => {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: errors.fecha_aprobacion ?? "No fue posible aprobar la reelección.",
+            });
+          },
         });
       });
     },
@@ -197,7 +229,7 @@ export default {
           desde su alta hasta la fecha posterior a 3 años.
         </p>
         <p>
-          El <strong>"Primer periodo"</strong> corresponde a la reelección y la posible aprobación del periodo
+          El <strong>"Periodo de reelección"</strong> corresponde a la reelección y la posible aprobación del periodo
           de la persona consejera. Cada persona tendrá derecho a una sola reelección.
         </p>
       </div>
@@ -271,6 +303,12 @@ export default {
               <DocumentTextIcon class="w-5 h-5" style="color:#7A1F32;" />
               {{ d.nombre }}
             </a>
+          </div>
+
+          <!-- Fecha de aprobación -->
+          <div v-if="estado(seleccionado) === 'aprobado' && seleccionado.fecha_aprobacion"
+            class="rounded-lg border border-green-300 bg-green-50 p-3 text-green-800">
+            <strong>Fecha de aprobación:</strong> {{ formatearFecha(seleccionado.fecha_aprobacion) }}
           </div>
 
           <!-- Motivo del rechazo -->

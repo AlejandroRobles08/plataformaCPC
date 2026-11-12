@@ -263,7 +263,8 @@ class AsistenciaController extends Controller
         $idsConsejo = Integrante::where('consejo_id', $consejo->id)->pluck('id');
         $sinPaseDeLista = Integrante::idsSinPaseDeLista($idsConsejo);
 
-        // Sin el expediente del Archivo digital aprobado tampoco se le pasa lista
+        // Sin el expediente del Archivo digital aprobado se le registra inasistencia en automático;
+        // podrá justificarla cuando su expediente esté completo (las rutas de justificantes lo exigen)
         $sinExpediente = Integrante::idsSinExpedienteAprobado($idsConsejo);
 
         foreach ($validated['asistencias'] as $item) {
@@ -276,11 +277,16 @@ class AsistenciaController extends Controller
             $existente = Asistencia::where('integrante_id', $item['integrante_id'])->where('sesion_id', $sesion->id)->first();
             $sinPase = $sinPaseDeLista->contains($item['integrante_id']);
 
-            // Sin expediente aprobado no se le pasa lista; sí se puede corregir un registro que ya existe
-            if (!$existente && !$sinPase && $sinExpediente->contains((int) $item['integrante_id'])) continue;
+            $sinDocs = $sinExpediente->contains((int) $item['integrante_id']);
 
             // Con 3 faltas sin justificar no se le pasa lista, pero la inasistencia se sigue acumulando
             $estado = !$existente && $sinPase ? 'falto' : $item['estado'];
+
+            // Sin expediente aprobado no puede marcarse como asistente: queda como inasistencia
+            // (salvo que ya se haya justificado)
+            if ($sinDocs && $existente?->estado !== 'justificada') {
+                $estado = 'falto';
+            }
 
             // "Justificada" solo la asigna la aprobación del justificante, no el pase de lista
             if ($estado === 'justificada' && $existente?->estado !== 'justificada') {

@@ -2,7 +2,7 @@
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import PrivacyModal from '@/Components/PrivacyModal.vue'
 import { Head, useForm } from '@inertiajs/vue3'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import {
   UserIcon,
   EnvelopeIcon,
@@ -61,6 +61,67 @@ const formularioRef = ref(null)
 const mostrarFormulario = ref(false)
 const showPrivacy = ref(false)
 
+const faltanCaracteres = computed(() => DESCRIPCION_MIN - form.perfil_descripcion.trim().length)
+
+// Borrador: lo capturado se guarda en sessionStorage para que no se pierda al actualizar la página.
+// Se borra al cerrar la pestaña (útil en equipos compartidos) y al enviar la postulación.
+// El aviso de privacidad y el campo trampa no se guardan: se aceptan de nuevo en cada visita.
+const CLAVE_BORRADOR = 'postulacion-abierta:borrador'
+const CAMPOS_BORRADOR = [
+  'nombre', 'apellido_paterno', 'apellido_materno', 'genero', 'correo',
+  'direccion', 'consejo_solicitado_id', 'perfil', 'perfil_descripcion',
+]
+const borradorRecuperado = ref(false)
+
+const guardarBorrador = () => {
+  try {
+    const datos = Object.fromEntries(CAMPOS_BORRADOR.map(c => [c, form[c]]))
+    sessionStorage.setItem(CLAVE_BORRADOR, JSON.stringify({ datos, paso: paso.value }))
+  } catch {
+    // Sin acceso al almacenamiento del navegador: el formulario funciona igual, solo sin borrador
+  }
+}
+
+const borrarBorrador = () => {
+  try {
+    sessionStorage.removeItem(CLAVE_BORRADOR)
+  } catch {}
+}
+
+const recuperarBorrador = () => {
+  let guardado = null
+  try {
+    guardado = JSON.parse(sessionStorage.getItem(CLAVE_BORRADOR) ?? 'null')
+  } catch {
+    return
+  }
+  if (!guardado?.datos) return
+
+  CAMPOS_BORRADOR.forEach(c => {
+    if (guardado.datos[c] !== undefined) form[c] = guardado.datos[c]
+  })
+  // Si el consejo elegido se llenó mientras tanto, ya no aparece en la lista
+  if (!props.consejos.some(c => c.id === form.consejo_solicitado_id)) form.consejo_solicitado_id = null
+  if (!props.perfiles.includes(form.perfil)) form.perfil = ''
+
+  paso.value = Math.min(Math.max(Number(guardado.paso) || 0, 0), pasos.length - 1)
+  mostrarFormulario.value = true
+  borradorRecuperado.value = true
+}
+
+const empezarDeNuevo = () => {
+  borrarBorrador()
+  form.reset()
+  form.clearErrors()
+  paso.value = 0
+  borradorRecuperado.value = false
+}
+
+onMounted(recuperarBorrador)
+watch(() => [CAMPOS_BORRADOR.map(c => form[c]), paso.value], () => {
+  if (mostrarFormulario.value) guardarBorrador()
+}, { deep: true })
+
 const correoValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
 const normalizarCorreo = v => v.trim().toLowerCase()
 
@@ -89,7 +150,7 @@ const validarPaso = indice => {
     if (!f.consejo_solicitado_id) errores.consejo_solicitado_id = 'Elija el consejo en el que le gustaría participar.'
     if (!f.perfil) errores.perfil = 'Elija el perfil que mejor le describa.'
     if (f.perfil_descripcion.trim().length < DESCRIPCION_MIN)
-      errores.perfil_descripcion = `Por favor, cuéntenos un poco más sobre usted (al menos ${DESCRIPCION_MIN} caracteres).`
+      errores.perfil_descripcion = `Por favor, háblenos un poco más de usted (al menos ${DESCRIPCION_MIN} caracteres).`
   }
   if (indice === 3) {
     if (!f.aviso_privacidad) errores.aviso_privacidad = 'Para enviar su postulación es necesario aceptar el aviso de privacidad.'
@@ -143,6 +204,7 @@ const enviar = () => {
 
   form.post(route('postulacion-abierta.store'), {
     preserveScroll: true,
+    onSuccess: borrarBorrador,
     onError: errores => {
       // Regresa al primer paso que tenga un error del servidor
       const indice = pasos.findIndex(p => p.campos.some(c => errores[c]))
@@ -178,7 +240,7 @@ const resumen = computed(() => [
   { etiqueta: 'Domicilio', valor: form.direccion, paso: 1 },
   { etiqueta: 'Consejo de su interés', valor: consejoElegido.value?.nombre, paso: 2 },
   { etiqueta: 'Perfil', valor: form.perfil, paso: 2 },
-  { etiqueta: 'Sobre usted', valor: form.perfil_descripcion, paso: 2 },
+  { etiqueta: 'Razones para participar', valor: form.perfil_descripcion, paso: 2 },
 ])
 
 const inputClass = campo => [
@@ -288,6 +350,13 @@ const inputClass = campo => [
         </ol>
       </nav>
 
+      <div v-if="borradorRecuperado" class="mx-6 mt-6 sm:mx-10 flex flex-col gap-2 rounded-lg bg-blue-50 p-4 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between">
+        <p>Recuperamos la información que había capturado. Puede continuar donde se quedó.</p>
+        <button type="button" @click="empezarDeNuevo" class="shrink-0 font-medium text-blue-800 underline">
+          Borrar y empezar de nuevo
+        </button>
+      </div>
+
       <form @submit.prevent="paso === pasos.length - 1 ? enviar() : siguiente()" class="px-6 py-8 sm:px-10" novalidate>
         <!-- Campo trampa: oculto para personas, visible para bots -->
         <div class="hidden" aria-hidden="true">
@@ -314,7 +383,7 @@ const inputClass = campo => [
               <p v-if="form.errors.apellido_paterno" class="mt-1 text-sm text-red-600">{{ form.errors.apellido_paterno }}</p>
             </div>
             <div>
-              <label for="apellido_materno" class="block text-sm font-medium text-gray-700">Segundo apellido <span class="text-gray-400 font-normal">(opcional)</span></label>
+              <label for="apellido_materno" class="block text-sm font-medium text-gray-700">Segundo apellido</label>
               <input id="apellido_materno" v-model="form.apellido_materno" type="text" :class="inputClass('apellido_materno')" />
               <p v-if="form.errors.apellido_materno" class="mt-1 text-sm text-red-600">{{ form.errors.apellido_materno }}</p>
             </div>
@@ -411,16 +480,20 @@ const inputClass = campo => [
 
           <div>
             <label for="perfil_descripcion" class="block text-sm font-medium text-gray-700">
-              Cuéntenos sobre usted <span class="text-red-600">*</span>
+              Háblenos de usted <span class="text-red-600">*</span>
             </label>
             <p class="text-xs text-gray-500">
-              Su experiencia, a qué se dedica y por qué le interesa participar en este consejo.
+              Exponga las razones por las que le gustaría formar parte de este consejo: su experiencia,
+              a qué se dedica y qué podría aportar. Escriba al menos {{ DESCRIPCION_MIN }} caracteres.
             </p>
             <textarea id="perfil_descripcion" v-model="form.perfil_descripcion" rows="5" :maxlength="DESCRIPCION_MAX"
               :class="inputClass('perfil_descripcion')"></textarea>
             <div class="mt-1 flex justify-between gap-2">
               <p v-if="form.errors.perfil_descripcion" class="text-sm text-red-600">{{ form.errors.perfil_descripcion }}</p>
-              <span class="ml-auto text-xs text-gray-400">{{ form.perfil_descripcion.length }} / {{ DESCRIPCION_MAX }}</span>
+              <span v-if="faltanCaracteres > 0" class="ml-auto text-xs text-amber-700">
+                Faltan {{ faltanCaracteres }} caracteres para el mínimo
+              </span>
+              <span v-else class="ml-auto text-xs text-gray-400">{{ form.perfil_descripcion.length }} / {{ DESCRIPCION_MAX }}</span>
             </div>
           </div>
         </div>

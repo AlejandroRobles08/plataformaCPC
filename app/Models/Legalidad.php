@@ -12,6 +12,7 @@ class Legalidad extends Model
     'fin_cargo' => 'date',
     'fecha_inicio_reeleccion' => 'datetime',
     'fecha_validacion' => 'datetime',
+    'fecha_aprobacion' => 'date',
     'ya_reelegido' => 'boolean',];
     
     protected $fillable = [
@@ -24,6 +25,7 @@ class Legalidad extends Model
         'motivo_rechazo',
         'fecha_inicio_reeleccion',
         'fecha_validacion',
+        'fecha_aprobacion',
         'validado_por',
         //docs
         'doc_nombramiento',

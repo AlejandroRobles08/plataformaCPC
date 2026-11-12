@@ -176,7 +176,7 @@ function exportarConvocatoriasExcel() {
           <!-- Resumen anual desplegable -->
           <details class="mt-4 rounded-lg border border-gray-200">
             <summary class="cursor-pointer px-4 py-3 font-semibold">
-              Consultar totales anuales de {{ anioSeleccionado }}
+              Resumen anual {{ anioSeleccionado }}
             </summary>
             <div class="overflow-x-auto">
               <table class="w-full text-sm">

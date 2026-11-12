@@ -31,6 +31,14 @@ class JustificanteController extends Controller
             ->where('consejo_id', $consejo->id)
             ->firstOrFail();
 
+        // Las inasistencias (incluidas las registradas por expediente incompleto)
+        // solo se pueden justificar con el expediente completo y aprobado
+        if (!$integrante->expedienteAprobado()) {
+            return back()->withErrors([
+                'justificante' => 'Para justificar una inasistencia, todos tus documentos del Archivo digital deben estar subidos y aprobados.',
+            ]);
+        }
+
         // Validar formulario
         $data = $request->validate([
             'fecha' => 'required|date',
